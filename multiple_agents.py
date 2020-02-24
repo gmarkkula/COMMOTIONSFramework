@@ -305,11 +305,19 @@ def run_simulation(pos_agents, pos_goals, params = get_default_params(), \
 
     
     # plotting
+
+    
+    delta_x_traj = pos_trajs[1, 0, :] - pos_trajs[0, 0, :]
+    delta_y_traj = pos_trajs[1, 1, :] - pos_trajs[0, 1, :]
+    distance_traj = np.sqrt(delta_x_traj ** 2 + delta_y_traj ** 2)
+    is_colliding_traj = distance_traj < COLLISION_DISTANCE
     
     plt.figure('trajectories')
     for i_agent in range(N_AGENTS):
         plt.plot(pos_trajs[i_agent, 0, :], pos_trajs[i_agent, 1, :], \
             AGENT_COLORS[i_agent] + '.')
+        plt.plot(pos_trajs[i_agent, 0, is_colliding_traj], \
+            pos_trajs[i_agent, 1, is_colliding_traj], 'r.')
     plt.plot(pos_goals[:, 0], pos_goals[:, 1], 'g+')
     if N_OBSTACLES > 0:
         plt.plot(pos_obstacles[:, 0], pos_obstacles[:, 1], 'r^')
@@ -318,15 +326,19 @@ def run_simulation(pos_agents, pos_goals, params = get_default_params(), \
     plt.ylabel('Y (m)')
 
     plt.figure('time series')
-    plt.subplot(2, 1, 1)
+    plt.subplot(3, 1, 1)
     for i_agent in range(N_AGENTS):
         plt.plot(TIME_STAMPS, speed_trajs[i_agent, :], AGENT_COLORS[i_agent] + '-')
     plt.ylabel('v (m/s)')
-    plt.subplot(2, 1, 2)
+    plt.subplot(3, 1, 2)
     for i_agent in range(N_AGENTS):
         plt.plot(TIME_STAMPS, heading_trajs[i_agent, :] * 180 / math.pi, \
             AGENT_COLORS[i_agent] + '-')
     plt.ylabel('$\psi$ (deg)')
+    plt.subplot(3, 1, 3)
+    plt.plot(TIME_STAMPS, distance_traj, 'k-')
+    plt.plot(TIME_STAMPS[is_colliding_traj], distance_traj[is_colliding_traj], 'r.')
+    plt.ylabel('d (m)')
     plt.xlabel('t (s)')
 
     plt.show()
