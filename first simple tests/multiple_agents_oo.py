@@ -6,7 +6,8 @@ import commotions
 
 class SimpleAgent(commotions.AgentWithGoal):
 
-    def get_default_parameters(self):
+    @staticmethod
+    def get_default_parameters():
         """Return a Parameters object with default parameter values."""
         params = commotions.Parameters()
         params.k_g = 1
@@ -18,7 +19,8 @@ class SimpleAgent(commotions.AgentWithGoal):
         params.deltapsis = np.array([-10, -5, 0, 5, 10]) * math.pi/180 # rad/s
         return params
     
-    def get_default_shared_parameters(self):
+    @staticmethod
+    def get_default_shared_parameters():
         params = commotions.Parameters()
         params.T_P = 0.3 # prediction time
         params.d_C = 1 # collision distance
@@ -224,9 +226,9 @@ class SimpleAgent(commotions.AgentWithGoal):
         super().__init__(name, simulation, initial_state, goal, plot_color)
         # set default parameters if not supplied by caller
         if params is None:
-            params = self.get_default_parameters()
+            params = self.__class__.get_default_parameters()
         if shared_params is None:
-            shared_params = self.get_default_shared_parameters()
+            shared_params = self.__class__.get_default_shared_parameters()
         # store parameters
         self.params = params
         # store parameters shared across all agents of this type - in 

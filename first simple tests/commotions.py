@@ -105,6 +105,11 @@ class BaseAgent:
         plt.plot(self.trajectory.pos[0, :], self.trajectory.pos[1, :], \
             self.plot_color + '.')
                 
+    def plot_time_series(self, speed_ax, yaw_ax):
+        speed_ax.plot(self.simulation.time_stamps, self.trajectory.long_speed, \
+            self.plot_color + '-')
+        yaw_ax.plot(self.simulation.time_stamps, self.trajectory.yaw_angle * 180/math.pi, \
+            self.plot_color + '-')
 
     def __init__(self, name, simulation, initial_state, plot_color = 'k'):
         # store agent name and plot color
@@ -136,6 +141,8 @@ class AgentWithGoal(BaseAgent):
     def plot_trajectory(self):
         super().plot_trajectory()
         plt.plot(self.goal[0], self.goal[1], 'g+')
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
 
 
     def __init__(self, name, simulation, initial_state, goal, plot_color = 'k'):
@@ -184,9 +191,20 @@ class Simulation:
     #             other_agents.append(agent)
     
     def plot_trajectories(self):
+        plt.figure(figsize = [4, 3])
         for agent in self.agents:
             agent.plot_trajectory()
         plt.axis('equal')
+        plt.tight_layout()
+
+    def plot_time_series(self):
+        fig, (speed_ax, yaw_ax) = plt.subplots(2, 1, sharex = True, figsize = [3, 3])
+        for agent in self.agents:
+            agent.plot_time_series(speed_ax, yaw_ax)
+        speed_ax.set_ylabel('v (m/s)')
+        yaw_ax.set_ylabel('$\psi$ (deg)')
+        yaw_ax.set_xlabel('t (s)')
+        plt.tight_layout()
 
     def run(self):
 
