@@ -102,7 +102,7 @@ class BaseAgent:
                 i_time_step-1, 1)
 
     def plot_trajectory(self):
-        plt.plot(self.trajectory.pos[0, :], self.trajectory.pos[1, :], \
+        plt.plot(self.trajectory.pos[0, ::3], self.trajectory.pos[1, ::3], \
             self.plot_color + '.')
                 
     def plot_time_series(self, speed_ax, yaw_ax):
