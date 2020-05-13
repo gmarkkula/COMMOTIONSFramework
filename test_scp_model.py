@@ -176,32 +176,31 @@ class SCPAgent(commotions.AgentWithGoal):
         oth_state = self.other_agent.get_current_kinematic_state()
         # - constant behavior
         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0
-        # # - proceeding behavior (assuming straight acc to free speed; i.e., disregarding acceleration cost)
-        # self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
-        #     (self.params.v_free - oth_state.long_speed) / self.params.DeltaT
-        # # - yielding behavior (assuming straight acc to reach conflict area
-        # #   entrance at the same time as I am exiting it, or before I am entering it
-        # #   if other agent already past CA entrance)
-        # oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
-        # oth_distance_to_CA_entrance = \
-        #     oth_signed_dist_to_confl_pt - SHARED_PARAMS.d_C
-        # if oth_distance_to_CA_entrance > 0:
-        #     oth_time_to_reach_CA_entrance = \
-        #         self.states.time_left_to_CA_exit[i_time_step]
-        # else:
-        #     oth_time_to_reach_CA_entrance = \
-        #         self.states.time_left_to_CA_entry[i_time_step]
-        # if oth_time_to_reach_CA_entrance == math.inf:
-        #     self.states.beh_long_accs[i_YIELDING, i_time_step] = 0
-        # else:  
-        #     self.states.beh_long_accs[i_YIELDING, i_time_step] = \
-        #         2 * (oth_distance_to_CA_entrance \
-        #         - oth_state.long_speed * oth_time_to_reach_CA_entrance) \
-        #         / oth_time_to_reach_CA_entrance ** 2
+        # - proceeding behavior (assuming straight acc to free speed; i.e., disregarding acceleration cost)
+        self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
+            (self.params.v_free - oth_state.long_speed) / self.params.DeltaT
+        # - yielding behavior (assuming straight acc to reach conflict area
+        #   entrance at the same time as I am exiting it, or before I am entering it
+        #   if other agent already past CA entrance)
+        oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
+        oth_distance_to_CA_entrance = \
+            oth_signed_dist_to_confl_pt - SHARED_PARAMS.d_C
+        if oth_distance_to_CA_entrance > 0:
+            oth_time_to_reach_CA_entrance = \
+                self.states.time_left_to_CA_exit[i_time_step]
+        else:
+            oth_time_to_reach_CA_entrance = \
+                self.states.time_left_to_CA_entry[i_time_step]
+        if oth_time_to_reach_CA_entrance == math.inf:
+            self.states.beh_long_accs[i_YIELDING, i_time_step] = 0
+        else:  
+            self.states.beh_long_accs[i_YIELDING, i_time_step] = \
+                2 * (oth_distance_to_CA_entrance \
+                - oth_state.long_speed * oth_time_to_reach_CA_entrance) \
+                / oth_time_to_reach_CA_entrance ** 2
 
         # do first loops over all own actions and behaviors of the other
-        # agent, and get the values of the predicted states, both 
-        # for this agent and the other agent
+        # agent, and get the predicted states
         pred_own_states = []
         for i_action in range(self.n_actions):
             # get predicted own state with this action
@@ -225,7 +224,7 @@ class SCPAgent(commotions.AgentWithGoal):
                         pred_own_states[i_action], i_beh)
 
         # get my estimated probabilities for my own actions - based on value 
-        # estimates from the previouw time step
+        # estimates from the previous time step
         self.states.action_probs[:, i_time_step] = scipy.special.softmax(\
             self.params.Lambda * self.states.est_action_vals[:, i_time_step-1])
 
