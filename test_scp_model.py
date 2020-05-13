@@ -179,25 +179,37 @@ class SCPAgent(commotions.AgentWithGoal):
         # - proceeding behavior (assuming straight acc to free speed; i.e., disregarding acceleration cost)
         self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
             (self.params.v_free - oth_state.long_speed) / self.params.DeltaT
-        # - yielding behavior (assuming straight acc to reach conflict area
-        #   entrance at the same time as I am exiting it, or before I am entering it
-        #   if other agent already past CA entrance)
+        # - yielding behavior 
         oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
-        oth_distance_to_CA_entrance = \
+        oth_signed_dist_to_CA_entry = \
             oth_signed_dist_to_confl_pt - SHARED_PARAMS.d_C
-        if oth_distance_to_CA_entrance > 0:
-            oth_time_to_reach_CA_entrance = \
-                self.states.time_left_to_CA_exit[i_time_step]
+        use_stop_acc = False
+        if oth_signed_dist_to_CA_entry > 0:
+            stop_acc = - oth_state.long_speed ** 2 / (2 * oth_signed_dist_to_CA_entry)
+            t_stop = - oth_state.long_speed / stop_acc
+            if self.states.time_left_to_CA_entry[i_time_step] >= t_stop:
+                use_stop_acc = True
+            else:
+                adapt_time_to_CA_entry = \
+                    self.states.time_left_to_CA_exit[i_time_step]
         else:
-            oth_time_to_reach_CA_entrance = \
+            adapt_time_to_CA_entry = \
                 self.states.time_left_to_CA_entry[i_time_step]
-        if oth_time_to_reach_CA_entrance == math.inf:
-            self.states.beh_long_accs[i_YIELDING, i_time_step] = 0
-        else:  
-            self.states.beh_long_accs[i_YIELDING, i_time_step] = \
-                2 * (oth_distance_to_CA_entrance \
-                - oth_state.long_speed * oth_time_to_reach_CA_entrance) \
-                / oth_time_to_reach_CA_entrance ** 2
+        if use_stop_acc:
+            # acceleration to come to full stop before conflict area
+            self.states.beh_long_accs[i_YIELDING, i_time_step] = stop_acc
+        else:
+            # acceleration to "adapt" - to reach CA entrance at the same time 
+            # as I am exiting it, or before I am entering it
+            # if other agent already past CA entrance
+            if adapt_time_to_CA_entry == math.inf:
+                adapt_acc = 0
+            else:
+                adapt_acc = \
+                    2 * (oth_signed_dist_to_CA_entry \
+                    - oth_state.long_speed * adapt_time_to_CA_entry) \
+                    / adapt_time_to_CA_entry ** 2
+            self.states.beh_long_accs[i_YIELDING, i_time_step] = adapt_acc
 
         # do first loops over all own actions and behaviors of the other
         # agent, and get the predicted states
@@ -569,17 +581,17 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         plt.ylabel('a (m/s^2)')
 
 
-    # - time left to conflict area entry/exit
-    plt.figure('Time left to conflict area')
-    for i_agent, agent in enumerate(scp_simulation.agents):
-        plt.subplot(1, N_AGENTS, i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_entry)
-        plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_exit)
-        plt.title('Agent %s' % agent.name)
-        if i_agent == 0:
-            plt.ylabel('Time left (s)')
-        else:
-            plt.legend(('To CA entry', 'To CA exit'))
+# - time left to conflict area entry/exit
+plt.figure('Time left to conflict area')
+for i_agent, agent in enumerate(scp_simulation.agents):
+    plt.subplot(1, N_AGENTS, i_agent + 1)
+    plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_entry)
+    plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_exit)
+    plt.title('Agent %s' % agent.name)
+    if i_agent == 0:
+        plt.ylabel('Time left (s)')
+    else:
+        plt.legend(('To CA entry', 'To CA exit'))
     
 
     # self.states.beh_vals_given_actions = \
