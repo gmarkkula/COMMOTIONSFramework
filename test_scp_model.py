@@ -132,9 +132,9 @@ class SCPAgent(commotions.AgentWithGoal):
         traveling."""
         vect_to_conflict_point = \
             self.simulation.conflict_point - state.pos
-        oth_heading_vect = \
+        heading_vect = \
             np.array((math.cos(state.yaw_angle), math.sin(state.yaw_angle)))
-        return np.dot(oth_heading_vect, vect_to_conflict_point)
+        return np.dot(heading_vect, vect_to_conflict_point)
 
 
     def do_action_update(self):
@@ -428,7 +428,7 @@ scp_simulation.plot_trajectories()
 
 # plot agent states
 # - action values given behaviors
-plt.figure('Action values given behaviours')
+plt.figure('Action values given behaviours', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
@@ -443,7 +443,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
             plt.ylabel('$V(\\delta v = %.1f | b)$' % deltav)
 
 # - action probabilities
-plt.figure('Action probabilities')
+plt.figure('Action probabilities', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
@@ -455,7 +455,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
             plt.ylabel('$P(\\delta v = %.1f)$' % deltav)
 
 # - momentary and accumulative estimates of action values
-plt.figure('Action value estimates')
+plt.figure('Action value estimates', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
@@ -470,11 +470,13 @@ for i_agent, agent in enumerate(scp_simulation.agents):
             plt.ylabel('$V(\\delta v = %.1f)$' % deltav)
 
 # - surplus action values
-plt.figure('Surplus action value estimates')
+plt.figure('Surplus action value estimates', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
         plt.plot(scp_simulation.time_stamps, agent.states.est_action_surplus_vals[i_action, :])
+        plt.plot([scp_simulation.time_stamps[0], scp_simulation.time_stamps[-1]], \
+            [agent.params.V_th, agent.params.V_th] , color = 'gray')
         plt.ylim(-.5, .3)
         if i_action == 0:
             plt.title('Agent %s' % agent.name)
@@ -497,18 +499,19 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         if i_agent == 0:
             plt.ylabel('$A(%s)$' % BEHAVIORS[i_beh])
 
-# - expected accelerations for behaviors
-plt.figure('Expected vs observed accelerations for behaviors')
+# - expected vs observed accelerations for behaviors
+plt.figure('Expected vs observed accelerations for behaviors', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
     for i_beh in range(N_BEHAVIORS):
         plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.trajectory.long_acc)
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_long_accs[i_beh, :])
+        plt.plot(scp_simulation.time_stamps, agent.states.beh_long_accs[i_beh, :], \
+            '--', color = 'gray', linewidth = 2)
+        plt.plot(scp_simulation.time_stamps, agent.other_agent.trajectory.long_acc)
         plt.ylim(-4, 4)
         if i_beh == 0:
-            plt.title('Agent %s' % agent.name)
+            plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
             if i_agent == 1:
-                plt.legend('observed', 'expected')
+                plt.legend(('expected', 'observed'))
         if i_agent == 0:
             plt.ylabel('%s a (m/s^2)' % BEHAVIORS[i_beh])
 
@@ -516,13 +519,17 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 plt.figure('Behaviour probabilities')
 for i_agent, agent in enumerate(scp_simulation.agents):
     for i_beh in range(N_BEHAVIORS):
-        plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
+        # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
+        plt.subplot(1, N_AGENTS, i_agent + 1)
         plt.plot(scp_simulation.time_stamps, agent.states.beh_probs[i_beh, :])
         plt.ylim(-.1, 1.1)
-        if i_beh == 0:
-            plt.title('Agent %s' % agent.name)
-        if i_agent == 0:
-            plt.ylabel('$P(%s)$' % BEHAVIORS[i_beh])
+        plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
+    if i_agent == 0:
+        plt.ylabel('P (-)')
+    else:
+        plt.legend(BEHAVIORS)
+            
+
 
 # - sensory probability densities
 plt.figure('Sensory probability densities')
@@ -560,6 +567,20 @@ for i_agent, agent in enumerate(scp_simulation.agents):
     plt.ylim(-4, 4)
     if i_agent == 0:
         plt.ylabel('a (m/s^2)')
+
+
+    # - time left to conflict area entry/exit
+    plt.figure('Time left to conflict area')
+    for i_agent, agent in enumerate(scp_simulation.agents):
+        plt.subplot(1, N_AGENTS, i_agent + 1)
+        plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_entry)
+        plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_exit)
+        plt.title('Agent %s' % agent.name)
+        if i_agent == 0:
+            plt.ylabel('Time left (s)')
+        else:
+            plt.legend(('To CA entry', 'To CA exit'))
+    
 
     # self.states.beh_vals_given_actions = \
     #     math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps))
