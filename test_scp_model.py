@@ -19,11 +19,12 @@ START_TIME = 0
 END_TIME = 10
 TIME_STEP = 0.1
 
-BEHAVIORS = ('constant', 'proceeding', 'yielding')
+BEHAVIORS = ('const.', 'proc.', 'yield')
 N_BEHAVIORS = len(BEHAVIORS)
 i_CONSTANT = 0
 i_PROCEEDING = 1
 i_YIELDING = 2
+MIN_ADAPT_ACC = -10 # m/s^2
 
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.k_g = 1
@@ -205,11 +206,18 @@ class SCPAgent(commotions.AgentWithGoal):
             if adapt_time_to_CA_entry == math.inf:
                 adapt_acc = 0
             else:
-                adapt_acc = \
-                    2 * (oth_signed_dist_to_CA_entry \
-                    - oth_state.long_speed * adapt_time_to_CA_entry) \
-                    / adapt_time_to_CA_entry ** 2
+                if adapt_time_to_CA_entry <= 0:
+                    adapt_acc = MIN_ADAPT_ACC
+                else:
+                    adapt_acc = \
+                        2 * (oth_signed_dist_to_CA_entry \
+                        - oth_state.long_speed * adapt_time_to_CA_entry) \
+                        / adapt_time_to_CA_entry ** 2
+                # do not allow positive or overly large negative adaptation 
+                # accelerations
+                adapt_acc = max(MIN_ADAPT_ACC, min(0, adapt_acc))
             self.states.beh_long_accs[i_YIELDING, i_time_step] = adapt_acc
+            
 
         # do first loops over all own actions and behaviors of the other
         # agent, and get the predicted states
@@ -271,6 +279,7 @@ class SCPAgent(commotions.AgentWithGoal):
         self.states.beh_activations[:, i_time_step] = \
             self.params.beta * self.states.beh_activ_G[:, i_time_step] \
             + self.states.beh_activ_K[:, i_time_step] 
+        ### NEXT STEP: Removing the beh_activ_G contribution fixes the NaN(?) problem - find out what's going wrong
 
         # get my estimated probabilities for the other agent's behavior
         self.states.beh_probs[:, i_time_step] = scipy.special.softmax(\
@@ -436,7 +445,10 @@ for i_agent in range(N_AGENTS):
 # run the simulation
 scp_simulation.run()
 plt.figure('Trajectories')
+
+# plot trajectories
 scp_simulation.plot_trajectories()
+plt.legend()
 
 # plot agent states
 # - action values given behaviors
@@ -452,7 +464,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
             if i_agent == 1:
                 plt.legend(BEHAVIORS)
         if i_agent == 0:
-            plt.ylabel('$V(\\delta v = %.1f | b)$' % deltav)
+            plt.ylabel('$V(\\Delta v=%.1f | b)$' % deltav)
 
 # - action probabilities
 plt.figure('Action probabilities', figsize = (10.0, 10.0))
@@ -464,7 +476,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         if i_action == 0:
             plt.title('Agent %s' % agent.name)
         if i_agent == 0:
-            plt.ylabel('$P(\\delta v = %.1f)$' % deltav)
+            plt.ylabel('$P(\\Delta v=%.1f)$' % deltav)
 
 # - momentary and accumulative estimates of action values
 plt.figure('Action value estimates', figsize = (10.0, 10.0))
@@ -479,7 +491,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
             if i_agent == 1:
                 plt.legend(('$\\tilde{V}_a$', '$\\hat{V}_a$'))
         if i_agent == 0:
-            plt.ylabel('$V(\\delta v = %.1f)$' % deltav)
+            plt.ylabel('$V(\\Delta v=%.1f)$' % deltav)
 
 # - surplus action values
 plt.figure('Surplus action value estimates', figsize = (10.0, 10.0))
@@ -493,7 +505,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         if i_action == 0:
             plt.title('Agent %s' % agent.name)
         if i_agent == 0:
-            plt.ylabel('$\\Delta V(\\delta v = %.1f)$' % deltav)
+            plt.ylabel('$\\Delta V(\\Delta v=%.1f)$' % deltav)
 
 # - behavior activations
 plt.figure('Behaviour activations')
@@ -505,7 +517,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         plt.plot(scp_simulation.time_stamps, agent.states.beh_activations[i_beh, :])
         plt.ylim(-.1, 3)
         if i_beh == 0:
-            plt.title('Agent %s' % agent.name)
+            plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
             if i_agent == 1:
                 plt.legend(('$^G A$', '$^K A$', '$A$'))
         if i_agent == 0:
@@ -555,6 +567,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         if i_agent == 0:
             plt.ylabel('$log p(O|%s)$' % BEHAVIORS[i_beh])    
 
+
 # - kinematic/action states
 plt.figure('Kinematic and action states')
 N_PLOTROWS = 3
@@ -566,7 +579,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
     if i_agent == 0:
         plt.ylabel('pos (m)')
     else:
-        plt.legend('x', 'y')
+        plt.legend(('x', 'y'))
     # speed
     plt.subplot(N_PLOTROWS, N_AGENTS, 1 * N_AGENTS +  i_agent + 1)
     plt.plot(scp_simulation.time_stamps, agent.trajectory.long_speed)

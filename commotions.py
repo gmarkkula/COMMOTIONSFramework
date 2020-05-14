@@ -221,8 +221,8 @@ class BaseAgent:
 
 
     def plot_trajectory(self):
-        plt.plot(self.trajectory.pos[0, :], self.trajectory.pos[1, :], \
-            self.plot_color + '.')
+        return plt.plot(self.trajectory.pos[0, :], self.trajectory.pos[1, :], \
+            self.plot_color + '.', label = self.name)
                 
 
     def __init__(self, name, simulation, initial_state, \
@@ -308,6 +308,8 @@ class Simulation:
         for agent in self.agents:
             agent.plot_trajectory()
         plt.axis('equal')
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
 
     def run(self):
 
