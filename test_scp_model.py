@@ -108,24 +108,6 @@ class SCPAgent(commotions.AgentWithGoal):
                     self.other_agent.get_current_kinematic_state().pos, self.other_agent.goal)
 
 
-    # def prepare_for_action_update():
-    #     # if this isn't the first time step, store the accelerations needed for 
-    #     # the different behaviors of the other agent, as calculated in the 
-    #     # previous time step
-    #     if self.simulation.time_step > 0:
-    #         self.prev_beh_long_accs = self.beh_long_accs
-    #         self.prev_oth_state = self.curr_oth_state
-    #     # calculate the accelerations needed for the different behaviors of the 
-    #     # other agent, as of the current time step
-    #     self.beh_long_accs = np.zeros(N_BEHAVIORS)
-    #     curr_oth_state = self.other_agent.get_current_kinematic_state()
-    #     # - proceeding behavior
-    #     self.beh_long_accs[i_PROCEEDING] = \
-    #         (self.params.v_free - curr_oth_state.long_speed) / self.params.DeltaT
-    #     # - yielding behavior
-    #     vector_to_conflict_point = self.simulation.conflict_point - self.curr_oth_state
-    #     self.beh_long_accs[i_YIELDING] = 
-
     def get_signed_dist_to_conflict_pt(self, state):
         """Get the signed distance from the specified agent state to the conflict
         point. Positive sign means that the agent is on its way toward the conflict
@@ -279,7 +261,6 @@ class SCPAgent(commotions.AgentWithGoal):
         self.states.beh_activations[:, i_time_step] = \
             self.params.beta * self.states.beh_activ_G[:, i_time_step] \
             + self.states.beh_activ_K[:, i_time_step] 
-        ### NEXT STEP: Removing the beh_activ_G contribution fixes the NaN(?) problem - find out what's going wrong
 
         # get my estimated probabilities for the other agent's behavior
         self.states.beh_probs[:, i_time_step] = scipy.special.softmax(\
