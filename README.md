@@ -4,10 +4,10 @@ This repository contains some sketches and work in progress code for the COMMOTI
 
 * The "*Golman et al tests*" folder contains basically the same as the publicly shared repository https://github.com/gmarkkula/GolmanEtAlTypeModel, but with some added project-internal tests.
 
-* This root folder contains a work in progress towards a more complete implementation of the framework described in the scoping document. As of today's (2020-06-02) commit, it implements `b1DD-b2SP-b3VD-oEA-oBEvs-oBEa` for pedestrian (speed-controlling) agents. Please note that the code and comments have not yet been completely harmonised with the exact mathematical notation used in the scoping document. Entry point: Run `test_scp_model.py`.
+* This root folder contains a work in progress towards a more complete implementation of the framework described in the scoping document. As of today's (2020-06-02) commit, it implements `b1DD-b2SP-b3VD-oEA-oBEvs-oBEa` for pedestrian (speed-controlling) agents. Entry point: Run `test_scp_model.py`. See also [`notation.ipynb`](notation.ipynb) for some notes complementing the model scoping document.
 
 Some things on Gustav's todolist as next steps for the framework implementation:
-* Update code to use same mathematical notation as scoping doc.
+* ~~Update code to use same mathematical notation as scoping doc.~~
 * Extend to allow different agent types, specifically to allow also driver (acceleration-controlling) agents.
 
 

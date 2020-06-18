@@ -27,7 +27,7 @@ i_YIELDING = 2
 MIN_ADAPT_ACC = -10 # m/s^2
 
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.k_g = 1
+DEFAULT_PARAMS.k_g = 1 
 DEFAULT_PARAMS.k_c = 1
 DEFAULT_PARAMS.k_a = 0
 DEFAULT_PARAMS.k_v = 0.3
@@ -37,10 +37,10 @@ DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
 DEFAULT_PARAMS.kappa = DEFAULT_PARAMS.alpha
 DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.Sigma = .05
-DEFAULT_PARAMS.V_th = 0.1
+DEFAULT_PARAMS.DeltaV_th = 0.1
 DEFAULT_PARAMS.DeltaT = 0.3
 DEFAULT_PARAMS.v_free = DEFAULT_PARAMS.k_g / (2 * DEFAULT_PARAMS.k_v) # speed at which value is maximum, if heading toward goal, and no obstacles
-DEFAULT_PARAMS.deltavs = np.array([-1, -0.5, 0, 0.5, 1]) # m/s
+DEFAULT_PARAMS.deltavs = np.array([-1, -0.5, 0, 0.5, 1]) # available speed change actions, magnitudes in m/s
 i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.deltavs)
 
@@ -68,7 +68,7 @@ class SCPAgent(commotions.AgentWithGoal):
         self.states = States()
         # - states regarding my own actions
         self.states.mom_action_vals = \
-            math.nan * np.ones((self.n_actions, n_time_steps)) # Vtilde_a(t)
+            math.nan * np.ones((self.n_actions, n_time_steps)) # V_a(t)
         self.states.est_action_vals = \
             math.nan * np.ones((self.n_actions, n_time_steps)) # Vhat_a(t)
         self.states.est_action_surplus_vals = \
@@ -79,26 +79,26 @@ class SCPAgent(commotions.AgentWithGoal):
             math.nan * np.ones((self.n_actions, n_time_steps)) # P_a(t)
         # - states regarding the behavior of the other agent
         self.states.beh_activations = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps))
-        self.states.beh_activ_G = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps))
-        self.states.beh_activ_K = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps))
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # A_b(t)
+        self.states.beh_activ_V = \
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # ^V A_b(t)
+        self.states.beh_activ_O = \
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # ^O A_b(t)
         self.states.beh_probs = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps))
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # P_b(t)
         self.states.beh_vals_given_actions = \
-            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps))
+            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # V_b|a(t)
         self.states.sensory_probs_given_behs = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps))
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # P_{x_o|b}(t)
         self.states.beh_long_accs = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps))
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # the acceleration that the other agent should be applying right now if doing behaviour b
         # - other states
         self.states.time_left_to_CA_entry = math.nan * np.ones(n_time_steps)
         self.states.time_left_to_CA_exit = math.nan * np.ones(n_time_steps)
         # set initial values for states that depend on the previous time step
         self.states.est_action_vals[:, -1] = 0
-        self.states.beh_activ_G[:, -1] = 0
-        self.states.beh_activ_K[:, -1] = 0
+        self.states.beh_activ_V[:, -1] = 0
+        self.states.beh_activ_O[:, -1] = 0
         # calculate where the two agents' paths intersect, if it has not already 
         # been done
         if not hasattr(self.simulation, 'conflict_point'):
@@ -235,32 +235,32 @@ class SCPAgent(commotions.AgentWithGoal):
         for i_beh in range(N_BEHAVIORS):
             # update the game theoretic activations
             # - contribution from previous time step
-            self.states.beh_activ_G[i_beh, i_time_step] = \
+            self.states.beh_activ_V[i_beh, i_time_step] = \
                 self.params.gamma * \
-                self.states.beh_activ_G[i_beh, i_time_step-1]
+                self.states.beh_activ_V[i_beh, i_time_step-1]
             # - contributions from estimated value of the behavior to the other
             #   agent, given my estimated probabilities of my actions
             for i_action in range(self.n_actions):
-                self.states.beh_activ_G[i_beh, i_time_step] += \
+                self.states.beh_activ_V[i_beh, i_time_step] += \
                     (1 - self.params.gamma) * \
                     self.states.action_probs[i_action, i_time_step] \
                     * self.states.beh_vals_given_actions[i_beh, i_action, i_time_step]
             # update the "Kalman filter" activations
             # - get the expected state of the other agent in this time step,
             #   given the state in the last time step, and this behavior
-            self.states.beh_activ_K[i_beh, i_time_step] = \
-                self.params.kappa * self.states.beh_activ_K[i_beh, i_time_step-1]
+            self.states.beh_activ_O[i_beh, i_time_step] = \
+                self.params.kappa * self.states.beh_activ_O[i_beh, i_time_step-1]
             if i_time_step > 0:
                 self.states.sensory_probs_given_behs[i_beh, i_time_step] = \
                     self.get_prob_of_current_state_given_beh(i_beh)
-                self.states.beh_activ_K[i_beh, i_time_step] += \
+                self.states.beh_activ_O[i_beh, i_time_step] += \
                     (1 - self.params.kappa) * (1/self.params.Lambda) \
                     * math.log(self.states.sensory_probs_given_behs[i_beh, i_time_step])
 
         # get total activation for all behaviors of the other agent
         self.states.beh_activations[:, i_time_step] = \
-            self.params.beta * self.states.beh_activ_G[:, i_time_step] \
-            + self.states.beh_activ_K[:, i_time_step] 
+            self.params.beta * self.states.beh_activ_V[:, i_time_step] \
+            + self.states.beh_activ_O[:, i_time_step] 
 
         # get my estimated probabilities for the other agent's behavior
         self.states.beh_probs[:, i_time_step] = scipy.special.softmax(\
@@ -287,7 +287,7 @@ class SCPAgent(commotions.AgentWithGoal):
             - self.states.est_action_vals[i_NO_ACTION, i_time_step]
         i_best_action = np.argmax(self.states.est_action_surplus_vals[:, i_time_step])
         if self.states.est_action_surplus_vals[i_best_action, i_time_step] \
-            > self.params.V_th:
+            > self.params.DeltaV_th:
             acceleration_value = self.params.deltavs[i_best_action] \
                 / self.params.DeltaT
             commotions.add_uniform_action_to_array(\
@@ -425,9 +425,9 @@ for i_agent in range(N_AGENTS):
 
 # run the simulation
 scp_simulation.run()
-plt.figure('Trajectories')
 
 # plot trajectories
+plt.figure('Trajectories')
 scp_simulation.plot_trajectories()
 plt.legend()
 
@@ -481,7 +481,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
         plt.plot(scp_simulation.time_stamps, agent.states.est_action_surplus_vals[i_action, :])
         plt.plot([scp_simulation.time_stamps[0], scp_simulation.time_stamps[-1]], \
-            [agent.params.V_th, agent.params.V_th] , color = 'gray')
+            [agent.params.DeltaV_th, agent.params.DeltaV_th] , color = 'gray')
         plt.ylim(-.5, .3)
         if i_action == 0:
             plt.title('Agent %s' % agent.name)
@@ -493,8 +493,8 @@ plt.figure('Behaviour activations')
 for i_agent, agent in enumerate(scp_simulation.agents):
     for i_beh in range(N_BEHAVIORS):
         plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_activ_G[i_beh, :])
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_activ_K[i_beh, :])
+        plt.plot(scp_simulation.time_stamps, agent.states.beh_activ_V[i_beh, :])
+        plt.plot(scp_simulation.time_stamps, agent.states.beh_activ_O[i_beh, :])
         plt.plot(scp_simulation.time_stamps, agent.states.beh_activations[i_beh, :])
         plt.ylim(-.1, 3)
         if i_beh == 0:
