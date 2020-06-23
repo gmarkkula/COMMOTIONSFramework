@@ -6,6 +6,7 @@ import scipy.special
 from scipy.stats import norm
 import copy
 import commotions
+from enum import Enum
 
 matplotlib.use('qt4agg')
 
@@ -26,6 +27,10 @@ i_PROCEEDING = 1
 i_YIELDING = 2
 MIN_ADAPT_ACC = -10 # m/s^2
 
+class CtrlType(Enum):
+    SPEED = 0
+    ACCELERATION = 1
+
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.k_g = 1 
 DEFAULT_PARAMS.k_c = 1
@@ -39,10 +44,11 @@ DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.Sigma = .05
 DEFAULT_PARAMS.DeltaV_th = 0.1
 DEFAULT_PARAMS.DeltaT = 0.3
+DEFAULT_PARAMS.ctrl_type = CtrlType.SPEED
 DEFAULT_PARAMS.v_free = DEFAULT_PARAMS.k_g / (2 * DEFAULT_PARAMS.k_v) # speed at which value is maximum, if heading toward goal, and no obstacles
-DEFAULT_PARAMS.deltavs = np.array([-1, -0.5, 0, 0.5, 1]) # available speed change actions, magnitudes in m/s
+DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed change actions, magnitudes in m/s
 i_NO_ACTION = 2
-N_ACTIONS = len(DEFAULT_PARAMS.deltavs)
+N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
 
 SHARED_PARAMS = commotions.Parameters()
 SHARED_PARAMS.T_P = 0.3 # prediction time
@@ -63,7 +69,7 @@ class SCPAgent(commotions.AgentWithGoal):
             if agent is not self:
                 self.other_agent = agent
         # allocate vectors for storing internal states
-        self.n_actions = len(self.params.deltavs)
+        self.n_actions = len(self.params.ctrl_deltas)
         n_time_steps = self.simulation.settings.n_time_steps
         self.states = States()
         # - states regarding my own actions
@@ -288,11 +294,8 @@ class SCPAgent(commotions.AgentWithGoal):
         i_best_action = np.argmax(self.states.est_action_surplus_vals[:, i_time_step])
         if self.states.est_action_surplus_vals[i_best_action, i_time_step] \
             > self.params.DeltaV_th:
-            acceleration_value = self.params.deltavs[i_best_action] \
-                / self.params.DeltaT
-            commotions.add_uniform_action_to_array(\
-                self.action_long_accs, acceleration_value, \
-                self.n_action_time_steps, self.simulation.state.i_time_step)
+            self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
+                self.simulation.state.i_time_step)
             self.states.est_action_vals[:, i_time_step] = 0
 
         # set long acc in actual trajectory
@@ -328,7 +331,7 @@ class SCPAgent(commotions.AgentWithGoal):
 
     def get_value_for_me(self, my_state, oth_state, i_action):            
         # cost for making a speed change, if any
-        value = -self.params.k_a * self.params.deltavs[i_action] ** 2
+        value = -self.params.k_a * self.params.ctrl_deltas[i_action] ** 2
         # add value of the state
         value += self.get_value_of_state_for_agent(\
             my_state, self.goal, oth_state)
@@ -346,12 +349,17 @@ class SCPAgent(commotions.AgentWithGoal):
         return value
 
 
+    def add_action_to_acc_array(self, acc_array, i_action, i_time_step):
+        if self.params.ctrl_type is CtrlType.SPEED:
+            acceleration_value = self.params.ctrl_deltas[i_action] / self.params.DeltaT
+            commotions.add_uniform_action_to_array(acc_array, acceleration_value, \
+                self.n_action_time_steps, i_time_step)
+
+
     def get_predicted_own_state(self, i_action):
         local_long_accs = np.copy(self.action_long_accs)
-        acceleration_value = self.params.deltavs[i_action] / self.params.DeltaT
-        commotions.add_uniform_action_to_array(\
-            local_long_accs, acceleration_value, \
-            self.n_action_time_steps, self.simulation.state.i_time_step)
+        self.add_action_to_acc_array(local_long_accs, i_action, \
+            self.simulation.state.i_time_step)
         predicted_state = self.get_future_kinematic_state(\
             local_long_accs, yaw_rate = 0, \
             n_time_steps_to_advance = SHARED_PARAMS.n_prediction_time_steps)
@@ -418,10 +426,16 @@ class SCPAgent(commotions.AgentWithGoal):
 
 ####################
 
+CTRL_TYPE = CtrlType.SPEED
+
 # create the simulation and agents in it
 scp_simulation = commotions.Simulation(START_TIME, END_TIME, TIME_STEP)
 for i_agent in range(N_AGENTS):
     SCPAgent(scp_simulation, i_agent)
+
+if CTRL_TYPE is CtrlType.ACCELERATION:
+    for agent in scp_simulation.agents:
+        agent.params.ctrl_type = CtrlType.ACCELERATION
 
 # run the simulation
 scp_simulation.run()
@@ -435,7 +449,7 @@ plt.legend()
 # - action values given behaviors
 plt.figure('Action values given behaviours', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
-    for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
+    for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
         plt.ylim(-2, 2)
         for i_beh in range(N_BEHAVIORS):
@@ -450,7 +464,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 # - action probabilities
 plt.figure('Action probabilities', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
-    for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
+    for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
         plt.plot(scp_simulation.time_stamps, agent.states.action_probs[i_action, :])
         plt.ylim(-.1, 1.1)
@@ -462,7 +476,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 # - momentary and accumulative estimates of action values
 plt.figure('Action value estimates', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
-    for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
+    for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
         plt.plot(scp_simulation.time_stamps, agent.states.mom_action_vals[i_action, :])
         plt.plot(scp_simulation.time_stamps, agent.states.est_action_vals[i_action, :])
@@ -477,7 +491,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 # - surplus action values
 plt.figure('Surplus action value estimates', figsize = (10.0, 10.0))
 for i_agent, agent in enumerate(scp_simulation.agents):
-    for i_action, deltav in enumerate(DEFAULT_PARAMS.deltavs):
+    for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
         plt.plot(scp_simulation.time_stamps, agent.states.est_action_surplus_vals[i_action, :])
         plt.plot([scp_simulation.time_stamps[0], scp_simulation.time_stamps[-1]], \
