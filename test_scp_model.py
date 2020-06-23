@@ -145,7 +145,7 @@ class SCPAgent(commotions.AgentWithGoal):
         i_time_steps_entered = \
             np.nonzero(proj_signed_dist_to_CP < SHARED_PARAMS.d_C)[0]
         if len(i_time_steps_entered) == 0:
-            # not currently projected to e enter he conflict area within the simulation duration
+            # not currently projected to enter he conflict area within the simulation duration
             self.states.time_left_to_CA_entry[i_time_step] = math.inf
         else:
             self.states.time_left_to_CA_entry[i_time_step] = \
@@ -351,10 +351,15 @@ class SCPAgent(commotions.AgentWithGoal):
 
     def add_action_to_acc_array(self, acc_array, i_action, i_time_step):
         if self.params.ctrl_type is CtrlType.SPEED:
-            acceleration_value = self.params.ctrl_deltas[i_action] / self.params.DeltaT
-            commotions.add_uniform_action_to_array(acc_array, acceleration_value, \
+            acc_value = self.params.ctrl_deltas[i_action] / self.params.DeltaT
+            commotions.add_uniform_action_to_array(acc_array, acc_value, \
                 self.n_action_time_steps, i_time_step)
-
+        elif self.params.ctrl_type is CtrlType.ACCELERATION:
+            acc_delta = self.params.ctrl_deltas[i_action]
+            commotions.add_linear_ramp_action_to_array(acc_array, acc_delta, \
+                self.n_action_time_steps, i_time_step)
+        else:
+            raise RuntimeError('Unexpected control type %s.' % self.params.ctrl_type)
 
     def get_predicted_own_state(self, i_action):
         local_long_accs = np.copy(self.action_long_accs)
@@ -426,7 +431,11 @@ class SCPAgent(commotions.AgentWithGoal):
 
 ####################
 
-CTRL_TYPE = CtrlType.SPEED
+CTRL_TYPE = CtrlType.ACCELERATION
+
+if CTRL_TYPE is CtrlType.ACCELERATION:
+    SHARED_PARAMS.T_P = 0.3 # prediction time
+    SHARED_PARAMS.n_prediction_time_steps = math.ceil(SHARED_PARAMS.T_P / TIME_STEP)
 
 # create the simulation and agents in it
 scp_simulation = commotions.Simulation(START_TIME, END_TIME, TIME_STEP)
@@ -558,7 +567,7 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         plt.plot(scp_simulation.time_stamps, \
             np.log(agent.states.sensory_probs_given_behs[i_beh, :]))
         if i_beh == 0:
-            plt.title('Agent %s' % agent.name)
+            plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
         if i_agent == 0:
             plt.ylabel('$log p(O|%s)$' % BEHAVIORS[i_beh])    
 

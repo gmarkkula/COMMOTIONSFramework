@@ -13,8 +13,22 @@ import copy
 
 def add_uniform_action_to_array(\
     action_array, action_magnitude, n_action_time_steps, i_start_time_step):
+    """ Add the value action_magnitude to action_array over n_action_time_steps
+        starting at i_start_time_step.
+    """
     action_array[i_start_time_step : i_start_time_step + n_action_time_steps] += \
         action_magnitude
+
+
+def add_linear_ramp_action_to_array(action_array, action_magnitude, \
+    n_action_time_steps, i_start_time_step):
+    """ Add a ramp from zero to action_magnitude to action_array over
+        n_action_time_steps starting at i_start_time_step, and then adds
+        action_magnitude to the rest of action_array.
+    """
+    action_array[i_start_time_step : i_start_time_step + n_action_time_steps] += \
+        np.linspace(0, action_magnitude, n_action_time_steps)
+    action_array[i_start_time_step + n_action_time_steps : ] += action_magnitude
 
 
 def get_future_kinematic_state(initial_state, long_acc, yaw_rate, \
