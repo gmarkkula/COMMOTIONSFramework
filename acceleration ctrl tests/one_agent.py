@@ -7,11 +7,11 @@ import math
 OBSTACLE_COLLISION_DISTANCE = 1
 
 START_TIME = 0 # s
-END_TIME = 30 # s
+END_TIME = 10 # s
 TIME_STEP = 0.1 # s
 TIME_STAMPS = np.arange(START_TIME, END_TIME, TIME_STEP)
 
-SPEED_ACTIONS = np.array([-1, -0.5, 0, 0.5, 1]) # m/s
+SPEED_ACTIONS = np.array([-1, -0.5, 0, 0.5, 1]) # m/s^2
 HEADING_ACTIONS = np.array([-10, -5, 0, 5, 10]) * math.pi/180 # rad
 
 STEERING_RATIO = 5
@@ -30,6 +30,7 @@ def get_default_params():
     params = {
         "k_g": 5,
         "k_o": 5,
+        "C_g": .1,
         "C_v": .1,
         "C_p": .1,
         "C_t": .1,
@@ -109,12 +110,21 @@ def run_simulation(x_goal, x_obstacles, params = get_default_params()):
         heading_vector = np.array([math.cos(heading), math.sin(heading)])
         
         vector_to_goal = x_goal - x
+
+
         heading_to_goal_vector = vector_to_goal / np.linalg.norm(vector_to_goal)
         
         heading_toward_goal_component = np.dot(heading_vector, heading_to_goal_vector)
         goal_distance_change_rate = -heading_toward_goal_component * speed
+
+        dist_to_goal = np.linalg.norm(vector_to_goal)
+        dist_to_passing_goal = heading_toward_goal_component * dist_to_goal # heading_toward_goal_component is also the cosine of the angle between heading_vector and heading_to_goal_vector
+
+        #required_acc_to_stop_at_goal = -(speed ** 2 / (2 * dist_to_goal)) # accurate if heading toward goal
+        required_acc_to_stop_at_goal = -(speed ** 2 / (2 * dist_to_passing_goal))
         
         value = -params["k_g"] * goal_distance_change_rate \
+            - params["C_g"] * required_acc_to_stop_at_goal ** 2 \
             - params["C_v"] * speed ** 2 \
             - params["C_a"] * acc ** 2 \
             - params["C_omega"] * (yaw_rate * speed) ** 2
