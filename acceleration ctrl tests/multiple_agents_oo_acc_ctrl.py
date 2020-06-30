@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import commotions_acc_ctrl
 
-PRED_AND_ACT_TIME = 0.5  # s
+PRED_AND_ACT_TIME = 0.5 # s
+COLLISION_DISTANCE = 3 # m
 
 class SimpleAgent(commotions_acc_ctrl.AgentWithGoal):
 
@@ -12,7 +13,7 @@ class SimpleAgent(commotions_acc_ctrl.AgentWithGoal):
         """Return a Parameters object with default parameter values."""
         params = commotions_acc_ctrl.Parameters()
         params.k_g = 2
-        params.k_c = 2
+        params.k_sc = 2
         params.k_s = 0.5
         params.k_dv = 0.1
         params.k_da = 0.1
@@ -26,7 +27,7 @@ class SimpleAgent(commotions_acc_ctrl.AgentWithGoal):
     def get_default_shared_parameters():
         params = commotions_acc_ctrl.Parameters()
         params.T_P = PRED_AND_ACT_TIME # prediction time
-        params.d_C = 3 # collision distance
+        params.d_C = COLLISION_DISTANCE # collision distance
         return params
 
     def prepare_for_action_update(self):
@@ -203,7 +204,7 @@ class SimpleAgent(commotions_acc_ctrl.AgentWithGoal):
         #         long_distance_to_obstacle = np.linalg.norm(vector_to_obstacle) \
         #             * math.cos(angle_to_obstacle_rel_heading)
         #         time_to_obstacle_collision = long_distance_to_obstacle / speed
-        #         value += -params["k_c"] / time_to_obstacle_collision   
+        #         value += -params["k_sc"] / time_to_obstacle_collision   
 
         # cost for being on collision course with other agents
         for agent in self.simulation.agents:
@@ -217,7 +218,7 @@ class SimpleAgent(commotions_acc_ctrl.AgentWithGoal):
             if time_to_agent_collision == 0:
                 value = -math.inf
             elif time_to_agent_collision < math.inf:
-                value += -self.params.k_c * speed / (2 * time_to_agent_collision)  
+                value += -self.params.k_sc * (speed / (2 * time_to_agent_collision)) ** 2  
         
         if verbose:
             #print(angle_to_obstacle_rel_heading * 180 / math.pi)

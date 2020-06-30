@@ -208,7 +208,15 @@ class Simulation:
             agent.plot_time_series(speed_ax, yaw_ax, long_acc_ax)
         speed_ax.set_ylabel('v (m/s)')
         long_acc_ax.set_ylabel('a (m/s^2)')
-        yaw_ax.set_ylabel('$\psi$ (deg)')
+        yaw_ax.cla()
+        agent_dist_vectors = self.agents[1].trajectory.pos - self.agents[0].trajectory.pos
+        agent_distances = np.linalg.norm(agent_dist_vectors, axis = 0)
+        yaw_ax.plot(self.time_stamps, agent_distances, 'k-')
+        colliding_time_stamps = agent_distances < self.shared_params.d_C
+        yaw_ax.plot(self.time_stamps[colliding_time_stamps], agent_distances[colliding_time_stamps], 'r-')
+        yaw_ax.plot(self.time_stamps[[0, -1]], self.shared_params.d_C * np.array((1, 1)), 'r--')
+        yaw_ax.set_ylim(-1, 10)
+        yaw_ax.set_ylabel('$d$ (m)')
         yaw_ax.set_xlabel('t (s)')
         plt.tight_layout()
 
