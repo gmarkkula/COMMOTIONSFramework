@@ -203,21 +203,34 @@ class Simulation:
         plt.tight_layout()
 
     def plot_time_series(self):
-        fig, (speed_ax, long_acc_ax, yaw_ax) = plt.subplots(3, 1, sharex = True, figsize = [3, 3])
+
+        fig, (speed_ax, long_acc_ax, pos_ax, dist_ax) = \
+            plt.subplots(4, 1, sharex = True, figsize = [4, 4])
+
         for agent in self.agents:
-            agent.plot_time_series(speed_ax, yaw_ax, long_acc_ax)
+            agent.plot_time_series(speed_ax, pos_ax, long_acc_ax)
         speed_ax.set_ylabel('v (m/s)')
         long_acc_ax.set_ylabel('a (m/s^2)')
-        yaw_ax.cla()
+
+        pos_ax.cla()
+        pos_ax.plot(self.time_stamps[[0, -1]], np.array((0, 0)), 'k--')
+        pos_ax.plot(self.time_stamps, -self.agents[0].trajectory.pos[1,:], \
+            self.agents[0].plot_color + '-')
+        pos_ax.plot(self.time_stamps, self.agents[1].trajectory.pos[0,:], \
+            self.agents[1].plot_color + '-')        
+        pos_ax.set_ylim(-10, 10)
+        pos_ax.set_ylabel('$d_{CP}$ (m)')
+        
         agent_dist_vectors = self.agents[1].trajectory.pos - self.agents[0].trajectory.pos
         agent_distances = np.linalg.norm(agent_dist_vectors, axis = 0)
-        yaw_ax.plot(self.time_stamps, agent_distances, 'k-')
+        dist_ax.plot(self.time_stamps, agent_distances, 'k-')
         colliding_time_stamps = agent_distances < self.shared_params.d_C
-        yaw_ax.plot(self.time_stamps[colliding_time_stamps], agent_distances[colliding_time_stamps], 'r-')
-        yaw_ax.plot(self.time_stamps[[0, -1]], self.shared_params.d_C * np.array((1, 1)), 'r--')
-        yaw_ax.set_ylim(-1, 10)
-        yaw_ax.set_ylabel('$d$ (m)')
-        yaw_ax.set_xlabel('t (s)')
+        dist_ax.plot(self.time_stamps[colliding_time_stamps], agent_distances[colliding_time_stamps], 'r-')
+        dist_ax.plot(self.time_stamps[[0, -1]], self.shared_params.d_C * np.array((1, 1)), 'r--')
+        dist_ax.set_ylim(-1, 10)
+        dist_ax.set_ylabel('$d$ (m)')
+        dist_ax.set_xlabel('t (s)')
+
         plt.tight_layout()
 
     def run(self):
