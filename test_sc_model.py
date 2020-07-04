@@ -53,13 +53,15 @@ DEFAULT_PARAMS_K = {}
 DEFAULT_PARAMS_K[CtrlType.SPEED] = commotions.Parameters()
 DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
 DEFAULT_PARAMS_K[CtrlType.SPEED]._c = 1
-DEFAULT_PARAMS_K[CtrlType.SPEED]._a = 0
-DEFAULT_PARAMS_K[CtrlType.SPEED]._v = 0.3
+DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
+DEFAULT_PARAMS_K[CtrlType.SPEED]._e = 0
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION] = commotions.Parameters()
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._c = 1
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._a = 0
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._v = 0.3
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sc = 1
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sg = 1
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.3
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._e = 0
 
 SHARED_PARAMS = commotions.Parameters()
 SHARED_PARAMS.d_C = 1 # collision distance
@@ -79,7 +81,7 @@ class SCAgent(commotions.AgentWithGoal):
                 self.other_agent = agent
         # precalculate speed at which assumed value for other agent is maximum (if heading toward goal, and no obstacles)
         self.oth_v_free = self.oth_k[self.other_agent.ctrl_type]._g \
-            / (2 * self.oth_k[self.other_agent.ctrl_type]._v) 
+            / (2 * self.oth_k[self.other_agent.ctrl_type]._dv) 
         # allocate vectors for storing internal states
         self.n_actions = len(self.params.ctrl_deltas)
         n_time_steps = self.simulation.settings.n_time_steps
@@ -314,12 +316,13 @@ class SCAgent(commotions.AgentWithGoal):
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
         
 
-    def get_value_of_state_for_agent(self, own_state, own_goal, oth_state, k):
+    def get_value_of_state_for_agent(self, own_state, own_goal, oth_state, \
+        ctrl_type, k):
 
         heading_vector = np.array([math.cos(own_state.yaw_angle), \
             math.sin(own_state.yaw_angle)])
         
-        # reward for progress toward goal and cost for speed
+        # reward for progress toward goal and speed discomfort cost
         vector_to_goal = own_goal - own_state.pos
         heading_to_goal_vector = vector_to_goal / np.linalg.norm(vector_to_goal)
         heading_toward_goal_component = \
@@ -327,7 +330,16 @@ class SCAgent(commotions.AgentWithGoal):
         goal_distance_change_rate = \
             -heading_toward_goal_component * own_state.long_speed
         value = -k._g * goal_distance_change_rate \
-            - k._v * own_state.long_speed ** 2 
+            - k._dv * own_state.long_speed ** 2 
+        
+        if ctrl_type is CtrlType.ACCELERATION:
+            # acceleration discomfort cost
+            value += -k._da * own_state.long_acc ** 2
+            # cost for acceleration required to stop at goal
+            goal_distance = np.linalg.norm(vector_to_goal)
+            req_acc_to_goal = -(own_state.long_speed ** 2 / (2 * goal_distance))
+            value += -k._sg * req_acc_to_goal ** 2
+
 
         # cost for being on collision course with the other agent
         time_to_agent_collision = \
@@ -336,17 +348,21 @@ class SCAgent(commotions.AgentWithGoal):
         if time_to_agent_collision == 0:
             value = -math.inf
         elif time_to_agent_collision < math.inf:
-            value += -k._c / time_to_agent_collision  
+            if ctrl_type is CtrlType.SPEED:
+                value += -k._c / time_to_agent_collision  
+            elif self.ctrl_type is CtrlType.ACCELERATION:
+                value += -k._sc * (own_state.long_speed \
+                    / (2 * time_to_agent_collision)) ** 2  
         
         return value
 
 
     def get_value_for_me(self, my_state, oth_state, i_action):            
         # cost for making a speed change, if any
-        value = -self.params.k._a * self.params.ctrl_deltas[i_action] ** 2
+        value = -self.params.k._e * self.params.ctrl_deltas[i_action] ** 2
         # add value of the state
         value += self.get_value_of_state_for_agent(\
-            my_state, self.goal, oth_state, self.params.k)
+            my_state, self.goal, oth_state, self.ctrl_type, self.params.k)
         return value
 
 
@@ -357,7 +373,8 @@ class SCAgent(commotions.AgentWithGoal):
         value = 0
         # add value of the state
         value += self.get_value_of_state_for_agent(oth_state, \
-            self.other_agent.goal, my_state, self.oth_k[self.other_agent.ctrl_type]) 
+            self.other_agent.goal, my_state, self.other_agent.ctrl_type, \
+                self.oth_k[self.other_agent.ctrl_type]) 
         return value
 
 
@@ -418,14 +435,15 @@ class SCAgent(commotions.AgentWithGoal):
 
     def __init__(self, simulation, i_agent):
 
+        # set control type
+        self.ctrl_type = CTRL_TYPES[i_agent]
+
         # set initial state and call inherited init method
         initial_state = commotions.KinematicState(\
             pos = INITIAL_POSITIONS[i_agent,:], yaw_angle = None)
+        can_reverse = (self.ctrl_type is CtrlType.SPEED) # no reversing for acceleration-controlling agents
         super().__init__(AGENT_NAMES[i_agent], simulation, GOALS[i_agent,:], \
-            initial_state, plot_color = PLOT_COLORS[i_agent])
-
-        # set control type
-        self.ctrl_type = CTRL_TYPES[i_agent]
+            initial_state, can_reverse = can_reverse, plot_color = PLOT_COLORS[i_agent])
 
         # make and store copies of the default parameters objects
         self.params = copy.copy(DEFAULT_PARAMS)

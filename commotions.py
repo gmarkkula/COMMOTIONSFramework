@@ -32,7 +32,8 @@ def add_linear_ramp_action_to_array(action_array, action_magnitude, \
 
 
 def get_future_kinematic_state(initial_state, long_acc, yaw_rate, \
-    time_step, n_time_steps_to_advance, i_start_time_step = 0, as_tuple = False):
+    time_step, n_time_steps_to_advance, i_start_time_step = 0, \
+    can_reverse = True, as_tuple = False):
     
     # handle vector vs scalar input for the action variables
     if type(long_acc) is np.ndarray:
@@ -51,6 +52,8 @@ def get_future_kinematic_state(initial_state, long_acc, yaw_rate, \
     for i in range(i_start_time_step + 1, \
         i_start_time_step + n_time_steps_to_advance + 1):
         local_state.long_speed += get_long_acc(i-1) * time_step
+        if (not can_reverse) and local_state.long_speed < 0:
+            local_state.long_speed = 0
         local_state.yaw_angle += get_yaw_rate(i-1) * time_step
         local_state.pos = local_state.pos \
             + time_step * local_state.long_speed \
@@ -218,10 +221,11 @@ class BaseAgent:
         
         initial_state = self.get_kinematic_state(i_start_time_step)
 
+        # call the commotions.get_future_kinematic_state helper function
         return get_future_kinematic_state(\
             initial_state, long_acc, yaw_rate, \
             self.simulation.settings.time_step, n_time_steps_to_advance, \
-            i_start_time_step, as_tuple)
+            i_start_time_step, self.can_reverse, as_tuple)
 
 
     def do_kinematics_update(self):
@@ -240,9 +244,10 @@ class BaseAgent:
                 
 
     def __init__(self, name, simulation, initial_state, \
-        initial_action_state = ActionState(), plot_color = 'k'):
-        # store agent name and plot color
+        initial_action_state = ActionState(), can_reverse = True, plot_color = 'k'):
+        # store some basic info about the agent
         self.name = name
+        self.can_reverse = can_reverse
         self.plot_color = plot_color
         # assign agent to simulation
         self.i_agent = simulation.add_agent(self)
@@ -270,7 +275,7 @@ class AgentWithGoal(BaseAgent):
 
 
     def __init__(self, name, simulation, goal, initial_kinematic_state, \
-        initial_action_state = ActionState(), plot_color = 'k'):
+        initial_action_state = ActionState(), can_reverse = True, plot_color = 'k'):
         # check if the caller has provided start and goal positions, but no
         # starting yaw angle - if so set it to point at goal
         if (initial_kinematic_state is not None) \
@@ -286,7 +291,7 @@ class AgentWithGoal(BaseAgent):
         self.goal = goal
         # run ancestor initialisation
         super().__init__(name, simulation, initial_kinematic_state, \
-            initial_action_state, plot_color)
+            initial_action_state, can_reverse, plot_color)
 
 
 class SimulationSettings:
