@@ -58,7 +58,7 @@ SHARED_PARAMS.n_prediction_time_steps = math.ceil(SHARED_PARAMS.T_P / TIME_STEP)
 class States():
     pass
 
-class SCPAgent(commotions.AgentWithGoal):
+class SCAgent(commotions.AgentWithGoal):
 
     def prepare_for_simulation(self):
         # make sure this agent isn't used for a simulation with more than two
@@ -438,31 +438,31 @@ if CTRL_TYPE is CtrlType.ACCELERATION:
     SHARED_PARAMS.n_prediction_time_steps = math.ceil(SHARED_PARAMS.T_P / TIME_STEP)
 
 # create the simulation and agents in it
-scp_simulation = commotions.Simulation(START_TIME, END_TIME, TIME_STEP)
+sc_simulation = commotions.Simulation(START_TIME, END_TIME, TIME_STEP)
 for i_agent in range(N_AGENTS):
-    SCPAgent(scp_simulation, i_agent)
+    SCAgent(sc_simulation, i_agent)
 
 if CTRL_TYPE is CtrlType.ACCELERATION:
-    for agent in scp_simulation.agents:
+    for agent in sc_simulation.agents:
         agent.params.ctrl_type = CtrlType.ACCELERATION
 
 # run the simulation
-scp_simulation.run()
+sc_simulation.run()
 
 # plot trajectories
 plt.figure('Trajectories')
-scp_simulation.plot_trajectories()
+sc_simulation.plot_trajectories()
 plt.legend()
 
 # plot agent states
 # - action values given behaviors
 plt.figure('Action values given behaviours', figsize = (10.0, 10.0))
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
         plt.ylim(-2, 2)
         for i_beh in range(N_BEHAVIORS):
-            plt.plot(scp_simulation.time_stamps, agent.states.action_vals_given_behs[i_action, i_beh, :])
+            plt.plot(sc_simulation.time_stamps, agent.states.action_vals_given_behs[i_action, i_beh, :])
         if i_action == 0:
             plt.title('Agent %s' % agent.name)
             if i_agent == 1:
@@ -472,10 +472,10 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - action probabilities
 plt.figure('Action probabilities', figsize = (10.0, 10.0))
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.action_probs[i_action, :])
+        plt.plot(sc_simulation.time_stamps, agent.states.action_probs[i_action, :])
         plt.ylim(-.1, 1.1)
         if i_action == 0:
             plt.title('Agent %s' % agent.name)
@@ -484,11 +484,11 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - momentary and accumulative estimates of action values
 plt.figure('Action value estimates', figsize = (10.0, 10.0))
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.mom_action_vals[i_action, :])
-        plt.plot(scp_simulation.time_stamps, agent.states.est_action_vals[i_action, :])
+        plt.plot(sc_simulation.time_stamps, agent.states.mom_action_vals[i_action, :])
+        plt.plot(sc_simulation.time_stamps, agent.states.est_action_vals[i_action, :])
         plt.ylim(-2, 2)
         if i_action == 0:
             plt.title('Agent %s' % agent.name)
@@ -499,11 +499,11 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - surplus action values
 plt.figure('Surplus action value estimates', figsize = (10.0, 10.0))
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
         plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.est_action_surplus_vals[i_action, :])
-        plt.plot([scp_simulation.time_stamps[0], scp_simulation.time_stamps[-1]], \
+        plt.plot(sc_simulation.time_stamps, agent.states.est_action_surplus_vals[i_action, :])
+        plt.plot([sc_simulation.time_stamps[0], sc_simulation.time_stamps[-1]], \
             [agent.params.DeltaV_th, agent.params.DeltaV_th] , color = 'gray')
         plt.ylim(-.5, .3)
         if i_action == 0:
@@ -513,12 +513,12 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - behavior activations
 plt.figure('Behaviour activations')
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_beh in range(N_BEHAVIORS):
         plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_activ_V[i_beh, :])
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_activ_O[i_beh, :])
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_activations[i_beh, :])
+        plt.plot(sc_simulation.time_stamps, agent.states.beh_activ_V[i_beh, :])
+        plt.plot(sc_simulation.time_stamps, agent.states.beh_activ_O[i_beh, :])
+        plt.plot(sc_simulation.time_stamps, agent.states.beh_activations[i_beh, :])
         plt.ylim(-.1, 3)
         if i_beh == 0:
             plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
@@ -529,12 +529,12 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - expected vs observed accelerations for behaviors
 plt.figure('Expected vs observed accelerations for behaviors', figsize = (10.0, 10.0))
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_beh in range(N_BEHAVIORS):
         plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_long_accs[i_beh, :], \
+        plt.plot(sc_simulation.time_stamps, agent.states.beh_long_accs[i_beh, :], \
             '--', color = 'gray', linewidth = 2)
-        plt.plot(scp_simulation.time_stamps, agent.other_agent.trajectory.long_acc)
+        plt.plot(sc_simulation.time_stamps, agent.other_agent.trajectory.long_acc)
         plt.ylim(-4, 4)
         if i_beh == 0:
             plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
@@ -545,11 +545,11 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - behavior probabilities
 plt.figure('Behaviour probabilities')
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_beh in range(N_BEHAVIORS):
         # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
         plt.subplot(1, N_AGENTS, i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, agent.states.beh_probs[i_beh, :])
+        plt.plot(sc_simulation.time_stamps, agent.states.beh_probs[i_beh, :])
         plt.ylim(-.1, 1.1)
         plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
     if i_agent == 0:
@@ -561,10 +561,10 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - sensory probability densities
 plt.figure('Sensory probability densities')
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     for i_beh in range(N_BEHAVIORS):
         plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-        plt.plot(scp_simulation.time_stamps, \
+        plt.plot(sc_simulation.time_stamps, \
             np.log(agent.states.sensory_probs_given_behs[i_beh, :]))
         if i_beh == 0:
             plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
@@ -575,10 +575,10 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 # - kinematic/action states
 plt.figure('Kinematic and action states')
 N_PLOTROWS = 3
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     # position
     plt.subplot(N_PLOTROWS, N_AGENTS, 0 * N_AGENTS +  i_agent + 1)
-    plt.plot(scp_simulation.time_stamps, agent.trajectory.pos.T)
+    plt.plot(sc_simulation.time_stamps, agent.trajectory.pos.T)
     plt.title('Agent %s' % agent.name)
     if i_agent == 0:
         plt.ylabel('pos (m)')
@@ -586,13 +586,13 @@ for i_agent, agent in enumerate(scp_simulation.agents):
         plt.legend(('x', 'y'))
     # speed
     plt.subplot(N_PLOTROWS, N_AGENTS, 1 * N_AGENTS +  i_agent + 1)
-    plt.plot(scp_simulation.time_stamps, agent.trajectory.long_speed)
+    plt.plot(sc_simulation.time_stamps, agent.trajectory.long_speed)
     plt.ylim(-1, 2)
     if i_agent == 0:
         plt.ylabel('v (m/s)')
     # speed
     plt.subplot(N_PLOTROWS, N_AGENTS, 2 * N_AGENTS +  i_agent + 1)
-    plt.plot(scp_simulation.time_stamps, agent.trajectory.long_acc)
+    plt.plot(sc_simulation.time_stamps, agent.trajectory.long_acc)
     plt.ylim(-4, 4)
     if i_agent == 0:
         plt.ylabel('a (m/s^2)')
@@ -600,10 +600,10 @@ for i_agent, agent in enumerate(scp_simulation.agents):
 
 # - time left to conflict area entry/exit
 plt.figure('Time left to conflict area')
-for i_agent, agent in enumerate(scp_simulation.agents):
+for i_agent, agent in enumerate(sc_simulation.agents):
     plt.subplot(1, N_AGENTS, i_agent + 1)
-    plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_entry)
-    plt.plot(scp_simulation.time_stamps, agent.states.time_left_to_CA_exit)
+    plt.plot(sc_simulation.time_stamps, agent.states.time_left_to_CA_entry)
+    plt.plot(sc_simulation.time_stamps, agent.states.time_left_to_CA_exit)
     plt.title('Agent %s' % agent.name)
     if i_agent == 0:
         plt.ylabel('Time left (s)')
