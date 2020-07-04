@@ -77,6 +77,9 @@ class SCAgent(commotions.AgentWithGoal):
         for agent in self.simulation.agents:
             if agent is not self:
                 self.other_agent = agent
+        # precalculate speed at which assumed value for other agent is maximum (if heading toward goal, and no obstacles)
+        self.oth_v_free = self.oth_k[self.other_agent.ctrl_type]._g \
+            / (2 * self.oth_k[self.other_agent.ctrl_type]._v) 
         # allocate vectors for storing internal states
         self.n_actions = len(self.params.ctrl_deltas)
         n_time_steps = self.simulation.settings.n_time_steps
@@ -311,7 +314,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
         
 
-    def get_value_of_state_for_agent(self, own_state, own_goal, oth_state):
+    def get_value_of_state_for_agent(self, own_state, own_goal, oth_state, k):
 
         heading_vector = np.array([math.cos(own_state.yaw_angle), \
             math.sin(own_state.yaw_angle)])
@@ -323,8 +326,8 @@ class SCAgent(commotions.AgentWithGoal):
             np.dot(heading_vector, heading_to_goal_vector)
         goal_distance_change_rate = \
             -heading_toward_goal_component * own_state.long_speed
-        value = -self.params.k._g * goal_distance_change_rate \
-            - self.params.k._v * own_state.long_speed ** 2 
+        value = -k._g * goal_distance_change_rate \
+            - k._v * own_state.long_speed ** 2 
 
         # cost for being on collision course with the other agent
         time_to_agent_collision = \
@@ -333,7 +336,7 @@ class SCAgent(commotions.AgentWithGoal):
         if time_to_agent_collision == 0:
             value = -math.inf
         elif time_to_agent_collision < math.inf:
-            value += -self.params.k._c / time_to_agent_collision  
+            value += -k._c / time_to_agent_collision  
         
         return value
 
@@ -343,7 +346,7 @@ class SCAgent(commotions.AgentWithGoal):
         value = -self.params.k._a * self.params.ctrl_deltas[i_action] ** 2
         # add value of the state
         value += self.get_value_of_state_for_agent(\
-            my_state, self.goal, oth_state)
+            my_state, self.goal, oth_state, self.params.k)
         return value
 
 
@@ -354,7 +357,7 @@ class SCAgent(commotions.AgentWithGoal):
         value = 0
         # add value of the state
         value += self.get_value_of_state_for_agent(oth_state, \
-            self.other_agent.goal, my_state) # assuming symmetric cost function
+            self.other_agent.goal, my_state, self.oth_k[self.other_agent.ctrl_type]) 
         return value
 
 
@@ -428,6 +431,9 @@ class SCAgent(commotions.AgentWithGoal):
         self.params = copy.copy(DEFAULT_PARAMS)
         self.params.k = copy.copy(DEFAULT_PARAMS_K[self.ctrl_type])
 
+        # store assumed value function gains for the other agent
+        self.oth_k = copy.copy(DEFAULT_PARAMS_K)
+
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
         # store some derived constants
@@ -436,7 +442,6 @@ class SCAgent(commotions.AgentWithGoal):
         self.n_prediction_time_steps = math.ceil(self.params.T_P / TIME_STEP)
         self.n_actions_vector_length = \
             self.simulation.settings.n_time_steps + self.n_prediction_time_steps
-        self.oth_v_free = self.params.k._g / (2 * self.params.k._v) # speed at which value is maximum, if heading toward goal, and no obstacles
         # prepare vectors for storing long acc and yaw rates, incl lookahead
         # with added actions
         self.action_long_accs = np.zeros(self.n_actions_vector_length)
