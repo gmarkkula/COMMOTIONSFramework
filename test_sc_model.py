@@ -10,9 +10,14 @@ from enum import Enum
 
 matplotlib.use('qt4agg')
 
+class CtrlType(Enum):
+    SPEED = 0
+    ACCELERATION = 1
+
 N_AGENTS = 2 # this implementation supports only 2
 AGENT_NAMES = ('A', 'B')
 PLOT_COLORS = ('c', 'm')
+CTRL_TYPES = (CtrlType.SPEED, CtrlType.SPEED)
 INITIAL_POSITIONS = np.array([[0,-5.5], [5, 0]])
 GOALS = np.array([[0, 5], [-5, 0]])
 
@@ -27,15 +32,10 @@ i_PROCEEDING = 1
 i_YIELDING = 2
 MIN_ADAPT_ACC = -10 # m/s^2
 
-class CtrlType(Enum):
-    SPEED = 0
-    ACCELERATION = 1
+
 
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.k_g = 1 
-DEFAULT_PARAMS.k_c = 1
-DEFAULT_PARAMS.k_a = 0
-DEFAULT_PARAMS.k_v = 0.3
+
 DEFAULT_PARAMS.alpha = 0.9
 DEFAULT_PARAMS.beta = .5
 DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
@@ -45,11 +45,21 @@ DEFAULT_PARAMS.Sigma = .05
 DEFAULT_PARAMS.DeltaV_th = 0.1
 DEFAULT_PARAMS.DeltaT = 0.3
 DEFAULT_PARAMS.T_P = 0.3 # prediction time
-DEFAULT_PARAMS.ctrl_type = CtrlType.SPEED
-DEFAULT_PARAMS.v_free = DEFAULT_PARAMS.k_g / (2 * DEFAULT_PARAMS.k_v) # speed at which value is maximum, if heading toward goal, and no obstacles
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed change actions, magnitudes in m/s
 i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
+
+DEFAULT_PARAMS_K = {}
+DEFAULT_PARAMS_K[CtrlType.SPEED] = commotions.Parameters()
+DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
+DEFAULT_PARAMS_K[CtrlType.SPEED]._c = 1
+DEFAULT_PARAMS_K[CtrlType.SPEED]._a = 0
+DEFAULT_PARAMS_K[CtrlType.SPEED]._v = 0.3
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION] = commotions.Parameters()
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._c = 1
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._a = 0
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._v = 0.3
 
 SHARED_PARAMS = commotions.Parameters()
 SHARED_PARAMS.d_C = 1 # collision distance
@@ -166,7 +176,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0
         # - proceeding behavior (assuming straight acc to free speed; i.e., disregarding acceleration cost)
         self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
-            (self.params.v_free - oth_state.long_speed) / self.params.DeltaT
+            (self.oth_v_free - oth_state.long_speed) / self.params.DeltaT
         # - yielding behavior 
         oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
         oth_signed_dist_to_CA_entry = \
@@ -313,8 +323,8 @@ class SCAgent(commotions.AgentWithGoal):
             np.dot(heading_vector, heading_to_goal_vector)
         goal_distance_change_rate = \
             -heading_toward_goal_component * own_state.long_speed
-        value = -self.params.k_g * goal_distance_change_rate \
-            - self.params.k_v * own_state.long_speed ** 2 
+        value = -self.params.k._g * goal_distance_change_rate \
+            - self.params.k._v * own_state.long_speed ** 2 
 
         # cost for being on collision course with the other agent
         time_to_agent_collision = \
@@ -323,14 +333,14 @@ class SCAgent(commotions.AgentWithGoal):
         if time_to_agent_collision == 0:
             value = -math.inf
         elif time_to_agent_collision < math.inf:
-            value += -self.params.k_c / time_to_agent_collision  
+            value += -self.params.k._c / time_to_agent_collision  
         
         return value
 
 
     def get_value_for_me(self, my_state, oth_state, i_action):            
         # cost for making a speed change, if any
-        value = -self.params.k_a * self.params.ctrl_deltas[i_action] ** 2
+        value = -self.params.k._a * self.params.ctrl_deltas[i_action] ** 2
         # add value of the state
         value += self.get_value_of_state_for_agent(\
             my_state, self.goal, oth_state)
@@ -349,16 +359,16 @@ class SCAgent(commotions.AgentWithGoal):
 
 
     def add_action_to_acc_array(self, acc_array, i_action, i_time_step):
-        if self.params.ctrl_type is CtrlType.SPEED:
+        if self.ctrl_type is CtrlType.SPEED:
             acc_value = self.params.ctrl_deltas[i_action] / self.params.DeltaT
             commotions.add_uniform_action_to_array(acc_array, acc_value, \
                 self.n_action_time_steps, i_time_step)
-        elif self.params.ctrl_type is CtrlType.ACCELERATION:
+        elif self.ctrl_type is CtrlType.ACCELERATION:
             acc_delta = self.params.ctrl_deltas[i_action]
             commotions.add_linear_ramp_action_to_array(acc_array, acc_delta, \
                 self.n_action_time_steps, i_time_step)
         else:
-            raise RuntimeError('Unexpected control type %s.' % self.params.ctrl_type)
+            raise RuntimeError('Unexpected control type %s.' % self.ctrl_type)
 
     def get_predicted_own_state(self, i_action):
         local_long_accs = np.copy(self.action_long_accs)
@@ -411,8 +421,12 @@ class SCAgent(commotions.AgentWithGoal):
         super().__init__(AGENT_NAMES[i_agent], simulation, GOALS[i_agent,:], \
             initial_state, plot_color = PLOT_COLORS[i_agent])
 
-        # make and store a copy of the default parameters object
+        # set control type
+        self.ctrl_type = CTRL_TYPES[i_agent]
+
+        # make and store copies of the default parameters objects
         self.params = copy.copy(DEFAULT_PARAMS)
+        self.params.k = copy.copy(DEFAULT_PARAMS_K[self.ctrl_type])
 
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
@@ -422,6 +436,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.n_prediction_time_steps = math.ceil(self.params.T_P / TIME_STEP)
         self.n_actions_vector_length = \
             self.simulation.settings.n_time_steps + self.n_prediction_time_steps
+        self.oth_v_free = self.params.k._g / (2 * self.params.k._v) # speed at which value is maximum, if heading toward goal, and no obstacles
         # prepare vectors for storing long acc and yaw rates, incl lookahead
         # with added actions
         self.action_long_accs = np.zeros(self.n_actions_vector_length)
@@ -436,10 +451,6 @@ CTRL_TYPE = CtrlType.SPEED
 sc_simulation = commotions.Simulation(START_TIME, END_TIME, TIME_STEP)
 for i_agent in range(N_AGENTS):
     SCAgent(sc_simulation, i_agent)
-
-if CTRL_TYPE is CtrlType.ACCELERATION:
-    for agent in sc_simulation.agents:
-        agent.params.ctrl_type = CtrlType.ACCELERATION
 
 # run the simulation
 sc_simulation.run()
