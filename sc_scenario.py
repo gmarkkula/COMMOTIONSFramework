@@ -388,6 +388,8 @@ class SCAgent(commotions.AgentWithGoal):
         predicted_state = self.get_future_kinematic_state(\
             local_long_accs, yaw_rate = 0, \
             n_time_steps_to_advance = self.n_prediction_time_steps)
+        predicted_state.long_acc = local_long_accs[ \
+            self.simulation.state.i_time_step + self.n_prediction_time_steps]
         return predicted_state
 
 
@@ -401,6 +403,7 @@ class SCAgent(commotions.AgentWithGoal):
         predicted_state = self.other_agent.get_future_kinematic_state(\
             long_acc_for_this_beh, yaw_rate = 0, \
             n_time_steps_to_advance = self.n_prediction_time_steps)
+        predicted_state.long_acc = long_acc_for_this_beh
         return predicted_state
         
 
@@ -628,13 +631,13 @@ class SCSimulation(commotions.Simulation):
                 # speed
                 plt.subplot(N_PLOTROWS, N_AGENTS, 1 * N_AGENTS +  i_agent + 1)
                 plt.plot(self.time_stamps, agent.trajectory.long_speed)
-                plt.ylim(-1, 2)
+                #plt.ylim(-1, 2)
                 if i_agent == 0:
                     plt.ylabel('v (m/s)')
-                # speed
+                # acceleration
                 plt.subplot(N_PLOTROWS, N_AGENTS, 2 * N_AGENTS +  i_agent + 1)
                 plt.plot(self.time_stamps, agent.trajectory.long_acc)
-                plt.ylim(-4, 4)
+                plt.ylim(-6, 6)
                 if i_agent == 0:
                     plt.ylabel('a (m/s^2)')
 
@@ -653,9 +656,21 @@ class SCSimulation(commotions.Simulation):
 
         plt.show()
 
-        
 
 
+### just some test code
+
+if __name__ == "__main__":
+
+    CTRL_TYPES = (CtrlType.ACCELERATION, CtrlType.ACCELERATION)
+    INITIAL_POSITIONS = np.array([[0,-101], [100, 0]])
+    GOALS = np.array([[0, 100], [-100, 0]])
+    SPEEDS = np.array((10, 10))
+
+    sc_simulation = SCSimulation(CTRL_TYPES, GOALS, INITIAL_POSITIONS, \
+        initial_speeds = SPEEDS, end_time = 60)
+    sc_simulation.run()
+    sc_simulation.do_plots(trajs = True, surplus_action_vals = True, kinem_states = True)
 
 
 

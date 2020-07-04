@@ -11,11 +11,9 @@ This repository contains some sketches and work in progress code for the COMMOTI
 Some things on Gustav's todolist as next steps for the framework implementation:
 * ~~Update code to use same mathematical notation as scoping doc.~~
 * Extend to allow different agent types, specifically to allow also driver (acceleration-controlling) agents. 
-    * Note 2020-07-01: implemented in "acceleration ctrl tests" - but still to be implemented in the framework implementation in the root folder.
-    * Note 2020-07-04: Made some progress in the root framework implementation, remaining todo:
-        * Use different value functions for agents of different control types
+    * Note 2020-07-04: Made some progress in the root framework implementation - it is now possible to run any combination of speed/acceleration controlling agents, but needs some further checking. Remaining todo:
+        * **Verify that things are working as they should.**
         * Allow for separate $\Delta T$ between agents
-        * ...?
 * Work on value function term for being on a collision course to consider also the agent's affordances for getting themselves out of the collision course. Some notes in the notebook in "acceleration ctrl tests".
 * Extend with functionality for turning model assumptions on and off.
 * When multiple other-agent behaviours $b$ correspond to the same accelerations for the other agent, these get double-counted in the current implementation. The solution might be to consider behaviours in an acceleration space, either explicitly by replacing the behaviour grid with an acceleration grid, or implicitly somehow by for ex downweighting behaviours if they are too close to each other in acceleration space.
