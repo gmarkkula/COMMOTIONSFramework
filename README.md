@@ -12,5 +12,6 @@ Some things on Gustav's todolist as next steps for the framework implementation:
 * ~~Update code to use same mathematical notation as scoping doc.~~
 * Extend to allow different agent types, specifically to allow also driver (acceleration-controlling) agents. (Note 2020-07-01: implemented in "acceleration ctrl tests" - but still to be implemented in the framework implementation in the root folder.)
 * Work on value function term for being on a collision course to consider also the agent's affordances for getting themselves out of the collision course. Some notes in the notebook in "acceleration ctrl tests".
+* Extend with functionality for turning model assumptions on and off.
 
 

@@ -431,7 +431,7 @@ class SCPAgent(commotions.AgentWithGoal):
 
 ####################
 
-CTRL_TYPE = CtrlType.ACCELERATION
+CTRL_TYPE = CtrlType.SPEED
 
 if CTRL_TYPE is CtrlType.ACCELERATION:
     SHARED_PARAMS.T_P = 0.3 # prediction time
