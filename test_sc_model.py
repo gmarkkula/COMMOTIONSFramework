@@ -44,6 +44,7 @@ DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.Sigma = .05
 DEFAULT_PARAMS.DeltaV_th = 0.1
 DEFAULT_PARAMS.DeltaT = 0.3
+DEFAULT_PARAMS.T_P = 0.3 # prediction time
 DEFAULT_PARAMS.ctrl_type = CtrlType.SPEED
 DEFAULT_PARAMS.v_free = DEFAULT_PARAMS.k_g / (2 * DEFAULT_PARAMS.k_v) # speed at which value is maximum, if heading toward goal, and no obstacles
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed change actions, magnitudes in m/s
@@ -51,9 +52,7 @@ i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
 
 SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.T_P = 0.3 # prediction time
 SHARED_PARAMS.d_C = 1 # collision distance
-SHARED_PARAMS.n_prediction_time_steps = math.ceil(SHARED_PARAMS.T_P / TIME_STEP)
 
 class States():
     pass
@@ -367,7 +366,7 @@ class SCAgent(commotions.AgentWithGoal):
             self.simulation.state.i_time_step)
         predicted_state = self.get_future_kinematic_state(\
             local_long_accs, yaw_rate = 0, \
-            n_time_steps_to_advance = SHARED_PARAMS.n_prediction_time_steps)
+            n_time_steps_to_advance = self.n_prediction_time_steps)
         return predicted_state
 
 
@@ -380,7 +379,7 @@ class SCAgent(commotions.AgentWithGoal):
         # be with this acceleration 
         predicted_state = self.other_agent.get_future_kinematic_state(\
             long_acc_for_this_beh, yaw_rate = 0, \
-            n_time_steps_to_advance = SHARED_PARAMS.n_prediction_time_steps)
+            n_time_steps_to_advance = self.n_prediction_time_steps)
         return predicted_state
         
 
@@ -420,9 +419,9 @@ class SCAgent(commotions.AgentWithGoal):
         # store some derived constants
         self.n_action_time_steps = math.ceil(
             self.params.DeltaT / self.simulation.settings.time_step)
+        self.n_prediction_time_steps = math.ceil(self.params.T_P / TIME_STEP)
         self.n_actions_vector_length = \
-            self.simulation.settings.n_time_steps + \
-            SHARED_PARAMS.n_prediction_time_steps
+            self.simulation.settings.n_time_steps + self.n_prediction_time_steps
         # prepare vectors for storing long acc and yaw rates, incl lookahead
         # with added actions
         self.action_long_accs = np.zeros(self.n_actions_vector_length)
@@ -432,10 +431,6 @@ class SCAgent(commotions.AgentWithGoal):
 ####################
 
 CTRL_TYPE = CtrlType.SPEED
-
-if CTRL_TYPE is CtrlType.ACCELERATION:
-    SHARED_PARAMS.T_P = 0.3 # prediction time
-    SHARED_PARAMS.n_prediction_time_steps = math.ceil(SHARED_PARAMS.T_P / TIME_STEP)
 
 # create the simulation and agents in it
 sc_simulation = commotions.Simulation(START_TIME, END_TIME, TIME_STEP)
