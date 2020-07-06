@@ -15,6 +15,31 @@ class CtrlType(Enum):
     SPEED = 0
     ACCELERATION = 1
 
+class OptionalAssumption(Enum):
+    oEA = 'oEA'
+    oBEao = 'oBEao'
+    oBEvs = 'oBEvs'
+
+def get_assumptions_dict(default_value = False, **kwargs):
+    """ Return a dictionary with all the members of OptionalAssumption as keys.
+        The values in the dictionary are first all set to default_value, and
+        then the items specified in keyword arguments are set accordingly, e.g., 
+        
+        get_assumptions_dict(default_value = False, oEA = True)
+        
+        returns a dictionary with all items set to False except the item with 
+        key OptionalAssumption.oEA, which is set to True.
+    """
+    assumptions_dict = {}
+    for assumption in OptionalAssumption:
+        assumptions_dict[assumption] = default_value
+    for kw in kwargs:
+        assumptions_dict[OptionalAssumption(kw)] = kwargs[kw]
+    return assumptions_dict
+
+class DerivedAssumption(Enum):
+    oBE = 0
+
 N_AGENTS = 2 # this implementation supports only 2
 
 
@@ -27,7 +52,8 @@ MIN_ADAPT_ACC = -10 # m/s^2
 
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.alpha = 0.9
-DEFAULT_PARAMS.beta = .5
+DEFAULT_PARAMS.beta_O = 1
+DEFAULT_PARAMS.beta_V = .5
 DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
 DEFAULT_PARAMS.kappa = DEFAULT_PARAMS.alpha
 DEFAULT_PARAMS.Lambda = 1
@@ -270,12 +296,16 @@ class SCAgent(commotions.AgentWithGoal):
 
         # get total activation for all behaviors of the other agent
         self.states.beh_activations[:, i_time_step] = \
-            self.params.beta * self.states.beh_activ_V[:, i_time_step] \
-            + self.states.beh_activ_O[:, i_time_step] 
+            self.params.beta_V * self.states.beh_activ_V[:, i_time_step] \
+            + self.params.beta_O * self.states.beh_activ_O[:, i_time_step] 
 
         # get my estimated probabilities for the other agent's behavior
-        self.states.beh_probs[:, i_time_step] = scipy.special.softmax(\
-            self.params.Lambda * self.states.beh_activations[:, i_time_step])
+        if self.assumptions[DerivedAssumption.oBE]:
+            self.states.beh_probs[:, i_time_step] = scipy.special.softmax(\
+                self.params.Lambda * self.states.beh_activations[:, i_time_step])
+        else:
+            self.states.beh_probs[:, i_time_step] = 0
+            self.states.beh_probs[i_CONSTANT, i_time_step] = 1
 
         # loop through own action options and get momentary estimates
         # of the actions' values to me, as weighted average over the other 
@@ -428,7 +458,7 @@ class SCAgent(commotions.AgentWithGoal):
 
 
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, \
-        plot_color = 'k'):
+        optional_assumptions = get_assumptions_dict(False), plot_color = 'k'):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -441,6 +471,18 @@ class SCAgent(commotions.AgentWithGoal):
         # make and store copies of the default parameters objects
         self.params = copy.copy(DEFAULT_PARAMS)
         self.params.k = copy.copy(DEFAULT_PARAMS_K[self.ctrl_type])
+
+        # store and parse the optional assumptions
+        self.assumptions = optional_assumptions
+        if not self.assumptions[OptionalAssumption.oEA]:
+            self.params.alpha = 0
+        if not self.assumptions[OptionalAssumption.oBEao]:
+            self.params.beta_O = 0
+        if not self.assumptions[OptionalAssumption.oBEvs]:
+            self.params.beta_V = 0
+        self.assumptions[DerivedAssumption.oBE] = \
+            self.assumptions[OptionalAssumption.oBEao] \
+            or self.assumptions[OptionalAssumption.oBEvs]
 
         # store assumed value function gains for the other agent
         self.oth_k = copy.copy(DEFAULT_PARAMS_K)
@@ -465,6 +507,7 @@ class SCSimulation(commotions.Simulation):
     def __init__(self, ctrl_types, goal_positions, initial_positions, \
         initial_speeds = np.array((0, 0)), \
         start_time = 0, end_time = 10, time_step = 0.1, \
+        optional_assumptions = get_assumptions_dict(False), \
         agent_names = ('A', 'B'), plot_colors = ('c', 'm')):
 
         super().__init__(start_time, end_time, time_step)
@@ -478,6 +521,7 @@ class SCSimulation(commotions.Simulation):
                 simulation = self, \
                 goal_pos = goal_positions[i_agent, :], \
                 initial_state = initial_state, \
+                optional_assumptions = optional_assumptions, \
                 plot_color = plot_colors[i_agent])
 
     def do_plots(self, trajs = False, action_vals = False, action_probs = False, \

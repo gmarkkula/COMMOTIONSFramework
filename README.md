@@ -6,7 +6,7 @@ This repository contains some sketches and work in progress code for the COMMOTI
 
 * The "*Golman et al tests*" folder contains basically the same as the publicly shared repository https://github.com/gmarkkula/GolmanEtAlTypeModel, but with some added project-internal tests.
 
-* This root folder contains a work in progress towards a more complete implementation of the framework described in the scoping document. As of 2020-06-02, it implements `b1DD-b2SP-b3VD-oEA-oBEvs-oBEa` for pedestrian (speed-controlling) agents. Entry point: the `test_sc_scenario.ipynb` notebook.
+* This root folder contains a work in progress towards a more complete implementation of the framework described in the scoping document. As of 2020-06-02, it implements `b1DD-b2SP-b3VD-oEA-oBEvs-oBEao` for pedestrian (speed-controlling) agents. Entry point: the `test_sc_scenario.ipynb` notebook.
 
 Some things on Gustav's todolist as next steps for the framework implementation:
 * ~~Update code to use same mathematical notation as scoping doc.~~
@@ -15,7 +15,8 @@ Some things on Gustav's todolist as next steps for the framework implementation:
         * **Verify that things are working as they should.**
         * Allow for separate $\Delta T$ between agents
 * Work on value function term for being on a collision course to consider also the agent's affordances for getting themselves out of the collision course. Some notes in the notebook in "acceleration ctrl tests".
-* Extend with functionality for turning model assumptions on and off.
+* ~~Extend with functionality for turning model assumptions on and off.~~
+* Allow user of SCSimulation and SCAgent to set parameters.
 * When multiple other-agent behaviours $b$ correspond to the same accelerations for the other agent, these get double-counted in the current implementation. The solution might be to consider behaviours in an acceleration space, either explicitly by replacing the behaviour grid with an acceleration grid, or implicitly somehow by for ex downweighting behaviours if they are too close to each other in acceleration space.
 
 
