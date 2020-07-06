@@ -59,8 +59,8 @@ DEFAULT_PARAMS.kappa = DEFAULT_PARAMS.alpha
 DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.Sigma = .05
 DEFAULT_PARAMS.DeltaV_th = 0.1
-DEFAULT_PARAMS.DeltaT = 0.3
-DEFAULT_PARAMS.T_P = 0.3 # prediction time
+DEFAULT_PARAMS.DeltaT = 0.5
+DEFAULT_PARAMS.T_P = 0.5 # prediction time
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed change actions, magnitudes in m/s
 i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
@@ -71,7 +71,7 @@ DEFAULT_PARAMS_K[CtrlType.SPEED] = commotions.Parameters()
 DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
 DEFAULT_PARAMS_K[CtrlType.SPEED]._c = 1
 DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
-DEFAULT_PARAMS_K[CtrlType.SPEED]._e = 0
+DEFAULT_PARAMS_K[CtrlType.SPEED]._e = 0.1
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION] = commotions.Parameters()
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 2 
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sc = 2
@@ -81,7 +81,9 @@ DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.1
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._e = 0.1
 
 SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.d_C = 1 # collision distance
+SHARED_PARAMS.d_C = 3 # collision distance
+
+TTC_FOR_COLLISION = 0.0001
 
 class States():
     pass
@@ -366,9 +368,11 @@ class SCAgent(commotions.AgentWithGoal):
         time_to_agent_collision = \
             commotions.get_time_to_agent_collision(\
                 own_state, oth_state, SHARED_PARAMS.d_C)
+        
         if time_to_agent_collision == 0:
-            value = -math.inf
-        elif time_to_agent_collision < math.inf:
+            time_to_agent_collision = TTC_FOR_COLLISION
+
+        if time_to_agent_collision < math.inf:
             if ctrl_type is CtrlType.SPEED:
                 value += -k._c / time_to_agent_collision  
             elif self.ctrl_type is CtrlType.ACCELERATION:
@@ -476,6 +480,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions = optional_assumptions
         if not self.assumptions[OptionalAssumption.oEA]:
             self.params.alpha = 0
+            self.params.DeltaV_th = 0
         if not self.assumptions[OptionalAssumption.oBEao]:
             self.params.beta_O = 0
         if not self.assumptions[OptionalAssumption.oBEvs]:

@@ -13,6 +13,8 @@ Some things on Gustav's todolist as next steps for the framework implementation:
 * Extend to allow different agent types, specifically to allow also driver (acceleration-controlling) agents. 
     * Note 2020-07-04: Made some progress in the root framework implementation - it is now possible to run any combination of speed/acceleration controlling agents, but needs some further checking. Remaining todo:
         * **Verify that things are working as they should.**
+            * ~~Verify that I get back the same results as with the simpler "test" implementations when disabling all optional assumptions.~~
+            * **Enable the optional assumptions one at a time and check that they behave sensibly.**
         * Allow for separate $\Delta T$ between agents
 * Work on value function term for being on a collision course to consider also the agent's affordances for getting themselves out of the collision course. Some notes in the notebook in "acceleration ctrl tests".
 * ~~Extend with functionality for turning model assumptions on and off.~~
