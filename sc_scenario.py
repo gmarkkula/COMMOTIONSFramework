@@ -80,6 +80,12 @@ DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.1
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.1
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._e = 0.1
 
+def get_default_params():
+    params = copy.copy(DEFAULT_PARAMS)
+    params_k = copy.deepcopy(DEFAULT_PARAMS_K)
+    return (params, params_k)
+
+
 SHARED_PARAMS = commotions.Parameters()
 SHARED_PARAMS.d_C = 3 # collision distance
 
@@ -462,7 +468,8 @@ class SCAgent(commotions.AgentWithGoal):
 
 
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, \
-        optional_assumptions = get_assumptions_dict(False), plot_color = 'k'):
+        optional_assumptions = get_assumptions_dict(False), \
+        params = None, params_k = None, plot_color = 'k'):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -472,9 +479,15 @@ class SCAgent(commotions.AgentWithGoal):
         super().__init__(name, simulation, goal_pos, \
             initial_state, can_reverse = can_reverse, plot_color = plot_color)
 
-        # make and store copies of the default parameters objects
-        self.params = copy.copy(DEFAULT_PARAMS)
-        self.params.k = copy.copy(DEFAULT_PARAMS_K[self.ctrl_type])
+        # get default parameters or use user-provided parameters
+        if params is None:
+            self.params = copy.copy(DEFAULT_PARAMS)
+        else:
+            self.params = copy.copy(params)
+        if params_k is None:
+            self.params.k = copy.deepcopy(DEFAULT_PARAMS_K[self.ctrl_type])
+        else:
+            self.params.k = copy.deepcopy(params_k[self.ctrl_type])
 
         # store and parse the optional assumptions
         self.assumptions = optional_assumptions
@@ -513,6 +526,7 @@ class SCSimulation(commotions.Simulation):
         initial_speeds = np.array((0, 0)), \
         start_time = 0, end_time = 10, time_step = 0.1, \
         optional_assumptions = get_assumptions_dict(False), \
+        params = None, params_k = None, \
         agent_names = ('A', 'B'), plot_colors = ('c', 'm')):
 
         super().__init__(start_time, end_time, time_step)
@@ -527,6 +541,7 @@ class SCSimulation(commotions.Simulation):
                 goal_pos = goal_positions[i_agent, :], \
                 initial_state = initial_state, \
                 optional_assumptions = optional_assumptions, \
+                params = params, params_k = params_k, \
                 plot_color = plot_colors[i_agent])
 
     def do_plots(self, trajs = False, action_vals = False, action_probs = False, \
@@ -667,7 +682,7 @@ class SCSimulation(commotions.Simulation):
         if kinem_states:
             # - kinematic/action states
             plt.figure('Kinematic and action states')
-            N_PLOTROWS = 3
+            """             N_PLOTROWS = 3
             for i_agent, agent in enumerate(self.agents):
                 # position
                 plt.subplot(N_PLOTROWS, N_AGENTS, 0 * N_AGENTS +  i_agent + 1)
@@ -688,7 +703,40 @@ class SCSimulation(commotions.Simulation):
                 plt.plot(self.time_stamps, agent.trajectory.long_acc)
                 plt.ylim(-6, 6)
                 if i_agent == 0:
-                    plt.ylabel('a (m/s^2)')
+                    plt.ylabel('a (m/s^2)') """
+            N_PLOTROWS = 4
+            for i_agent, agent in enumerate(self.agents):
+                # acceleration
+                plt.subplot(N_PLOTROWS, 1, 1)
+                plt.plot(self.time_stamps, agent.trajectory.long_acc, '-' + agent.plot_color)
+                plt.ylabel('a (m/s^2)') 
+                # speed
+                plt.subplot(N_PLOTROWS, 1, 2)
+                plt.plot(self.time_stamps, agent.trajectory.long_speed, '-' + agent.plot_color)
+                plt.ylabel('v (m/s)') 
+                # distance to conflict point
+                plt.subplot(N_PLOTROWS, 1, 3)
+                vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
+                yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
+                yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
+                distance_CP = np.dot(vectors_to_CP, yaw_vector)
+                if i_agent == 0:
+                    plt.plot(self.time_stamps[[0, -1]], [0, 0], 'k:')
+                plt.plot(self.time_stamps, distance_CP, '-' + agent.plot_color)
+                plt.ylim(-5, 5)
+                plt.ylabel('$d_{CP}$ (m)') 
+            # distance to other agent
+            plt.subplot(N_PLOTROWS, 1, 4)
+            agent_dist_vectors = self.agents[1].trajectory.pos - self.agents[0].trajectory.pos
+            agent_distances = np.linalg.norm(agent_dist_vectors, axis = 0)
+            plt.plot(self.time_stamps, agent_distances, 'k-')
+            colliding_time_stamps = agent_distances < SHARED_PARAMS.d_C
+            plt.plot(self.time_stamps[colliding_time_stamps], agent_distances[colliding_time_stamps], 'r-')
+            plt.plot(self.time_stamps[[0, -1]], SHARED_PARAMS.d_C * np.array((1, 1)), 'r--')
+            plt.ylim(-1, 10)
+            plt.ylabel('$d$ (m)')
+            plt.xlabel('t (s)')      
+            
 
         if times_to_ca:
             # - time left to conflict area entry/exit
