@@ -15,10 +15,12 @@ Some things on Gustav's todolist as next steps for the framework implementation:
 * ~~Extend to allow different agent types, specifically to allow also driver (acceleration-controlling) agents.~~
 * **Testing the optional assumptions implemented so far: Enable them one at a time and check that they behave sensibly.**
     * ~~oEA~~
-    * **oBEao - there seems to be some problem here.**
+    * **oBEao - still some things to work through here. In latest commit (2020-07-08) there is an interesting scenario in the __main__ code for sc_scenario.py - why does the car get stuck in this one?**
     * oBEvs
-* Allow for separate $\Delta T$ between agents
+* Allow for separate $\Delta T$ between agents (note that $\Delta T$ is used in multiple places in the code; e.g., also to calculate behaviour accelerations.)
+* Extend to allow the user of SCSimulation/SCAgent to also provide the parameters to use when estimating value of a predicted state for another agent (currently the default parameters are used).
 * Work on value function term for being on a collision course to consider also the agent's affordances for getting themselves out of the collision course. Some notes in the notebook in "acceleration ctrl tests".
 * When multiple other-agent behaviours $b$ correspond to the same accelerations for the other agent, these get double-counted in the current implementation. The solution might be to consider behaviours in an acceleration space, either explicitly by replacing the behaviour grid with an acceleration grid, or implicitly somehow by for ex downweighting behaviours if they are too close to each other in acceleration space.
+* Consider adding back in the option in yielding acceleration estimation to also allow for adapted acceleration where the other agent passes just behind the ego agent - currently (2020-07-08) disabling this because it wasn't clear if it was correctly implemented, and I first need to figure out the basics of oBEao...
 
 

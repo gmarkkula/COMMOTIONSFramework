@@ -55,9 +55,9 @@ DEFAULT_PARAMS.alpha = 0.9
 DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = .5
 DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
-DEFAULT_PARAMS.kappa = DEFAULT_PARAMS.alpha
+DEFAULT_PARAMS.kappa = 0.3
 DEFAULT_PARAMS.Lambda = 1
-DEFAULT_PARAMS.Sigma = .05
+DEFAULT_PARAMS.Sigma = .01 #.05
 DEFAULT_PARAMS.DeltaV_th = 0.1
 DEFAULT_PARAMS.DeltaT = 0.5
 DEFAULT_PARAMS.T_P = 0.5 # prediction time
@@ -73,11 +73,11 @@ DEFAULT_PARAMS_K[CtrlType.SPEED]._c = 1
 DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
 DEFAULT_PARAMS_K[CtrlType.SPEED]._e = 0.1
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION] = commotions.Parameters()
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 2 
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sc = 2
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sg = 0.5
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.1
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.1
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sc = 1
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sg = 0.25
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.05
+DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.01
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._e = 0.1
 
 def get_default_params():
@@ -104,9 +104,11 @@ class SCAgent(commotions.AgentWithGoal):
         for agent in self.simulation.agents:
             if agent is not self:
                 self.other_agent = agent
-        # precalculate speed at which assumed value for other agent is maximum (if heading toward goal, and no obstacles)
-        self.oth_v_free = self.oth_k[self.other_agent.ctrl_type]._g \
-            / (2 * self.oth_k[self.other_agent.ctrl_type]._dv) 
+        # store assumed value function gains for the other agent
+        self.oth_k = copy.copy(DEFAULT_PARAMS_K[self.other_agent.ctrl_type])
+        # precalculate speed at which assumed value for other agent is maximum 
+        # (if heading toward goal, and no obstacles - disregarding any acceleration costs)
+        self.oth_v_free = self.oth_k._g / (2 * self.oth_k._dv) 
         # allocate vectors for storing internal states
         self.n_actions = len(self.params.ctrl_deltas)
         n_time_steps = self.simulation.settings.n_time_steps
@@ -200,22 +202,44 @@ class SCAgent(commotions.AgentWithGoal):
                 i_time_steps_exited[0] * time_step
 
         # calculate the accelerations needed for the different behaviors of the 
-        # other agent, as of the current time step
+        # other agent, as of the current time 
+        # - prepare vector for noting if one of the behaviours is invalid for this time step
+        beh_is_valid = np.full((N_BEHAVIORS,), True)
+        # - get the current state of the other agent
         oth_state = self.other_agent.get_current_kinematic_state()
         # - constant behavior
         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0
-        # - proceeding behavior (assuming straight acc to free speed; i.e., disregarding acceleration cost)
-        self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
-            (self.oth_v_free - oth_state.long_speed) / self.params.DeltaT
+        # - proceeding behavior 
+        if self.other_agent.ctrl_type is CtrlType.SPEED:
+            # assuming straight acc to free speed
+            self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
+                (self.oth_v_free - oth_state.long_speed) / self.params.DeltaT
+        else:
+            # calculate the expected acceleration given the current deviation
+            # from the free speed (see hand written notes from 2020-07-08)
+            dev_from_v_free = oth_state.long_speed - self.oth_v_free
+            self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
+                - self.oth_k._dv * dev_from_v_free * self.params.T_P \
+                / (0.5 * self.oth_k._dv * self.params.T_P ** 2 \
+                + 2 * self.oth_k._da)
+
         # - yielding behavior 
         oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
         oth_signed_dist_to_CA_entry = \
             oth_signed_dist_to_confl_pt - SHARED_PARAMS.d_C
+        if oth_signed_dist_to_CA_entry > 0:
+            self.states.beh_long_accs[i_YIELDING, i_time_step] = \
+                - oth_state.long_speed ** 2 / (2 * oth_signed_dist_to_CA_entry) 
+        else:
+            self.states.beh_long_accs[i_YIELDING, i_time_step] = math.nan
+            beh_is_valid[i_YIELDING] = False
+        
+        """
         use_stop_acc = False
         if oth_signed_dist_to_CA_entry > 0:
             stop_acc = - oth_state.long_speed ** 2 / (2 * oth_signed_dist_to_CA_entry)
             t_stop = - oth_state.long_speed / stop_acc
-            if self.states.time_left_to_CA_entry[i_time_step] >= t_stop:
+            if self.states.time_left_to_CA_exit[i_time_step] >= t_stop:
                 use_stop_acc = True
             else:
                 adapt_time_to_CA_entry = \
@@ -243,7 +267,8 @@ class SCAgent(commotions.AgentWithGoal):
                 # do not allow positive or overly large negative adaptation 
                 # accelerations
                 adapt_acc = max(MIN_ADAPT_ACC, min(0, adapt_acc))
-            self.states.beh_long_accs[i_YIELDING, i_time_step] = adapt_acc
+            self.states.beh_long_accs[i_YIELDING, i_time_step] = adapt_acc 
+        """
             
 
         # do first loops over all own actions and behaviors of the other
@@ -261,14 +286,16 @@ class SCAgent(commotions.AgentWithGoal):
         # and get values from both agents' perspectives
         for i_action in range(self.n_actions):
             for i_beh in range(N_BEHAVIORS):
-                # get value for me of this action/behavior combination
-                self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
-                    self.get_value_for_me(pred_own_states[i_action], \
-                        pred_oth_states[i_beh], i_action)
-                # get value for the other agent of this action/behavior combination
-                self.states.beh_vals_given_actions[i_beh, i_action, i_time_step] = \
-                    self.get_value_for_other(pred_oth_states[i_beh], \
-                        pred_own_states[i_action], i_beh)
+                # is this behaviour valid for this time step? (if not leave values as NaNs)
+                if beh_is_valid[i_beh]:
+                    # get value for me of this action/behavior combination
+                    self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
+                        self.get_value_for_me(pred_own_states[i_action], \
+                            pred_oth_states[i_beh], i_action)
+                    # get value for the other agent of this action/behavior combination
+                    self.states.beh_vals_given_actions[i_beh, i_action, i_time_step] = \
+                        self.get_value_for_other(pred_oth_states[i_beh], \
+                            pred_own_states[i_action], i_beh)
 
         # get my estimated probabilities for my own actions - based on value 
         # estimates from the previous time step
@@ -278,29 +305,31 @@ class SCAgent(commotions.AgentWithGoal):
         # now loop over the other agent's behaviors, to update the corresponding
         # activations (my "belief" in these behaviors)
         for i_beh in range(N_BEHAVIORS):
-            # update the game theoretic activations
-            # - contribution from previous time step
-            self.states.beh_activ_V[i_beh, i_time_step] = \
-                self.params.gamma * \
-                self.states.beh_activ_V[i_beh, i_time_step-1]
-            # - contributions from estimated value of the behavior to the other
-            #   agent, given my estimated probabilities of my actions
-            for i_action in range(self.n_actions):
-                self.states.beh_activ_V[i_beh, i_time_step] += \
-                    (1 - self.params.gamma) * \
-                    self.states.action_probs[i_action, i_time_step] \
-                    * self.states.beh_vals_given_actions[i_beh, i_action, i_time_step]
-            # update the "Kalman filter" activations
-            # - get the expected state of the other agent in this time step,
-            #   given the state in the last time step, and this behavior
-            self.states.beh_activ_O[i_beh, i_time_step] = \
-                self.params.kappa * self.states.beh_activ_O[i_beh, i_time_step-1]
-            if i_time_step > 0:
-                self.states.sensory_probs_given_behs[i_beh, i_time_step] = \
-                    self.get_prob_of_current_state_given_beh(i_beh)
-                self.states.beh_activ_O[i_beh, i_time_step] += \
-                    (1 - self.params.kappa) * (1/self.params.Lambda) \
-                    * math.log(self.states.sensory_probs_given_behs[i_beh, i_time_step])
+            if not beh_is_valid[i_beh]:
+                self.states.beh_activ_V[i_beh, i_time_step] = 0
+                self.states.beh_activ_O[i_beh, i_time_step] = 0
+            else:
+                # update the game theoretic activations
+                # - contribution from previous time step
+                self.states.beh_activ_V[i_beh, i_time_step] = \
+                    self.params.gamma * \
+                    self.states.beh_activ_V[i_beh, i_time_step-1]
+                # - contributions from estimated value of the behavior to the other
+                #   agent, given my estimated probabilities of my actions
+                for i_action in range(self.n_actions):
+                    self.states.beh_activ_V[i_beh, i_time_step] += \
+                        (1 - self.params.gamma) * \
+                        self.states.action_probs[i_action, i_time_step] \
+                        * self.states.beh_vals_given_actions[i_beh, i_action, i_time_step]
+                # update the "Kalman filter" activations
+                self.states.beh_activ_O[i_beh, i_time_step] = \
+                    self.params.kappa * self.states.beh_activ_O[i_beh, i_time_step-1]
+                if i_time_step > 0:
+                    self.states.sensory_probs_given_behs[i_beh, i_time_step] = \
+                        self.get_prob_of_current_state_given_beh(i_beh)
+                    self.states.beh_activ_O[i_beh, i_time_step] += \
+                        (1 - self.params.kappa) * (1/self.params.Lambda) \
+                        * math.log(self.states.sensory_probs_given_behs[i_beh, i_time_step])
 
         # get total activation for all behaviors of the other agent
         self.states.beh_activations[:, i_time_step] = \
@@ -309,8 +338,9 @@ class SCAgent(commotions.AgentWithGoal):
 
         # get my estimated probabilities for the other agent's behavior
         if self.assumptions[DerivedAssumption.oBE]:
-            self.states.beh_probs[:, i_time_step] = scipy.special.softmax(\
-                self.params.Lambda * self.states.beh_activations[:, i_time_step])
+            self.states.beh_probs[beh_is_valid, i_time_step] = scipy.special.softmax(\
+                self.params.Lambda * self.states.beh_activations[beh_is_valid, i_time_step])
+            self.states.beh_probs[np.invert(beh_is_valid), i_time_step] = 0
         else:
             self.states.beh_probs[:, i_time_step] = 0
             self.states.beh_probs[i_CONSTANT, i_time_step] = 1
@@ -321,9 +351,10 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.mom_action_vals[:, i_time_step] = 0
         for i_action in range(self.n_actions):
             for i_beh in range(N_BEHAVIORS):
-                self.states.mom_action_vals[i_action, i_time_step] += \
-                    self.states.beh_probs[i_beh, i_time_step] \
-                    * self.states.action_vals_given_behs[i_action, i_beh, i_time_step]
+                if beh_is_valid[i_beh]: 
+                    self.states.mom_action_vals[i_action, i_time_step] += \
+                        self.states.beh_probs[i_beh, i_time_step] \
+                        * self.states.action_vals_given_behs[i_action, i_beh, i_time_step]
 
         # update the accumulative estimates of action value
         self.states.est_action_vals[:, i_time_step] = \
@@ -404,8 +435,7 @@ class SCAgent(commotions.AgentWithGoal):
         value = 0
         # add value of the state
         value += self.get_value_of_state_for_agent(oth_state, \
-            self.other_agent.goal, my_state, self.other_agent.ctrl_type, \
-                self.oth_k[self.other_agent.ctrl_type]) 
+            self.other_agent.goal, my_state, self.other_agent.ctrl_type, self.oth_k) 
         return value
 
 
@@ -438,31 +468,37 @@ class SCAgent(commotions.AgentWithGoal):
         # the current time step
         long_acc_for_this_beh = \
             self.states.beh_long_accs[i_beh, self.simulation.state.i_time_step]
-        # let the other agent object calculate what its predicted state would
-        # be with this acceleration 
-        predicted_state = self.other_agent.get_future_kinematic_state(\
-            long_acc_for_this_beh, yaw_rate = 0, \
-            n_time_steps_to_advance = self.n_prediction_time_steps)
-        predicted_state.long_acc = long_acc_for_this_beh
+        if math.isnan(long_acc_for_this_beh):
+            predicted_state = None
+        else:
+            # let the other agent object calculate what its predicted state would
+            # be with this acceleration 
+            predicted_state = self.other_agent.get_future_kinematic_state(\
+                long_acc_for_this_beh, yaw_rate = 0, \
+                n_time_steps_to_advance = self.n_prediction_time_steps)
+            predicted_state.long_acc = long_acc_for_this_beh
         return predicted_state
         
 
     def get_prob_of_current_state_given_beh(self, i_beh):
-        # retrieve the longitudinal acceleration for this behavior, as estimated on
-        # the previous time step
         i_prev_time_step = self.simulation.state.i_time_step-1
-        prev_long_acc_for_this_beh = \
-            self.states.beh_long_accs[i_beh, i_prev_time_step]
-        # let the other agent object calculate what its predicted state at the 
-        # current time step would be with this acceleration     
-        expected_curr_state = self.other_agent.get_future_kinematic_state(\
-            prev_long_acc_for_this_beh, yaw_rate = 0, \
-            n_time_steps_to_advance = 1, i_start_time_step = i_prev_time_step)
-        # get the distance between expected and observed position
-        pos_diff = np.linalg.norm(expected_curr_state.pos \
-            - self.other_agent.get_current_kinematic_state().pos)
-        # return the probability density for this observed difference
-        prob_density = norm.pdf(pos_diff, scale = self.params.Sigma)
+        if math.isnan(self.states.beh_long_accs[i_beh, i_prev_time_step]):
+            prob_density = 0
+        else:
+            # retrieve the longitudinal acceleration for this behavior, as estimated on
+            # the previous time step
+            prev_long_acc_for_this_beh = \
+                self.states.beh_long_accs[i_beh, i_prev_time_step]
+            # let the other agent object calculate what its predicted state at the 
+            # current time step would be with this acceleration     
+            expected_curr_state = self.other_agent.get_future_kinematic_state(\
+                prev_long_acc_for_this_beh, yaw_rate = 0, \
+                n_time_steps_to_advance = 1, i_start_time_step = i_prev_time_step)
+            # get the distance between expected and observed position
+            pos_diff = np.linalg.norm(expected_curr_state.pos \
+                - self.other_agent.get_current_kinematic_state().pos)
+            # return the probability density for this observed difference
+            prob_density = norm.pdf(pos_diff, scale = self.params.Sigma)
         return max(prob_density, np.finfo(float).eps) # don't return zero probability
         
 
@@ -501,9 +537,6 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions[DerivedAssumption.oBE] = \
             self.assumptions[OptionalAssumption.oBEao] \
             or self.assumptions[OptionalAssumption.oBEvs]
-
-        # store assumed value function gains for the other agent
-        self.oth_k = copy.copy(DEFAULT_PARAMS_K)
 
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
@@ -759,15 +792,20 @@ class SCSimulation(commotions.Simulation):
 
 if __name__ == "__main__":
 
-    CTRL_TYPES = (CtrlType.ACCELERATION, CtrlType.ACCELERATION)
-    INITIAL_POSITIONS = np.array([[0,-101], [100, 0]])
-    GOALS = np.array([[0, 100], [-100, 0]])
-    SPEEDS = np.array((10, 10))
+    CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
+    INITIAL_POSITIONS = np.array([[0,-5], [30, 0]])
+    GOALS = np.array([[0, 5], [-50, 0]])
+    SPEEDS = np.array((0, 10))
+    optional_assumptions = get_assumptions_dict(default_value = False, \
+        oBEao = True)  
 
     sc_simulation = SCSimulation(CTRL_TYPES, GOALS, INITIAL_POSITIONS, \
-        initial_speeds = SPEEDS, end_time = 60)
+        initial_speeds = SPEEDS, end_time = 15, \
+        optional_assumptions = optional_assumptions)
     sc_simulation.run()
-    sc_simulation.do_plots(trajs = True, surplus_action_vals = True, kinem_states = True)
+    sc_simulation.do_plots(trajs = True, surplus_action_vals = True, \
+        kinem_states = True, beh_accs = True, beh_probs = True, \
+        action_vals = True, sensory_prob_dens = True, beh_activs = True)
 
 
 
