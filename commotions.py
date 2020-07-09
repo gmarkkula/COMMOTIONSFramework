@@ -106,6 +106,9 @@ def get_real_quadratic_roots(a, b, c):
 
 
 def get_time_to_agent_collision(state1, state2, collision_distance):
+    # collision already happening?
+    if np.linalg.norm(state2.pos - state1.pos) <= collision_distance:
+        return 0
     # get some basics
     delta_x = state2.pos[0] - state1.pos[0]
     delta_y = state2.pos[1] - state1.pos[1]

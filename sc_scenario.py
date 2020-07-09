@@ -56,7 +56,7 @@ DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = .5
 DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
 DEFAULT_PARAMS.kappa = 0.3
-DEFAULT_PARAMS.Lambda = 1
+DEFAULT_PARAMS.Lambda = 10
 DEFAULT_PARAMS.Sigma = .01 #.05
 DEFAULT_PARAMS.DeltaV_th = 0.1
 DEFAULT_PARAMS.DeltaT = 0.5
@@ -89,7 +89,8 @@ def get_default_params():
 SHARED_PARAMS = commotions.Parameters()
 SHARED_PARAMS.d_C = 3 # collision distance
 
-TTC_FOR_COLLISION = 0.0001
+TTC_FOR_COLLISION = 0.1
+MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are regarded
 
 class States():
     pass
@@ -146,6 +147,9 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.est_action_vals[:, -1] = 0
         self.states.beh_activ_V[:, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
+        self.states.beh_activ_O[i_CONSTANT, -1] = 10
+        warnings.warn('Setting initial value of i_CONSTANT behaviour activation to arbitrary high value.')
+
         # calculate where the two agents' paths intersect, if it has not already 
         # been done
         if not hasattr(self.simulation, 'conflict_point'):
@@ -174,11 +178,19 @@ class SCAgent(commotions.AgentWithGoal):
         i_time_step = self.simulation.state.i_time_step
         time_step = self.simulation.settings.time_step
 
+        # if agent can't reverse and is now at zero speed, make sure that any
+        # future negative accelerations from past actions are cleared
+        curr_state = self.get_current_kinematic_state()
+        if not self.can_reverse and curr_state.long_speed == 0:
+            self.action_long_accs[i_time_step:] = \
+                np.maximum(0, self.action_long_accs[i_time_step:] )
+
         # calculate my own current projected time until entering and
         # exiting the conflict area
-        curr_state = self.get_current_kinematic_state()
         proj_long_speeds = curr_state.long_speed \
             + np.cumsum(self.action_long_accs[i_time_step:] * time_step)
+        if not self.can_reverse:
+            proj_long_speeds = np.maximum(0, proj_long_speeds)
         signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(curr_state)
         proj_signed_dist_to_CP = signed_dist_to_confl_pt \
             - np.cumsum(proj_long_speeds * time_step)
@@ -194,7 +206,7 @@ class SCAgent(commotions.AgentWithGoal):
         # - exit
         i_time_steps_exited = \
             np.nonzero(proj_signed_dist_to_CP < -SHARED_PARAMS.d_C)[0]
-        if len(i_time_steps_exited) == 0:
+        if i_time_steps_exited.size == 0:
             # not currently projected to exit the conflict area within the simulation duration
             self.states.time_left_to_CA_exit[i_time_step] = math.inf
         else:
@@ -351,7 +363,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.mom_action_vals[:, i_time_step] = 0
         for i_action in range(self.n_actions):
             for i_beh in range(N_BEHAVIORS):
-                if beh_is_valid[i_beh]: 
+                if beh_is_valid[i_beh] \
+                    and self.states.beh_probs[i_beh, i_time_step] > MIN_BEH_PROB: 
                     self.states.mom_action_vals[i_action, i_time_step] += \
                         self.states.beh_probs[i_beh, i_time_step] \
                         * self.states.action_vals_given_behs[i_action, i_beh, i_time_step]
@@ -368,6 +381,7 @@ class SCAgent(commotions.AgentWithGoal):
         i_best_action = np.argmax(self.states.est_action_surplus_vals[:, i_time_step])
         if self.states.est_action_surplus_vals[i_best_action, i_time_step] \
             > self.params.DeltaV_th:
+            # add action to the array of future acceleration values
             self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
                 self.simulation.state.i_time_step)
             self.states.est_action_vals[:, i_time_step] = 0
@@ -793,7 +807,7 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [30, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [20, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     optional_assumptions = get_assumptions_dict(default_value = False, \

@@ -15,7 +15,7 @@ Some things on Gustav's todolist as next steps for the framework implementation:
 * ~~Extend to allow different agent types, specifically to allow also driver (acceleration-controlling) agents.~~
 * **Testing the optional assumptions implemented so far: Enable them one at a time and check that they behave sensibly.**
     * ~~oEA~~
-    * **oBEao - still some things to work through here. In latest commit (2020-07-08) there is an interesting scenario in the __main__ code for sc_scenario.py - why does the car get stuck in this one?**
+    * **oBEao - still some things to work through here. In latest commit (2020-07-09) there is an interesting scenario in the __main__ code for sc_scenario.py - why does the pedestrian charge ahead right from the start even though the car is so close and the initial activation of the "constant" behaviour is high?**
     * oBEvs
 * Allow for separate $\Delta T$ between agents (note that $\Delta T$ is used in multiple places in the code; e.g., also to calculate behaviour accelerations.)
 * Extend to allow the user of SCSimulation/SCAgent to also provide the parameters to use when estimating value of a predicted state for another agent (currently the default parameters are used).
