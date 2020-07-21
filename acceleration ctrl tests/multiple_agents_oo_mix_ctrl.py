@@ -61,9 +61,17 @@ class SimpleAgentMixCtrl(commotions_acc_ctrl.AgentWithGoal):
     def do_action_update(self):
         """Do the action update for the agent. 
         """
+        
+        # since we are assuming no reversing by the agents in this
+        # implementation, if the agent is now at zero speed make sure that any
+        # future negative accelerations from past actions are cleared
+        i_time_step = self.simulation.state.i_time_step
+        if self.get_current_state().long_speed == 0:
+            self.action_long_accs[i_time_step:] = \
+                np.maximum( 0, self.action_long_accs[i_time_step:] )
+
         # decide on an action for this agent at current time step - by looping 
         # through the alternatives and calculating predicted rewards
-        i_time_step = self.simulation.state.i_time_step
         best_value = -math.inf
         best_acc_action = 0
         best_heading_action = 0
