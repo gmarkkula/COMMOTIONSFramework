@@ -16,7 +16,7 @@ Some things on Gustav's todolist as next steps for the framework implementation:
 * **Testing the optional assumptions implemented so far: Enable them one at a time and check that they behave sensibly.**
     * ~~oEA~~
     * ~~oBEao~~
-    * oAN
+    * ~~oAN~~
     * oBEvs
 * Allow for separate $\Delta T$ between agents (note that $\Delta T$ is used in multiple places in the code; e.g., also to calculate behaviour accelerations.)
 * Extend to allow the user of SCSimulation/SCAgent to also provide the parameters to use when estimating value of a predicted state for another agent (currently the default parameters are used).
