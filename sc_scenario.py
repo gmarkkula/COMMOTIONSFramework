@@ -17,6 +17,7 @@ class CtrlType(Enum):
 
 class OptionalAssumption(Enum):
     oEA = 'oEA'
+    oAN = 'oAN'
     oBEao = 'oBEao'
     oBEvs = 'oBEvs'
 
@@ -57,7 +58,8 @@ DEFAULT_PARAMS.beta_V = .5
 DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
 DEFAULT_PARAMS.kappa = 0.3
 DEFAULT_PARAMS.Lambda = 10
-DEFAULT_PARAMS.Sigma = .01 #.05
+DEFAULT_PARAMS.sigma_ao = .01 #.05
+DEFAULT_PARAMS.sigma_V = 0.1
 DEFAULT_PARAMS.DeltaV_th = 0.1
 DEFAULT_PARAMS.DeltaT = 0.5
 DEFAULT_PARAMS.T_P = 0.5 # prediction time
@@ -370,9 +372,12 @@ class SCAgent(commotions.AgentWithGoal):
                         * self.states.action_vals_given_behs[i_action, i_beh, i_time_step]
 
         # update the accumulative estimates of action value
+        value_noise = np.random.randn(N_ACTIONS) * self.params.sigma_V \
+            * math.sqrt(self.simulation.settings.time_step)
         self.states.est_action_vals[:, i_time_step] = \
             self.params.alpha * self.states.est_action_vals[:, i_time_step-1] \
-            + (1 - self.params.alpha) * self.states.mom_action_vals[:, i_time_step]
+            + (1 - self.params.alpha) \
+            * (self.states.mom_action_vals[:, i_time_step] + value_noise)
 
         # any action over threshold?
         self.states.est_action_surplus_vals[:, i_time_step] = \
@@ -512,7 +517,7 @@ class SCAgent(commotions.AgentWithGoal):
             pos_diff = np.linalg.norm(expected_curr_state.pos \
                 - self.other_agent.get_current_kinematic_state().pos)
             # return the probability density for this observed difference
-            prob_density = norm.pdf(pos_diff, scale = self.params.Sigma)
+            prob_density = norm.pdf(pos_diff, scale = self.params.sigma_ao)
         return max(prob_density, np.finfo(float).eps) # don't return zero probability
         
 
@@ -544,6 +549,8 @@ class SCAgent(commotions.AgentWithGoal):
         if not self.assumptions[OptionalAssumption.oEA]:
             self.params.alpha = 0
             self.params.DeltaV_th = 0
+        if not self.assumptions[OptionalAssumption.oAN]:
+            self.params.sigma_V = 0
         if not self.assumptions[OptionalAssumption.oBEao]:
             self.params.beta_O = 0
         if not self.assumptions[OptionalAssumption.oBEvs]:
@@ -807,11 +814,11 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [20, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     optional_assumptions = get_assumptions_dict(default_value = False, \
-        oBEao = True)  
+        oBEao = False, oEA = True, oAN = True)  
 
     sc_simulation = SCSimulation(CTRL_TYPES, GOALS, INITIAL_POSITIONS, \
         initial_speeds = SPEEDS, end_time = 15, \
