@@ -51,7 +51,7 @@ i_YIELDING = 2
 MIN_ADAPT_ACC = -10 # m/s^2
 
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.alpha = 0.9
+DEFAULT_PARAMS.alpha = 0.5
 DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = .5
 DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
@@ -148,7 +148,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.beh_activ_V[:, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
         self.states.beh_activ_O[i_CONSTANT, -1] = 10
-        warnings.warn('Setting initial value of i_CONSTANT behaviour activation to arbitrary high value.')
+        warnings.warn('****** Setting initial value of i_CONSTANT behaviour activation to arbitrary high value.')
 
         # calculate where the two agents' paths intersect, if it has not already 
         # been done
