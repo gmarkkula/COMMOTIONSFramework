@@ -1,3 +1,7 @@
+# this is a simplified version of sc_scenario.py, just including what is needed 
+# to simulate a simple pedestrian crossing scenario where a car approaches
+# at constant speed
+
 import warnings
 import math
 import numpy as np
@@ -178,6 +182,10 @@ class SCAgent(commotions.AgentWithGoal):
         """Do the action update for the agent. 
         """
 
+        if self.ctrl_type is CtrlType.ACCELERATION:
+            # in this simplified implementation, the car agent just keeps constant speed
+            return 
+
         i_time_step = self.simulation.state.i_time_step
         time_step = self.simulation.settings.time_step
 
@@ -354,7 +362,9 @@ class SCAgent(commotions.AgentWithGoal):
             # add action to the array of future acceleration values
             self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
                 self.simulation.state.i_time_step)
-            self.states.est_action_vals[:, i_time_step] = 0
+            if self.assumptions[OptionalAssumption.oEA]:
+                # doing evidence accumulation, so reset the accumulative estimates of action value
+                self.states.est_action_vals[:, i_time_step] = 0
 
         # set long acc in actual trajectory
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
@@ -619,7 +629,7 @@ class SCSimulation(commotions.Simulation):
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
                         if i_agent == 1:
-                            plt.legend(('$\\tilde{V}_a$', '$\\hat{V}_a$'))
+                            plt.legend(('$V_a$', '$\\hat{V}_a$'))
                     if i_agent == 0:
                         plt.ylabel('$V(\\Delta v=%.1f)$' % deltav)
 
@@ -636,7 +646,7 @@ class SCSimulation(commotions.Simulation):
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
                     if i_agent == 0:
-                        plt.ylabel('$\\Delta V(\\Delta v=%.1f)$' % deltav)
+                        plt.ylabel('$\\hat{\\Delta V}(\\Delta v=%.1f)$' % deltav)
 
         """ if beh_activs:
             # - behavior activations
@@ -764,10 +774,6 @@ if __name__ == "__main__":
     INITIAL_POSITIONS = np.array([[0,-SHARED_PARAMS.d_C-.1], [30, 0]])
     GOALS = np.array([[0, 5], [-300, 0]])
     SPEEDS = np.array((0, 10)) 
-
-    # make the car insensitive to collision risk --> it never yields
-    (__, params_k) = get_default_params()
-    params_k[CtrlType.ACCELERATION]._sc = 0 
 
     # turning model features on/off
     optional_assumptions = get_assumptions_dict(default_value = False, \

@@ -6,6 +6,8 @@ This repository contains some sketches and work in progress code for the COMMOTI
 
 * The "*Golman et al tests*" folder contains basically the same as the publicly shared repository https://github.com/gmarkkula/GolmanEtAlTypeModel, but with some added project-internal tests.
 
+* The "*ped Xing tests*" folder contains a copy (made 2020-10-27) of the implementation in the root folder, which has been simplified to make it easier to understand and use as a starting point for simulating pedestrian crossing decisions. Entry point: the Jupyter notebook.
+
 * This root folder contains a work in progress towards a more complete implementation of the framework described in the scoping document. As of 2020-10-15, it implements `b1DD-b2SP-b3VD-oEA-oAN-oBEvs-oBEao` for both pedestrian (speed-controlling) and 
 driver (acceleration-controlling) agents. Entry point: the `test_sc_scenario.ipynb` notebook.
 
@@ -19,6 +21,7 @@ Some things on Gustav's todolist as next steps for the framework implementation:
     * ~~oBEao~~
     * ~~oAN~~
     * oBEvs
+* Add functionality for resetting/rerunning the same simulation without creating new objects? (relevant now that probabilistic features have been added)
 * Allow for separate $\Delta T$ between agents (note that $\Delta T$ is used in multiple places in the code; e.g., also to calculate behaviour accelerations.)
 * Extend to allow the user of SCSimulation/SCAgent to also provide the parameters to use when estimating value of a predicted state for another agent (currently the default parameters are used).
 * Work on value function term for being on a collision course to consider also the agent's affordances for getting themselves out of the collision course. Some notes in the notebook in "acceleration ctrl tests".
