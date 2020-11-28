@@ -52,18 +52,18 @@ i_YIELDING = 2
 MIN_ADAPT_ACC = -10 # m/s^2
 
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.alpha = 0.5
+DEFAULT_PARAMS.T = 0.2 # value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = .5
-DEFAULT_PARAMS.gamma = DEFAULT_PARAMS.alpha
+DEFAULT_PARAMS.T_G = DEFAULT_PARAMS.T # value acc / LP filter rel time in game-theoretic estimate of value for the other agent
 DEFAULT_PARAMS.kappa = 0.3
 DEFAULT_PARAMS.Lambda = 10
-DEFAULT_PARAMS.sigma_ao = .01 #.05
-DEFAULT_PARAMS.sigma_V = 0.1
-DEFAULT_PARAMS.DeltaV_th = 0.1
-DEFAULT_PARAMS.DeltaT = 0.5
-DEFAULT_PARAMS.T_P = 0.5 # prediction time
-DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed change actions, magnitudes in m/s
+DEFAULT_PARAMS.sigma_ao = .01 
+DEFAULT_PARAMS.sigma_V = 0.1 # value noise in evidence accumulation
+DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
+DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
+DEFAULT_PARAMS.T_P = 0.5 # prediction time (s)
+DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
 i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
 warnings.warn('N_ACTIONS set to no of actions in default params, so will not work if non-default params are set.')
@@ -326,13 +326,13 @@ class SCAgent(commotions.AgentWithGoal):
                 # update the game theoretic activations
                 # - contribution from previous time step
                 self.states.beh_activ_V[i_beh, i_time_step] = \
-                    self.params.gamma * \
+                    (1 - self.params.gamma) * \
                     self.states.beh_activ_V[i_beh, i_time_step-1]
                 # - contributions from estimated value of the behavior to the other
                 #   agent, given my estimated probabilities of my actions
                 for i_action in range(self.n_actions):
                     self.states.beh_activ_V[i_beh, i_time_step] += \
-                        (1 - self.params.gamma) * \
+                        self.params.gamma * \
                         self.states.action_probs[i_action, i_time_step] \
                         * self.states.beh_vals_given_actions[i_beh, i_action, i_time_step]
                 # update the "Kalman filter" activations
@@ -375,8 +375,9 @@ class SCAgent(commotions.AgentWithGoal):
         value_noise = np.random.randn(N_ACTIONS) * self.params.sigma_V \
             * math.sqrt(self.simulation.settings.time_step)
         self.states.est_action_vals[:, i_time_step] = \
-            self.params.alpha * self.states.est_action_vals[:, i_time_step-1] \
-            + (1 - self.params.alpha) \
+            (1 - self.params.alpha) \
+            * self.states.est_action_vals[:, i_time_step-1] \
+            + self.params.alpha \
             * (self.states.mom_action_vals[:, i_time_step] + value_noise)
 
         # any action over threshold?
@@ -547,7 +548,10 @@ class SCAgent(commotions.AgentWithGoal):
         # store and parse the optional assumptions
         self.assumptions = optional_assumptions
         if not self.assumptions[OptionalAssumption.oEA]:
-            self.params.alpha = 0
+            # no evidence accumulation, implemented by value accumulation 
+            # reaching input value in one time step...
+            self.params.T = self.simulation.settings.time_step 
+            # ... and decision threshold at zero
             self.params.DeltaV_th = 0
         if not self.assumptions[OptionalAssumption.oAN]:
             self.params.sigma_V = 0
@@ -558,6 +562,10 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions[DerivedAssumption.oBE] = \
             self.assumptions[OptionalAssumption.oBEao] \
             or self.assumptions[OptionalAssumption.oBEvs]
+
+        # get derived parameters
+        self.params.alpha = self.simulation.settings.time_step / self.params.T
+        self.params.gamma = self.simulation.settings.time_step / self.params.T_G
 
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
