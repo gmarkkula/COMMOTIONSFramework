@@ -54,7 +54,7 @@ MIN_ADAPT_ACC = -10 # m/s^2
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.T = 0.2 # value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1
-DEFAULT_PARAMS.beta_V = .5
+DEFAULT_PARAMS.beta_V = 1
 DEFAULT_PARAMS.T_G = DEFAULT_PARAMS.T # value acc / LP filter rel time in game-theoretic estimate of value for the other agent
 DEFAULT_PARAMS.kappa = 0.3
 DEFAULT_PARAMS.Lambda = 10
@@ -89,7 +89,7 @@ def get_default_params():
 
 
 SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.d_C = 3 # collision distance
+SHARED_PARAMS.d_C = 2 # collision distance
 
 TTC_FOR_COLLISION = 0.1
 MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are regarded
@@ -125,17 +125,17 @@ class SCAgent(commotions.AgentWithGoal):
             math.nan * np.ones((self.n_actions, n_time_steps)) # DeltaVhat_a(t)
         self.states.action_vals_given_behs = \
             math.nan * np.ones((self.n_actions, N_BEHAVIORS, n_time_steps)) # V_a|b(t)
-        self.states.action_probs = \
-            math.nan * np.ones((self.n_actions, n_time_steps)) # P_a(t)
+        #self.states.action_probs = \
+        #    math.nan * np.ones((self.n_actions, n_time_steps)) # P_a(t)
         # - states regarding the behavior of the other agent
-        self.states.beh_activations = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # A_b(t)
-        self.states.beh_activ_V = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # ^V A_b(t)
+        self.states.beh_activations_given_actions = \
+            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # A_b|a(t)
+        self.states.beh_activ_V_given_actions = \
+            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # A_V,b|a(t)
         self.states.beh_activ_O = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # ^O A_b(t)
-        self.states.beh_probs = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # P_b(t)
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # A_O,b(t)
+        self.states.beh_probs_given_actions = \
+            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # P_b|a(t)
         self.states.beh_vals_given_actions = \
             math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # V_b|a(t)
         self.states.sensory_probs_given_behs = \
@@ -147,7 +147,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.time_left_to_CA_exit = math.nan * np.ones(n_time_steps)
         # set initial values for states that depend on the previous time step
         self.states.est_action_vals[:, -1] = 0
-        self.states.beh_activ_V[:, -1] = 0
+        #self.states.beh_activ_V[:, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
         self.states.beh_activ_O[i_CONSTANT, -1] = 10
         warnings.warn('****** Setting initial value of i_CONSTANT behaviour activation to arbitrary high value.')
@@ -304,60 +304,65 @@ class SCAgent(commotions.AgentWithGoal):
                 if beh_is_valid[i_beh]:
                     # get value for me of this action/behavior combination
                     self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
-                        self.get_value_for_me(pred_own_states[i_action], \
-                            pred_oth_states[i_beh], i_action)
+                        self.get_value_for_me(pred_own_states[i_action], 
+                                              pred_oth_states[i_beh], i_action)
                     # get value for the other agent of this action/behavior combination
                     self.states.beh_vals_given_actions[i_beh, i_action, i_time_step] = \
-                        self.get_value_for_other(pred_oth_states[i_beh], \
-                            pred_own_states[i_action], i_beh)
+                        self.get_value_for_other(pred_oth_states[i_beh], 
+                                                 pred_own_states[i_action], i_beh)
 
-        # get my estimated probabilities for my own actions - based on value 
-        # estimates from the previous time step
-        self.states.action_probs[:, i_time_step] = scipy.special.softmax(\
-            self.params.Lambda * self.states.est_action_vals[:, i_time_step-1])
+        ## get my estimated probabilities for my own actions - based on value 
+        ## estimates from the previous time step
+        #self.states.action_probs[:, i_time_step] = scipy.special.softmax(\
+        #    self.params.Lambda * self.states.est_action_vals[:, i_time_step-1])
 
         # now loop over the other agent's behaviors, to update the corresponding
         # activations (my "belief" in these behaviors)
         for i_beh in range(N_BEHAVIORS):
             if not beh_is_valid[i_beh]:
-                self.states.beh_activ_V[i_beh, i_time_step] = 0
+                self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] = 0
                 self.states.beh_activ_O[i_beh, i_time_step] = 0
+                self.states.beh_activations_given_actions[i_beh, :, i_time_step] = 0
             else:
-                # update the game theoretic activations
-                # - contribution from previous time step
-                self.states.beh_activ_V[i_beh, i_time_step] = \
-                    (1 - self.params.gamma) * \
-                    self.states.beh_activ_V[i_beh, i_time_step-1]
-                # - contributions from estimated value of the behavior to the other
-                #   agent, given my estimated probabilities of my actions
-                for i_action in range(self.n_actions):
-                    self.states.beh_activ_V[i_beh, i_time_step] += \
-                        self.params.gamma * \
-                        self.states.action_probs[i_action, i_time_step] \
-                        * self.states.beh_vals_given_actions[i_beh, i_action, i_time_step]
+                # update value-based activations
+                if self.assumptions[OptionalAssumption.oBEvs]:
+                    self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] = \
+                        self.states.beh_vals_given_actions[i_beh, :, i_time_step] # for now just simply equal to the predictedvalue
+                else:
+                    self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] = 0
                 # update the "Kalman filter" activations
-                self.states.beh_activ_O[i_beh, i_time_step] = \
-                    self.params.kappa * self.states.beh_activ_O[i_beh, i_time_step-1]
-                if i_time_step > 0:
-                    self.states.sensory_probs_given_behs[i_beh, i_time_step] = \
-                        self.get_prob_of_current_state_given_beh(i_beh)
-                    self.states.beh_activ_O[i_beh, i_time_step] += \
-                        (1 - self.params.kappa) * (1/self.params.Lambda) \
-                        * math.log(self.states.sensory_probs_given_behs[i_beh, i_time_step])
-
-        # get total activation for all behaviors of the other agent
-        self.states.beh_activations[:, i_time_step] = \
-            self.params.beta_V * self.states.beh_activ_V[:, i_time_step] \
-            + self.params.beta_O * self.states.beh_activ_O[:, i_time_step] 
+                if self.assumptions[OptionalAssumption.oBEao]:
+                    self.states.beh_activ_O[i_beh, i_time_step] = \
+                        self.params.kappa * self.states.beh_activ_O[i_beh, i_time_step-1]
+                    if i_time_step > 0:
+                        self.states.sensory_probs_given_behs[i_beh, i_time_step] = \
+                            self.get_prob_of_current_state_given_beh(i_beh)
+                        self.states.beh_activ_O[i_beh, i_time_step] += \
+                            (1 - self.params.kappa) * (1/self.params.Lambda) \
+                            * math.log(self.states.sensory_probs_given_behs[i_beh, i_time_step])
+                else:
+                    self.states.beh_activ_O[i_beh, i_time_step] = 0
+                # get total activation for this behaviour
+                self.states.beh_activations_given_actions[i_beh, :, i_time_step] = \
+                    self.params.beta_V * \
+                        self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] \
+                    + self.params.beta_O * \
+                        self.states.beh_activ_O[i_beh, i_time_step] 
 
         # get my estimated probabilities for the other agent's behavior
         if self.assumptions[DerivedAssumption.oBE]:
-            self.states.beh_probs[beh_is_valid, i_time_step] = scipy.special.softmax(\
-                self.params.Lambda * self.states.beh_activations[beh_is_valid, i_time_step])
-            self.states.beh_probs[np.invert(beh_is_valid), i_time_step] = 0
+            for i_action in range(self.n_actions):
+                self.states.beh_probs_given_actions[
+                        beh_is_valid, i_action, i_time_step] = \
+                    scipy.special.softmax(
+                            self.params.Lambda 
+                            * self.states.beh_activations_given_actions[
+                                    beh_is_valid, i_action, i_time_step])
+                self.states.beh_probs_given_actions[
+                        np.invert(beh_is_valid), i_action, i_time_step] = 0
         else:
-            self.states.beh_probs[:, i_time_step] = 0
-            self.states.beh_probs[i_CONSTANT, i_time_step] = 1
+            self.states.beh_probs_given_actions[:, :, i_time_step] = 0
+            self.states.beh_probs_given_actions[i_CONSTANT, :, i_time_step] = 1
 
         # loop through own action options and get momentary estimates
         # of the actions' values to me, as weighted average over the other 
@@ -365,11 +370,13 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.mom_action_vals[:, i_time_step] = 0
         for i_action in range(self.n_actions):
             for i_beh in range(N_BEHAVIORS):
-                if beh_is_valid[i_beh] \
-                    and self.states.beh_probs[i_beh, i_time_step] > MIN_BEH_PROB: 
+                if beh_is_valid[i_beh] and self.states.beh_probs_given_actions[
+                        i_beh, i_action, i_time_step] > MIN_BEH_PROB: 
                     self.states.mom_action_vals[i_action, i_time_step] += \
-                        self.states.beh_probs[i_beh, i_time_step] \
-                        * self.states.action_vals_given_behs[i_action, i_beh, i_time_step]
+                        self.states.beh_probs_given_actions[
+                                i_beh, i_action, i_time_step] \
+                        * self.states.action_vals_given_behs[
+                                i_action, i_beh, i_time_step]
 
         # update the accumulative estimates of action value
         value_noise = np.random.randn(N_ACTIONS) * self.params.sigma_V \
@@ -473,13 +480,13 @@ class SCAgent(commotions.AgentWithGoal):
 
     def get_predicted_own_state(self, i_action):
         local_long_accs = np.copy(self.action_long_accs)
-        self.add_action_to_acc_array(local_long_accs, i_action, \
-            self.simulation.state.i_time_step)
-        predicted_state = self.get_future_kinematic_state(\
-            local_long_accs, yaw_rate = 0, \
-            n_time_steps_to_advance = self.n_prediction_time_steps)
-        predicted_state.long_acc = local_long_accs[ \
-            self.simulation.state.i_time_step + self.n_prediction_time_steps]
+        self.add_action_to_acc_array(
+                local_long_accs, i_action, self.simulation.state.i_time_step)
+        predicted_state = self.get_future_kinematic_state(
+                local_long_accs, yaw_rate = 0, 
+                n_time_steps_to_advance = self.n_prediction_time_steps)
+        predicted_state.long_acc = local_long_accs[
+                self.simulation.state.i_time_step + self.n_prediction_time_steps]
         return predicted_state
 
 
@@ -493,9 +500,9 @@ class SCAgent(commotions.AgentWithGoal):
         else:
             # let the other agent object calculate what its predicted state would
             # be with this acceleration 
-            predicted_state = self.other_agent.get_future_kinematic_state(\
-                long_acc_for_this_beh, yaw_rate = 0, \
-                n_time_steps_to_advance = self.n_prediction_time_steps)
+            predicted_state = self.other_agent.get_future_kinematic_state(
+                    long_acc_for_this_beh, yaw_rate = 0, 
+                    n_time_steps_to_advance = self.n_prediction_time_steps)
             predicted_state.long_acc = long_acc_for_this_beh
         return predicted_state
         
@@ -511,21 +518,23 @@ class SCAgent(commotions.AgentWithGoal):
                 self.states.beh_long_accs[i_beh, i_prev_time_step]
             # let the other agent object calculate what its predicted state at the 
             # current time step would be with this acceleration     
-            expected_curr_state = self.other_agent.get_future_kinematic_state(\
-                prev_long_acc_for_this_beh, yaw_rate = 0, \
-                n_time_steps_to_advance = 1, i_start_time_step = i_prev_time_step)
+            expected_curr_state = self.other_agent.get_future_kinematic_state(
+                    prev_long_acc_for_this_beh, yaw_rate = 0, 
+                    n_time_steps_to_advance = 1, 
+                    i_start_time_step = i_prev_time_step)
             # get the distance between expected and observed position
-            pos_diff = np.linalg.norm(expected_curr_state.pos \
-                - self.other_agent.get_current_kinematic_state().pos)
+            pos_diff = np.linalg.norm(
+                    expected_curr_state.pos 
+                    - self.other_agent.get_current_kinematic_state().pos)
             # return the probability density for this observed difference
             prob_density = norm.pdf(pos_diff, scale = self.params.sigma_ao)
         return max(prob_density, np.finfo(float).eps) # don't return zero probability
         
 
 
-    def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, \
-        optional_assumptions = get_assumptions_dict(False), \
-        params = None, params_k = None, plot_color = 'k'):
+    def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
+                 optional_assumptions = get_assumptions_dict(False), 
+                 params = None, params_k = None, plot_color = 'k'):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -584,32 +593,33 @@ class SCAgent(commotions.AgentWithGoal):
 
 class SCSimulation(commotions.Simulation):
 
-    def __init__(self, ctrl_types, goal_positions, initial_positions, \
-        initial_speeds = np.array((0, 0)), \
-        start_time = 0, end_time = 10, time_step = 0.1, \
-        optional_assumptions = get_assumptions_dict(False), \
-        params = None, params_k = None, \
-        agent_names = ('A', 'B'), plot_colors = ('c', 'm')):
+    def __init__(self, ctrl_types, goal_positions, initial_positions, 
+                 initial_speeds = np.array((0, 0)), 
+                 start_time = 0, end_time = 10, time_step = 0.1, 
+                 optional_assumptions = get_assumptions_dict(False), 
+                 params = None, params_k = None, 
+                 agent_names = ('A', 'B'), plot_colors = ('c', 'm')):
 
         super().__init__(start_time, end_time, time_step)
        
         for i_agent in range(N_AGENTS):
-            initial_state = commotions.KinematicState(\
-                pos = initial_positions[i_agent,:], \
-                long_speed = initial_speeds[i_agent], yaw_angle = None)
-            SCAgent(name = agent_names[i_agent], \
-                ctrl_type = ctrl_types[i_agent], 
-                simulation = self, \
-                goal_pos = goal_positions[i_agent, :], \
-                initial_state = initial_state, \
-                optional_assumptions = optional_assumptions, \
-                params = params, params_k = params_k, \
-                plot_color = plot_colors[i_agent])
+            initial_state = commotions.KinematicState(
+                    pos = initial_positions[i_agent,:], 
+                    long_speed = initial_speeds[i_agent], yaw_angle = None)
+            SCAgent(name = agent_names[i_agent], 
+                    ctrl_type = ctrl_types[i_agent], 
+                    simulation = self, 
+                    goal_pos = goal_positions[i_agent, :], 
+                    initial_state = initial_state, 
+                    optional_assumptions = optional_assumptions, 
+                    params = params, params_k = params_k, 
+                    plot_color = plot_colors[i_agent])
 
-    def do_plots(self, trajs = False, action_vals = False, action_probs = False, \
-        action_val_ests = False, surplus_action_vals = False, \
-        beh_activs = False, beh_accs = False, beh_probs = False, \
-        sensory_prob_dens = False, kinem_states = False, times_to_ca = False):
+    def do_plots(self, trajs = False, action_vals = False, action_probs = False, 
+                 action_val_ests = False, surplus_action_vals = False, 
+                 beh_activs = False, beh_accs = False, beh_probs = False, 
+                 sensory_prob_dens = False, kinem_states = False, 
+                 times_to_ca = False):
 
         if trajs:
             # plot trajectories
@@ -622,26 +632,33 @@ class SCSimulation(commotions.Simulation):
         if action_vals:
             # - action values given behaviors
             plt.figure('Action values given behaviours', figsize = (10.0, 10.0))
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
-                    plt.ylim(-2, 2)
+                    plt.subplot(N_ACTIONS, N_AGENTS, \
+                                i_action * N_AGENTS +  i_agent + 1)
+                    plt.ylim(-2, 5)
                     for i_beh in range(N_BEHAVIORS):
-                        plt.plot(self.time_stamps, agent.states.action_vals_given_behs[i_action, i_beh, :])
+                        plt.plot(self.time_stamps, \
+                                 agent.states.action_vals_given_behs[i_action, 
+                                                                     i_beh, :])
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
                         if i_agent == 1:
                             plt.legend(BEHAVIORS)
                     if i_agent == 0:
-                        plt.ylabel('$V(\\Delta v=%.1f | b)$' % deltav)
+                        plt.ylabel('$V(%.1f | b)$' % deltav)
 
         if action_probs:
             # - action probabilities
             plt.figure('Action probabilities', figsize = (10.0, 10.0))
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
-                    plt.plot(self.time_stamps, agent.states.action_probs[i_action, :])
+                    plt.subplot(N_ACTIONS, N_AGENTS, \
+                                i_action * N_AGENTS + i_agent + 1)
+                    plt.plot(self.time_stamps, 
+                             agent.states.action_probs[i_action, :])
                     plt.ylim(-.1, 1.1)
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
@@ -651,11 +668,15 @@ class SCSimulation(commotions.Simulation):
         if action_val_ests:
             # - momentary and accumulative estimates of action values
             plt.figure('Action value estimates', figsize = (10.0, 10.0))
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
-                    plt.plot(self.time_stamps, agent.states.mom_action_vals[i_action, :])
-                    plt.plot(self.time_stamps, agent.states.est_action_vals[i_action, :])
+                    plt.subplot(N_ACTIONS, N_AGENTS, 
+                                i_action * N_AGENTS + i_agent + 1)
+                    plt.plot(self.time_stamps, 
+                             agent.states.mom_action_vals[i_action, :])
+                    plt.plot(self.time_stamps, 
+                             agent.states.est_action_vals[i_action, :])
                     plt.ylim(-2, 2)
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
@@ -666,84 +687,115 @@ class SCSimulation(commotions.Simulation):
 
         if surplus_action_vals:
             # - surplus action values
-            plt.figure('Surplus action value estimates', figsize = (10.0, 10.0))
+            plt.figure('Surplus action value estimates', figsize = (6, 5))
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS +  i_agent + 1)
-                    plt.plot(self.time_stamps, agent.states.est_action_surplus_vals[i_action, :])
-                    plt.plot([self.time_stamps[0], self.time_stamps[-1]], \
-                        [agent.params.DeltaV_th, agent.params.DeltaV_th] , color = 'gray')
+                    plt.subplot(N_ACTIONS, N_AGENTS, 
+                                i_action * N_AGENTS + i_agent + 1)
+                    plt.plot(self.time_stamps, 
+                             agent.states.est_action_surplus_vals[i_action, :])
+                    plt.plot([self.time_stamps[0], self.time_stamps[-1]], 
+                        [agent.params.DeltaV_th, agent.params.DeltaV_th] , 
+                        color = 'gray')
                     plt.ylim(-.5, .3)
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
                     if i_agent == 0:
-                        plt.ylabel('$\\Delta V(\\Delta v=%.1f)$' % deltav)
+                        plt.ylabel('$\\Delta V(%.1f)$' % deltav)
 
         if beh_activs:
             # - behavior activations
-            plt.figure('Behaviour activations')
             for i_agent, agent in enumerate(self.agents):
+                plt.figure('Behaviour activations - Agent %s (observing %s)' %
+                           (agent.name, agent.other_agent.name), 
+                           figsize = [7, 7])
+                plt.clf()
                 for i_beh in range(N_BEHAVIORS):
-                    plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-                    plt.plot(self.time_stamps, agent.states.beh_activ_V[i_beh, :])
+                    # action observation contribution
+                    plt.subplot(N_ACTIONS+1, N_BEHAVIORS, i_beh + 1)
                     plt.plot(self.time_stamps, agent.states.beh_activ_O[i_beh, :])
-                    plt.plot(self.time_stamps, agent.states.beh_activations[i_beh, :])
-                    plt.ylim(-.1, 3)
-                    if i_beh == 0:
-                        plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
-                        if i_agent == 1:
-                            plt.legend(('$^G A$', '$^K A$', '$A$'))
-                    if i_agent == 0:
-                        plt.ylabel('$A(%s)$' % BEHAVIORS[i_beh])
+                    plt.title(BEHAVIORS[i_beh])
+                    if i_beh == N_BEHAVIORS-1:
+                        plt.legend(('$A_{O,b}$',))
+                    # value contribution and total activation - both per action
+                    for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                        plt.subplot(N_ACTIONS+1, N_BEHAVIORS, 
+                                    (i_action+1) * N_BEHAVIORS + i_beh + 1)
+                        plt.plot(self.time_stamps, 
+                                 agent.states.beh_activ_V_given_actions[
+                                         i_beh, i_action,  :])
+                        plt.plot(self.time_stamps, 
+                                 agent.states.beh_activations_given_actions[
+                                         i_beh, i_action, :])
+                        plt.ylim(-2, 5)
+                        if i_beh == N_BEHAVIORS-1 and i_action == 0:
+                            plt.legend(('$A_{V,b|a}$', '$A_{b|a}$'))
+                        if i_beh == 0:
+                            plt.ylabel('$\\Delta v=%.1f$' % deltav)
 
         if beh_accs:
             # - expected vs observed accelerations for behaviors
-            plt.figure('Expected vs observed accelerations for behaviors', figsize = (10.0, 10.0))
+            plt.figure('Expected vs observed accelerations for behaviors', 
+                       figsize = (10.0, 10.0))
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_beh in range(N_BEHAVIORS):
-                    plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-                    plt.plot(self.time_stamps, agent.states.beh_long_accs[i_beh, :], \
+                    plt.subplot(N_BEHAVIORS, N_AGENTS, 
+                                i_beh * N_AGENTS + i_agent + 1)
+                    plt.plot(self.time_stamps, agent.states.beh_long_accs[i_beh, :], 
                         '--', color = 'gray', linewidth = 2)
                     plt.plot(self.time_stamps, agent.other_agent.trajectory.long_acc)
                     plt.ylim(-4, 4)
                     if i_beh == 0:
-                        plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
+                        plt.title('Agent %s (observing %s)' % 
+                                  (agent.name, agent.other_agent.name))
                         if i_agent == 1:
                             plt.legend(('expected', 'observed'))
                     if i_agent == 0:
                         plt.ylabel('%s a (m/s^2)' % BEHAVIORS[i_beh])
 
         if beh_probs:
-        # - behavior probabilities
-            plt.figure('Behaviour probabilities')
+            # - behavior probabilities
+            plt.figure('Behaviour probabilities', figsize = [8, 7])
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_beh in range(N_BEHAVIORS):
-                    # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-                    plt.subplot(1, N_AGENTS, i_agent + 1)
-                    plt.plot(self.time_stamps, agent.states.beh_probs[i_beh, :])
-                    plt.ylim(-.1, 1.1)
-                    plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
-                if i_agent == 0:
-                    plt.ylabel('P (-)')
-                else:
-                    plt.legend(BEHAVIORS)
+                for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                    plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
+                    for i_beh in range(N_BEHAVIORS):
+                        # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
+                        plt.plot(self.time_stamps, 
+                                 agent.states.beh_probs_given_actions[
+                                         i_beh, i_action, :])
+                        plt.ylim(-.1, 1.1)
+                        if i_action == 0:
+                            plt.title('Agent %s (observing %s)' % 
+                                      (agent.name, agent.other_agent.name))
+                    if i_agent == 0:
+                        plt.ylabel('$P_{b|\\Delta v=%.1f}$ (-)' % deltav)
+                    elif i_action == 0:
+                        plt.legend(BEHAVIORS)
                     
         if sensory_prob_dens:
             # - sensory probability densities
             plt.figure('Sensory probability densities')
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_beh in range(N_BEHAVIORS):
-                    plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
+                    plt.subplot(N_BEHAVIORS, N_AGENTS, 
+                                i_beh * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, \
                         np.log(agent.states.sensory_probs_given_behs[i_beh, :]))
                     if i_beh == 0:
-                        plt.title('Agent %s (observing %s)' % (agent.name, agent.other_agent.name))
+                        plt.title('Agent %s (observing %s)' %
+                                  (agent.name, agent.other_agent.name))
                     if i_agent == 0:
                         plt.ylabel('$log p(O|%s)$' % BEHAVIORS[i_beh])    
 
         if kinem_states:
             # - kinematic/action states
             plt.figure('Kinematic and action states')
+            plt.clf()
             """             N_PLOTROWS = 3
             for i_agent, agent in enumerate(self.agents):
                 # position
@@ -770,11 +822,13 @@ class SCSimulation(commotions.Simulation):
             for i_agent, agent in enumerate(self.agents):
                 # acceleration
                 plt.subplot(N_PLOTROWS, 1, 1)
-                plt.plot(self.time_stamps, agent.trajectory.long_acc, '-' + agent.plot_color)
+                plt.plot(self.time_stamps, agent.trajectory.long_acc, 
+                         '-' + agent.plot_color)
                 plt.ylabel('a (m/s^2)') 
                 # speed
                 plt.subplot(N_PLOTROWS, 1, 2)
-                plt.plot(self.time_stamps, agent.trajectory.long_speed, '-' + agent.plot_color)
+                plt.plot(self.time_stamps, agent.trajectory.long_speed, 
+                         '-' + agent.plot_color)
                 plt.ylabel('v (m/s)') 
                 # distance to conflict point
                 plt.subplot(N_PLOTROWS, 1, 3)
@@ -789,12 +843,15 @@ class SCSimulation(commotions.Simulation):
                 plt.ylabel('$d_{CP}$ (m)') 
             # distance to other agent
             plt.subplot(N_PLOTROWS, 1, 4)
-            agent_dist_vectors = self.agents[1].trajectory.pos - self.agents[0].trajectory.pos
+            agent_dist_vectors = (self.agents[1].trajectory.pos 
+                - self.agents[0].trajectory.pos)
             agent_distances = np.linalg.norm(agent_dist_vectors, axis = 0)
             plt.plot(self.time_stamps, agent_distances, 'k-')
             colliding_time_stamps = agent_distances < SHARED_PARAMS.d_C
-            plt.plot(self.time_stamps[colliding_time_stamps], agent_distances[colliding_time_stamps], 'r-')
-            plt.plot(self.time_stamps[[0, -1]], SHARED_PARAMS.d_C * np.array((1, 1)), 'r--')
+            plt.plot(self.time_stamps[colliding_time_stamps], 
+                     agent_distances[colliding_time_stamps], 'r-')
+            plt.plot(self.time_stamps[[0, -1]], 
+                     SHARED_PARAMS.d_C * np.array((1, 1)), 'r--')
             plt.ylim(-1, 10)
             plt.ylabel('$d$ (m)')
             plt.xlabel('t (s)')      
@@ -803,6 +860,7 @@ class SCSimulation(commotions.Simulation):
         if times_to_ca:
             # - time left to conflict area entry/exit
             plt.figure('Time left to conflict area')
+            plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 plt.subplot(1, N_AGENTS, i_agent + 1)
                 plt.plot(self.time_stamps, agent.states.time_left_to_CA_entry)
@@ -822,19 +880,21 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [45, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
-    optional_assumptions = get_assumptions_dict(default_value = False, \
-        oBEao = False, oEA = True, oAN = True)  
+    optional_assumptions = get_assumptions_dict(
+            default_value = False, oBEao = False, oBEvs = True, oEA = True, oAN = False)  
 
-    sc_simulation = SCSimulation(CTRL_TYPES, GOALS, INITIAL_POSITIONS, \
-        initial_speeds = SPEEDS, end_time = 15, \
-        optional_assumptions = optional_assumptions)
+    sc_simulation = SCSimulation(
+            CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
+            end_time = 15, optional_assumptions = optional_assumptions,
+            agent_names = ('P', 'V'))
     sc_simulation.run()
-    sc_simulation.do_plots(trajs = True, surplus_action_vals = True, \
-        kinem_states = True, beh_accs = True, beh_probs = True, \
-        action_vals = True, sensory_prob_dens = True, beh_activs = True)
+    sc_simulation.do_plots(
+            trajs = False, surplus_action_vals = True, kinem_states = True, 
+            beh_accs = True, beh_probs = True, action_vals = True, 
+            sensory_prob_dens = False, beh_activs = True)
 
 
 
