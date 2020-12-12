@@ -2,18 +2,18 @@ import warnings
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
+#import matplotlib
 import scipy.special
 from scipy.stats import norm
 import copy
-import commotions
 from enum import Enum
+
+import commotions
+import sc_scenario_helper
+from sc_scenario_helper import CtrlType
 
 #matplotlib.use('qt4agg')
 
-class CtrlType(Enum):
-    SPEED = 0
-    ACCELERATION = 1
 
 class OptionalAssumption(Enum):
     oEA = 'oEA'
