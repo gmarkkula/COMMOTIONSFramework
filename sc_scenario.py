@@ -44,11 +44,20 @@ class DerivedAssumption(Enum):
 N_AGENTS = 2 # this implementation supports only 2
 
 
-BEHAVIORS = ('const.', 'proc.', 'yield')
+BEHAVIORS = ('Const.', 'Pass 1st', 'Pass 2nd')
 N_BEHAVIORS = len(BEHAVIORS)
 i_CONSTANT = 0
-i_PROCEEDING = 1
-i_YIELDING = 2
+i_PASS1ST = 1
+i_PASS2ND = 2
+
+# =============================================================================
+# BEHAVIORS = ('const.', 'proc.', 'yield')
+# N_BEHAVIORS = len(BEHAVIORS)
+# i_CONSTANT = 0
+# i_PROCEEDING = 1
+# i_YIELDING = 2
+# =============================================================================
+
 MIN_ADAPT_ACC = -10 # m/s^2
 
 DEFAULT_PARAMS = commotions.Parameters()
@@ -217,36 +226,59 @@ class SCAgent(commotions.AgentWithGoal):
 
         # calculate the accelerations needed for the different behaviors of the 
         # other agent, as of the current time 
-        # - prepare vector for noting if one of the behaviours is invalid for this time step
-        beh_is_valid = np.full((N_BEHAVIORS,), True)
-        # - get the current state of the other agent
-        oth_state = self.other_agent.get_current_kinematic_state()
         # - constant behavior
         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0
-        # - proceeding behavior 
-        if self.other_agent.ctrl_type is CtrlType.SPEED:
-            # assuming straight acc to free speed
-            self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
-                (self.oth_v_free - oth_state.long_speed) / self.params.DeltaT
-        else:
-            # calculate the expected acceleration given the current deviation
-            # from the free speed (see hand written notes from 2020-07-08)
-            dev_from_v_free = oth_state.long_speed - self.oth_v_free
-            self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
-                - self.oth_k._dv * dev_from_v_free * self.params.T_P \
-                / (0.5 * self.oth_k._dv * self.params.T_P ** 2 \
-                + 2 * self.oth_k._da)
-
-        # - yielding behavior 
-        oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
-        oth_signed_dist_to_CA_entry = \
-            oth_signed_dist_to_confl_pt - SHARED_PARAMS.d_C
-        if oth_signed_dist_to_CA_entry > 0:
-            self.states.beh_long_accs[i_YIELDING, i_time_step] = \
-                - oth_state.long_speed ** 2 / (2 * oth_signed_dist_to_CA_entry) 
-        else:
-            self.states.beh_long_accs[i_YIELDING, i_time_step] = math.nan
-            beh_is_valid[i_YIELDING] = False
+        # - get current state of the other agent
+        oth_state = self.other_agent.get_current_kinematic_state()
+        oth_signed_dist_to_confl_pt = \
+            self.get_signed_dist_to_conflict_pt(oth_state)
+        # - use helper function to get other agent's expected accelerations to
+        #   pass in front of or behind me, given my current position and speed
+        (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
+         self.states.beh_long_accs[i_PASS2ND, i_time_step]) = \
+             sc_scenario_helper.get_access_order_accs(
+                     self.other_agent.ctrl_type, self.other_agent.params.DeltaT,
+                     self.oth_k, self.oth_v_free, 
+                     oth_signed_dist_to_confl_pt, oth_state.long_speed, 
+                     signed_dist_to_confl_pt, curr_state.long_speed, 
+                     SHARED_PARAMS.d_C)
+        # the helper function above returns nan if behaviour is invalid for 
+        # this time step
+        beh_is_valid = np.invert(np.isnan(
+                self.states.beh_long_accs[:, i_time_step]))
+        
+# =============================================================================
+#         # - prepare vector for noting if one of the behaviours is invalid for this time step
+#         beh_is_valid = np.full((N_BEHAVIORS,), True)
+#         # - get the current state of the other agent
+#         oth_state = self.other_agent.get_current_kinematic_state()
+#         # - constant behavior
+#         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0
+#         # - proceeding behavior 
+#         if self.other_agent.ctrl_type is CtrlType.SPEED:
+#             # assuming straight acc to free speed
+#             self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
+#                 (self.oth_v_free - oth_state.long_speed) / self.params.DeltaT
+#         else:
+#             # calculate the expected acceleration given the current deviation
+#             # from the free speed (see hand written notes from 2020-07-08)
+#             dev_from_v_free = oth_state.long_speed - self.oth_v_free
+#             self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
+#                 - self.oth_k._dv * dev_from_v_free * self.params.T_P \
+#                 / (0.5 * self.oth_k._dv * self.params.T_P ** 2 \
+#                 + 2 * self.oth_k._da)
+# 
+#         # - yielding behavior 
+#         oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
+#         oth_signed_dist_to_CA_entry = \
+#             oth_signed_dist_to_confl_pt - SHARED_PARAMS.d_C
+#         if oth_signed_dist_to_CA_entry > 0:
+#             self.states.beh_long_accs[i_YIELDING, i_time_step] = \
+#                 - oth_state.long_speed ** 2 / (2 * oth_signed_dist_to_CA_entry) 
+#         else:
+#             self.states.beh_long_accs[i_YIELDING, i_time_step] = math.nan
+#             beh_is_valid[i_YIELDING] = False
+# =============================================================================
         
         """
         use_stop_acc = False
@@ -884,7 +916,7 @@ if __name__ == "__main__":
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     optional_assumptions = get_assumptions_dict(
-            default_value = False, oBEao = False, oBEvs = True, oEA = True, oAN = False)  
+            default_value = False, oBEao = True, oBEvs = True, oEA = True, oAN = False)  
 
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 

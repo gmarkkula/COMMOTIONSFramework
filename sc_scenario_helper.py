@@ -1,6 +1,7 @@
-
+import warnings
 import math
 from enum import Enum
+import numpy as np
 
 import commotions
 
@@ -11,13 +12,16 @@ class CtrlType(Enum):
     ACCELERATION = 1
 
 
+warnings.warn('Currently removing target_dist > 0 requirement from '
+             'get_acc_to_be_at_dist_at_time - needed because of current slight '
+             'incompatibility between definitions of collision course.')
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time):
     """ Return acceleration required to travel a further distance target_dist
         in time target_time if starting at speed speed. Handle infinite
         target_time by returning machine epsilon with correct sign.
     """
-    
-    assert target_time > 0    
+        
+    #assert target_time > 0    
     
     # time horizon finite or not?
     if target_time == math.inf:
@@ -68,20 +72,35 @@ def get_entry_exit_times(d, v, coll_dist):
 
 def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
                           ego_d, ego_v, oth_d, oth_v, coll_dist):
-    """ Return a tuple (acc_1st, acc_2nd) of minimally effortful accelerations 
+    """ Return a tuple (acc_1st, acc_2nd) of expected accelerations 
         for the ego agent of CtrlType ego_ctrl_type with action duration 
         ego_action_dur and cost function gains ego_k, igned distance ego_d to 
-        conflict point (positive sign 
-        meaning not having reached conflict 
+        conflict point (positive sign meaning not having reached conflict 
         point yet), speed ego_v, and free speed ego_v_free, to pass 
         respectively before or after, respecting collision distance coll_dist, 
         the other agent described by oth_d and oth_v, assumed to maintain 
-        zero acceleration from the current time. If the ego agent has already 
-        exited the conflict space, both outputs will be math.nan. If the other 
-        agent has already entered the conflict space, acc_1st will be math.nan.
+        zero acceleration from the current time. 
+        
+        More specifically, "expected accelerations" above means:
+        
+        * Accelerations for passing first: Either just normal acceleration 
+          toward free speed if this is enough, otherwise the acceleration
+          needed to exit the conflict space just as the other agent enters it.
+        
+        * Accelerations for passing second: Either just normal acceleration
+          toward free speed if this is enough, otherwise the acceleration
+          needed to just enter the conflict space as the other agent exits it, 
+          if possible, otherwise the acceleration needed to stop just at the
+          entrance to the conflict space (to wait there until the other
+          agent passes).
+        
+        If the ego agent has already exited the conflict space, both outputs 
+        will be math.nan. If the other agent has already entered the conflict 
+        space, acc_1st will be math.nan.
     """
-    # not supporting special cases with negative initial speeds
-    assert ego_v >= 0 and oth_v >= 0
+    # not supporting special cases with negative initial speeds (but allowing 
+    # some minor imprecision in reaching zero speeds)
+    assert ego_v > -0.01 and oth_v > -0.01
     
     # has the ego agent already exited the conflict space?
     if ego_d <= -coll_dist:
@@ -89,7 +108,8 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
         return (math.nan, math.nan)
     
     # get other agent's entry/exit times into to the conflict space
-    (oth_entry_time, oth_exit_time) = get_entry_exit_times(oth_d, oth_v, coll_dist)
+    (oth_entry_time, oth_exit_time) = \
+        get_entry_exit_times(oth_d, oth_v, coll_dist)
     
     # get ego agent's acceleration if just aiming for free speed
     if ego_ctrl_type is CtrlType.SPEED:
