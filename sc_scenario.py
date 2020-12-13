@@ -656,6 +656,7 @@ class SCSimulation(commotions.Simulation):
         if trajs:
             # plot trajectories
             plt.figure('Trajectories')
+            plt.clf()
             self.plot_trajectories()
             plt.legend()
 
@@ -924,7 +925,7 @@ if __name__ == "__main__":
             agent_names = ('P', 'V'))
     sc_simulation.run()
     sc_simulation.do_plots(
-            trajs = False, surplus_action_vals = True, kinem_states = True, 
+            trajs = True, surplus_action_vals = True, kinem_states = True, 
             beh_accs = True, beh_probs = True, action_vals = True, 
             sensory_prob_dens = False, beh_activs = True)
 
