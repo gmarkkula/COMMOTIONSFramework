@@ -172,14 +172,25 @@ class SCAgent(commotions.AgentWithGoal):
 
     def get_signed_dist_to_conflict_pt(self, state):
         """Get the signed distance from the specified agent state to the conflict
-        point. Positive sign means that the agent is on its way toward the conflict
-        point. Does not take speed into account - i.e. does not check for backward
-        traveling."""
+        point. Positive sign means that the agent has its front toward the conflict
+        point. (Which will typically mean that it is on its way toward the 
+        conflict point - however this function does not check for backward
+        travelling.)
+        """
         vect_to_conflict_point = \
             self.simulation.conflict_point - state.pos
         heading_vect = \
             np.array((math.cos(state.yaw_angle), math.sin(state.yaw_angle)))
         return np.dot(heading_vect, vect_to_conflict_point)
+
+    
+    def prepare_for_action_update(self):
+        """ Override the base class method with some per-timestep 
+            precalculation
+        """
+        self.curr_state = self.get_current_kinematic_state()
+        self.curr_signed_CP_dist = self.get_signed_dist_to_conflict_pt(
+                self.curr_state)
 
 
     def do_action_update(self):
@@ -191,19 +202,19 @@ class SCAgent(commotions.AgentWithGoal):
 
         # if agent can't reverse and is now at zero speed, make sure that any
         # future negative accelerations from past actions are cleared
-        curr_state = self.get_current_kinematic_state()
-        if not self.can_reverse and curr_state.long_speed == 0:
+        if not self.can_reverse and self.curr_state.long_speed == 0:
             self.action_long_accs[i_time_step:] = \
                 np.maximum(0, self.action_long_accs[i_time_step:] )
 
         # calculate my own current projected time until entering and
         # exiting the conflict area
-        proj_long_speeds = curr_state.long_speed \
+        # TODO: These values aren't really used for anything now - so maybe 
+        # remove these calculations?
+        proj_long_speeds = self.curr_state.long_speed \
             + np.cumsum(self.action_long_accs[i_time_step:] * time_step)
         if not self.can_reverse:
             proj_long_speeds = np.maximum(0, proj_long_speeds)
-        signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(curr_state)
-        proj_signed_dist_to_CP = signed_dist_to_confl_pt \
+        proj_signed_dist_to_CP = self.curr_signed_CP_dist \
             - np.cumsum(proj_long_speeds * time_step)
         # - entry
         i_time_steps_entered = \
@@ -227,11 +238,7 @@ class SCAgent(commotions.AgentWithGoal):
         # calculate the accelerations needed for the different behaviors of the 
         # other agent, as of the current time 
         # - constant behavior
-        self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0
-        # - get current state of the other agent
-        oth_state = self.other_agent.get_current_kinematic_state()
-        oth_signed_dist_to_confl_pt = \
-            self.get_signed_dist_to_conflict_pt(oth_state)
+        self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0          
         # - use helper function to get other agent's expected accelerations to
         #   pass in front of or behind me, given my current position and speed
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
@@ -239,8 +246,9 @@ class SCAgent(commotions.AgentWithGoal):
              sc_scenario_helper.get_access_order_accs(
                      self.other_agent.ctrl_type, self.other_agent.params.DeltaT,
                      self.oth_k, self.oth_v_free, 
-                     oth_signed_dist_to_confl_pt, oth_state.long_speed, 
-                     signed_dist_to_confl_pt, curr_state.long_speed, 
+                     self.other_agent.curr_signed_CP_dist, 
+                     self.other_agent.curr_state.long_speed, 
+                     self.curr_signed_CP_dist, self.curr_state.long_speed, 
                      SHARED_PARAMS.d_C)
         # the helper function above returns nan if behaviour is invalid for 
         # this time step
