@@ -165,9 +165,10 @@ class SCAgent(commotions.AgentWithGoal):
         # been done
         if not hasattr(self.simulation, 'conflict_point'):
             self.simulation.conflict_point = \
-                commotions.get_intersection_of_lines(\
-                    self.get_current_kinematic_state().pos, self.goal, \
-                    self.other_agent.get_current_kinematic_state().pos, self.other_agent.goal)
+                commotions.get_intersection_of_lines(
+                    self.get_current_kinematic_state().pos, self.goal, 
+                    self.other_agent.get_current_kinematic_state().pos, 
+                    self.other_agent.goal)
 
 
     def get_signed_dist_to_conflict_pt(self, state):
@@ -186,11 +187,14 @@ class SCAgent(commotions.AgentWithGoal):
     
     def prepare_for_action_update(self):
         """ Override the base class method with some per-timestep 
-            precalculation
+            precalculation - done here so that both agents can access these
+            for both agents in do_action_update().
         """
         self.curr_state = self.get_current_kinematic_state()
-        self.curr_signed_CP_dist = self.get_signed_dist_to_conflict_pt(
+        self.curr_state.signed_CP_dist = self.get_signed_dist_to_conflict_pt(
                 self.curr_state)
+        self.curr_state = sc_scenario_helper.add_entry_exit_times_to_state(
+                self.curr_state, SHARED_PARAMS.d_C)
 
 
     def do_action_update(self):
@@ -214,7 +218,7 @@ class SCAgent(commotions.AgentWithGoal):
             + np.cumsum(self.action_long_accs[i_time_step:] * time_step)
         if not self.can_reverse:
             proj_long_speeds = np.maximum(0, proj_long_speeds)
-        proj_signed_dist_to_CP = self.curr_signed_CP_dist \
+        proj_signed_dist_to_CP = self.curr_state.signed_CP_dist \
             - np.cumsum(proj_long_speeds * time_step)
         # - entry
         i_time_steps_entered = \
@@ -246,9 +250,7 @@ class SCAgent(commotions.AgentWithGoal):
              sc_scenario_helper.get_access_order_accs(
                      self.other_agent.ctrl_type, self.other_agent.params.DeltaT,
                      self.oth_k, self.oth_v_free, 
-                     self.other_agent.curr_signed_CP_dist, 
-                     self.other_agent.curr_state.long_speed, 
-                     self.curr_signed_CP_dist, self.curr_state.long_speed, 
+                     self.other_agent.curr_state, self.curr_state, 
                      SHARED_PARAMS.d_C)
         # the helper function above returns nan if behaviour is invalid for 
         # this time step
