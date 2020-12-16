@@ -7,6 +7,8 @@ import commotions
 
 EPSILON = np.finfo(float).eps
 
+SMALL_NEG_SPEED = -0.01 # m/s - used as threshold for functions that don't accept negative speeds - but to allow minor speed imprecisions at stopping
+
 class CtrlType(Enum):
     SPEED = 0
     ACCELERATION = 1
@@ -57,13 +59,16 @@ def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time):
         
 
 def get_entry_exit_times(state, coll_dist):
-    """ Return tuple of entry and exit times into conflict zone defined by 
+    """ Return tuple of times left to entry and exit  into conflict zone defined by 
         +/-coll_dist around conflict point, for agent currently at distance 
         state.signed_CP_dist to conflict point and travelling toward it at 
         speed state.long_speed. Returning inf for zero speeds, but not 
         checking for negative distances or speeds.
     """
-    if state.long_speed == 0:
+    # only supporting positive speeds
+    assert state.long_speed > SMALL_NEG_SPEED
+    # is the agent moving?
+    if state.long_speed <= 0:
         return (math.inf, math.inf)
     else:
         entry_time = (state.signed_CP_dist - coll_dist) / state.long_speed
@@ -107,7 +112,8 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
     """
     # not supporting special cases with negative initial speeds (but allowing 
     # some minor imprecision in reaching zero speeds)
-    assert ego_state.long_speed > -0.01 and oth_state.long_speed > -0.01
+    assert (ego_state.long_speed > SMALL_NEG_SPEED
+            and oth_state.long_speed > SMALL_NEG_SPEED)
     
     # has the ego agent already exited the conflict space?
     if ego_state.signed_CP_dist <= -coll_dist:
@@ -166,6 +172,51 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
     
     return (ego_acc_1st, ego_acc_2nd)
         
+
+def get_time_to_sc_agent_collision(state1, state2):
+    """ Return the time left until the two agents with states state1 and state2
+        (used attributes CS_entry/exit_time) are within the conflict space at
+        the same time, or math.inf if this is not projected to happen, or zero
+        if it is already happening.   
+    """
+    # has at least one of the agents already left the CS?
+    if state1.CS_exit_time < 0 or state2.CS_exit_time < 0:
+        # yes - so no collision projected
+        return math.inf
+    # no, so both agents' exits are in future - are both agents' entries in past?
+    if state1.CS_entry_time < 0 and state2.CS_entry_time < 0:
+        # yes - so collision is ongoing
+        return 0
+    # no collision yet, so check who enters first
+    if state1.CS_entry_time <= state2.CS_entry_time:
+        # agent 1 entering CS first, is it staying long enough for agent 2 to enter
+        if state1.CS_exit_time >= state2.CS_entry_time:
+            # collision occurs when agent 2 enters CS - we know this is positive
+            # (in future) since at least one of the entry times is positive and
+            # agent 2's entry time is the larger one
+            return state2.CS_entry_time
+    else:
+        # agent 2 entering first, so same logic as above but reversed
+        if state2.CS_exit_time >= state1.CS_entry_time:
+            return state1.CS_entry_time
+    # no future overlap in CS occupancy detected - i.e., no collision projected
+    return math.inf
+
+
+def get_sc_agent_collision_margins(ag1_ds, ag2_ds, coll_dist):
+    """
+    Return the distance margins between agents at signed distances from conflict
+    point ag1_ds and ag2_ds (can be numpy arrays), given the collision distance 
+    coll_dist.
+    """
+    ag1_margins_to_CS = np.abs(ag1_ds) - coll_dist
+    ag2_margins_to_CS = np.abs(ag2_ds) - coll_dist
+    ag1_in_CS = ag1_margins_to_CS < 0
+    ag2_in_CS = ag2_margins_to_CS < 0
+    collision_margins = (np.maximum(ag1_margins_to_CS, 0)
+                         + np.maximum(ag2_margins_to_CS, 0))
+    collision_idxs = np.nonzero(np.logical_and(ag1_in_CS, ag2_in_CS))[0]
+    return (collision_margins, collision_idxs)
         
 
 # "unit tests"
@@ -177,105 +228,203 @@ if __name__ == "__main__":
     
     plt.close('all')
     
+    TEST_ACCESS_ORDER_ACCS = False
+    TEST_TTCS = True
 
 # =============================================================================
 #   Testing get_access_order_accs()
 # =============================================================================
+    
+    if TEST_ACCESS_ORDER_ACCS:
+    
+        # defining the tests
+        TESTS = ('Stationary ped., moving veh.', 'Moving ped., moving veh.', 
+                 'Stationary veh., moving ped.', 'Moving veh., moving ped.', 
+                 'Moving veh., stationary ped.', 'Stationary veh., stationary ped.')
+        N_TESTS = len(TESTS)
+        EGO_CTRL_TYPES = (CtrlType.SPEED, CtrlType.SPEED, CtrlType.ACCELERATION, 
+                          CtrlType.ACCELERATION, CtrlType.ACCELERATION, 
+                          CtrlType.ACCELERATION)
+        EGO_VS = (0, 1.5, 0, 10, 10, 0)
+        OTH_VS = (10, 10, 1.5, 1.5, 0, 0)
+        
+        # constants depending on ego agent control type
+        EGO_D_MAX = {}
+        EGO_D_MAX[CtrlType.SPEED] = 40
+        EGO_D_MAX[CtrlType.ACCELERATION] = 100
+        EGO_V_FREE = {}
+        EGO_V_FREE[CtrlType.SPEED] = 1.5
+        EGO_V_FREE[CtrlType.ACCELERATION] = 10
+        EGO_K = {}
+        EGO_K[CtrlType.SPEED] = commotions.Parameters() # not used
+        EGO_K[CtrlType.ACCELERATION] = commotions.Parameters()
+        EGO_K[CtrlType.ACCELERATION]._g = 1 
+        EGO_K[CtrlType.ACCELERATION]._dv = 0.05
+        EGO_K[CtrlType.ACCELERATION]._da = 0.01
+        OTH_D = {}
+        OTH_D[CtrlType.SPEED] = 40
+        OTH_D[CtrlType.ACCELERATION] = 6
+        # other constants
+        EGO_ACTION_DUR = 0.5
+        COLL_DIST = 2
+        END_TIME = 10 # s
+        TIME_STEP = 0.005 # s
+        TIME_STAMPS = np.arange(0, END_TIME, TIME_STEP)
+        
+        # plot fcns
+        def plot_conflict_window(ax, oth_state):
+            ax.axhline(COLL_DIST, color='r', linestyle='--', lw=0.5)
+            ax.axhline(-COLL_DIST, color='r', linestyle='--', lw=0.5)
+            ax.axvline(oth_state.CS_entry_time, color='r', linestyle='--', lw=0.5)
+            ax.axvline(oth_state.CS_exit_time, color='r', linestyle='--', lw=0.5)
+        def plot_pred_ds(ax, ego_state, ego_acc):
+            vs = ego_state.long_speed + ego_acc * TIME_STAMPS
+            ds = ego_state.signed_CP_dist - np.cumsum(vs * TIME_STEP)
+            ax.plot(TIME_STAMPS, ds, 'k-', lw=0.5)
+        
+        # loop through the test cases
+        for i_test, test_name in enumerate(TESTS):
+            
+            # get test settings
+            ego_ctrl_type = EGO_CTRL_TYPES[i_test]
+            ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
+            oth_state = commotions.KinematicState(long_speed = OTH_VS[i_test])
+            oth_state.signed_CP_dist = OTH_D[ego_ctrl_type]
+            ego_ds = np.linspace(-5, EGO_D_MAX[ego_ctrl_type], 20)
+            ego_v_free = EGO_V_FREE[ego_ctrl_type]
+            ego_k = EGO_K[ego_ctrl_type]
+            
+            # get other agent's movement
+            oth_distances = (oth_state.signed_CP_dist 
+                             - oth_state.long_speed * TIME_STAMPS)
+            oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
+                
+            # get figure window for test results
+            fig = plt.figure(test_name, figsize = (10, 5))
+            axs = fig.subplots(1, 3)
+            
+            # plot other agent's path
+            axs[0].plot(TIME_STAMPS, oth_distances, 'k-')
+            plot_conflict_window(axs[0], oth_state)
+            axs[0].set_xlabel('Time (s)')
+            axs[0].set_ylabel('$d_{oth}$ (m)')
+            axs[0].set_title("Other agent")
+            
+            # prepare subplots for passing first/second plots
+            axs[1].set_xlabel('Time (s)')
+            axs[1].set_ylabel('$d_{ego}$ (m)')
+            axs[1].set_title('Ego agent passing first')
+            plot_conflict_window(axs[1], oth_state)
+            axs[2].set_xlabel('Time (s)')
+            axs[2].set_ylabel('$d_{ego}$ (m)')
+            axs[2].set_title('Ego agent passing second')
+            plot_conflict_window(axs[2], oth_state)
+                
+            # loop through initial distances
+            for ego_d in ego_ds:
+                ego_state.signed_CP_dist = ego_d
+                (acc_1st, acc_2nd) = get_access_order_accs(
+                        ego_ctrl_type, EGO_ACTION_DUR, ego_k, ego_v_free,
+                        ego_state, oth_state, COLL_DIST)
+                plot_pred_ds(axs[1], ego_state, acc_1st)
+                plot_pred_ds(axs[2], ego_state, acc_2nd)
+                
+            plt.tight_layout()
+            plt.show()
+    
+    
+# =============================================================================
+#   Testing get_time_to_sc_agent_collision()
+# =============================================================================
+            
+    if TEST_TTCS:
+        
+        # defining the scenarios
+        TESTS = ('Colliding', 'Not colliding', 'Stopping')
+        N_TESTS = len(TESTS)
+        COLL_DIST = 2
+        AG2_V0 = 1
+        AG2_D0 = 4
+        AG1_V0S = (10, 10, 10)
+        AG1_D0S = (40, (4+COLL_DIST)*10+COLL_DIST+0.1, 40)
+        AG1_ACCS = (0, 0, -10**2/(2*(40-COLL_DIST)))
+        AG_COLORS = ('c', 'm')
+        END_TIME = 10 # s
+        TIME_STEP = 0.005 # s
+        TIME_STAMPS = np.arange(0, END_TIME, TIME_STEP)
+        N_TIME_STEPS = len(TIME_STAMPS)
+        
+        # helper fcn
+        def get_ds_and_vs(d0, v0, acc):
+            vs = v0 + TIME_STAMPS * acc
+            vs = np.maximum(vs, 0)
+            ds = d0 - np.cumsum(TIME_STEP * vs)
+            return (ds, vs)
+        
+        # vectors for agent distances and speeds (same across all scenarios for
+        # agent 2)
+        ag_ds = np.full((2, N_TIME_STEPS), math.nan)
+        ag_vs = np.full((2, N_TIME_STEPS), math.nan)
+        (ag_ds[1,:], ag_vs[1,:]) = get_ds_and_vs(AG2_D0, AG2_V0, 0)
+        
+        # agent state objects
+        ag_state = [] 
+        ag_state.append(commotions.KinematicState())
+        ag_state.append(commotions.KinematicState())
 
-    # defining the tests
-    TESTS = ('Stationary ped., moving veh.', 'Moving ped., moving veh.', 
-             'Stationary veh., moving ped.', 'Moving veh., moving ped.', 
-             'Moving veh., stationary ped.', 'Stationary veh., stationary ped.')
-    N_TESTS = len(TESTS)
-    EGO_CTRL_TYPES = (CtrlType.SPEED, CtrlType.SPEED, CtrlType.ACCELERATION, 
-                      CtrlType.ACCELERATION, CtrlType.ACCELERATION, 
-                      CtrlType.ACCELERATION)
-    EGO_VS = (0, 1.5, 0, 10, 10, 0)
-    OTH_VS = (10, 10, 1.5, 1.5, 0, 0)
-    
-    # constants depending on ego agent control type
-    EGO_D_MAX = {}
-    EGO_D_MAX[CtrlType.SPEED] = 40
-    EGO_D_MAX[CtrlType.ACCELERATION] = 100
-    EGO_V_FREE = {}
-    EGO_V_FREE[CtrlType.SPEED] = 1.5
-    EGO_V_FREE[CtrlType.ACCELERATION] = 10
-    EGO_K = {}
-    EGO_K[CtrlType.SPEED] = commotions.Parameters() # not used
-    EGO_K[CtrlType.ACCELERATION] = commotions.Parameters()
-    EGO_K[CtrlType.ACCELERATION]._g = 1 
-    EGO_K[CtrlType.ACCELERATION]._dv = 0.05
-    EGO_K[CtrlType.ACCELERATION]._da = 0.01
-    OTH_D = {}
-    OTH_D[CtrlType.SPEED] = 40
-    OTH_D[CtrlType.ACCELERATION] = 6
-    # other constants
-    EGO_ACTION_DUR = 0.5
-    COLL_DIST = 2
-    END_TIME = 10 # s
-    TIME_STEP = 0.005 # s
-    TIME_STAMPS = np.arange(0, END_TIME, TIME_STEP)
-    
-    # plot fcns
-    def plot_conflict_window(ax, oth_state):
-        ax.axhline(COLL_DIST, color='r', linestyle='--', lw=0.5)
-        ax.axhline(-COLL_DIST, color='r', linestyle='--', lw=0.5)
-        ax.axvline(oth_state.CS_entry_time, color='r', linestyle='--', lw=0.5)
-        ax.axvline(oth_state.CS_exit_time, color='r', linestyle='--', lw=0.5)
-    def plot_pred_ds(ax, ego_state, ego_acc):
-        vs = ego_state.long_speed + ego_acc * TIME_STAMPS
-        ds = ego_state.signed_CP_dist - np.cumsum(vs * TIME_STEP)
-        ax.plot(TIME_STAMPS, ds, 'k-', lw=0.5)
-    
-    # loop through the test cases
-    for i_test, test_name in enumerate(TESTS):
-        
-        # get test settings
-        ego_ctrl_type = EGO_CTRL_TYPES[i_test]
-        ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
-        oth_state = commotions.KinematicState(long_speed = OTH_VS[i_test])
-        oth_state.signed_CP_dist = OTH_D[ego_ctrl_type]
-        ego_ds = np.linspace(-5, EGO_D_MAX[ego_ctrl_type], 20)
-        ego_v_free = EGO_V_FREE[ego_ctrl_type]
-        ego_k = EGO_K[ego_ctrl_type]
-        
-        # get other agent's movement
-        oth_distances = (oth_state.signed_CP_dist 
-                         - oth_state.long_speed * TIME_STAMPS)
-        oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
+        # loop throgh scenarios
+        for i_test, test_name in enumerate(TESTS):
             
-        # get figure window for test results
-        fig = plt.figure(test_name, figsize = (10, 5))
-        axs = fig.subplots(1, 3)
-        
-        # plot other agent's path
-        axs[0].plot(TIME_STAMPS, oth_distances, 'k-')
-        plot_conflict_window(axs[0], oth_state)
-        axs[0].set_xlabel('Time (s)')
-        axs[0].set_ylabel('$d_{oth}$ (m)')
-        axs[0].set_title("Other agent")
-        
-        # prepare subplots for passing first/second plots
-        axs[1].set_xlabel('Time (s)')
-        axs[1].set_ylabel('$d_{ego}$ (m)')
-        axs[1].set_title('Ego agent passing first')
-        plot_conflict_window(axs[1], oth_state)
-        axs[2].set_xlabel('Time (s)')
-        axs[2].set_ylabel('$d_{ego}$ (m)')
-        axs[2].set_title('Ego agent passing second')
-        plot_conflict_window(axs[2], oth_state)
+            fig = plt.figure(test_name)
+            axs = fig.subplots(nrows = 4, sharex = True)
             
-        # loop through initial distances
-        for ego_d in ego_ds:
-            ego_state.signed_CP_dist = ego_d
-            (acc_1st, acc_2nd) = get_access_order_accs(
-                    ego_ctrl_type, EGO_ACTION_DUR, ego_k, ego_v_free,
-                    ego_state, oth_state, COLL_DIST)
-            plot_pred_ds(axs[1], ego_state, acc_1st)
-            plot_pred_ds(axs[2], ego_state, acc_2nd)
+            # get agent 1 distances and speeds for this scenario
+            (ag_ds[0,:], ag_vs[0,:]) = get_ds_and_vs(AG1_D0S[i_test], AG1_V0S[i_test], 
+                                             AG1_ACCS[i_test])
+                        
+            # get TTCs
+            ttcs = np.full(N_TIME_STEPS, math.nan)
+            for i, time in enumerate(TIME_STAMPS):
+                
+                for i_agent in range(2):
+                    ag_state[i_agent].signed_CP_dist = ag_ds[i_agent, i]
+                    ag_state[i_agent].long_speed = ag_vs[i_agent, i]
+                    ag_state[i_agent] = add_entry_exit_times_to_state(
+                            ag_state[i_agent], COLL_DIST)
+                        
+                ttcs[i] = get_time_to_sc_agent_collision(ag_state[0], ag_state[1])
+                
+            # plotting
+            for i_agent in range(2):
+                axs[0].plot(TIME_STAMPS, ag_vs[i_agent,:], 
+                            color = AG_COLORS[i_agent])
+                in_CS_idxs = np.nonzero(np.abs(ag_ds[i_agent,:]) <= COLL_DIST)[0]
+                if len(in_CS_idxs) > 0:
+                    t_en = TIME_STAMPS[in_CS_idxs[0]]
+                    t_ex = TIME_STAMPS[in_CS_idxs[-1]]
+                else:
+                    t_en = math.nan
+                    t_ex = math.nan
+                axs[1].fill(np.array((t_en, t_ex, t_ex, t_en)), 
+                            np.array((-1, -1, 1, 1)) * COLL_DIST, 
+                            color = AG_COLORS[i_agent], alpha = 0.3,
+                            edgecolor = None)
+                axs[1].plot(TIME_STAMPS, ag_ds[i_agent,:], 
+                            color = AG_COLORS[i_agent])
+            axs[0].set_ylabel('v (m)')
+            axs[1].axhline(COLL_DIST, color='r', linestyle='--', lw=0.5)
+            axs[1].axhline(-COLL_DIST, color='r', linestyle='--', lw=0.5)
+            axs[1].set_ylabel('d (m)')
+            axs[1].set_ylim(np.array((-1, 1)) * COLL_DIST * 3)
+            axs[2].plot(TIME_STAMPS, ttcs, 'k-')
+            axs[2].set_ylabel('TTC (s)')
+            (coll_margins, coll_idxs) = \
+                get_sc_agent_collision_margins(ag_ds[0,:], ag_ds[1,:], COLL_DIST) 
+            axs[3].plot(TIME_STAMPS, coll_margins, 'k-')
+            axs[3].plot(TIME_STAMPS[coll_idxs], coll_margins[coll_idxs], 'r.')
+            axs[3].set_ylabel('$d_{margin}$ (m)')
+            axs[3].set_xlabel('t (s)')
+            axs[3].set_ylim(np.array((-.1, 1)) * COLL_DIST * 3)
             
-        plt.tight_layout()
-        plt.show()
-    
-    
-    
+
+        
