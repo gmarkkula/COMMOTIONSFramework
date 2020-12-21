@@ -260,77 +260,7 @@ class SCAgent(commotions.AgentWithGoal):
         # this time step
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
-        
-# =============================================================================
-#         # - prepare vector for noting if one of the behaviours is invalid for this time step
-#         beh_is_valid = np.full((N_BEHAVIORS,), True)
-#         # - get the current state of the other agent
-#         oth_state = self.other_agent.get_current_kinematic_state()
-#         # - constant behavior
-#         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0
-#         # - proceeding behavior 
-#         if self.other_agent.ctrl_type is CtrlType.SPEED:
-#             # assuming straight acc to free speed
-#             self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
-#                 (self.oth_v_free - oth_state.long_speed) / self.params.DeltaT
-#         else:
-#             # calculate the expected acceleration given the current deviation
-#             # from the free speed (see hand written notes from 2020-07-08)
-#             dev_from_v_free = oth_state.long_speed - self.oth_v_free
-#             self.states.beh_long_accs[i_PROCEEDING, i_time_step] = \
-#                 - self.oth_k._dv * dev_from_v_free * self.params.T_P \
-#                 / (0.5 * self.oth_k._dv * self.params.T_P ** 2 \
-#                 + 2 * self.oth_k._da)
-# 
-#         # - yielding behavior 
-#         oth_signed_dist_to_confl_pt = self.get_signed_dist_to_conflict_pt(oth_state)
-#         oth_signed_dist_to_CA_entry = \
-#             oth_signed_dist_to_confl_pt - SHARED_PARAMS.d_C
-#         if oth_signed_dist_to_CA_entry > 0:
-#             self.states.beh_long_accs[i_YIELDING, i_time_step] = \
-#                 - oth_state.long_speed ** 2 / (2 * oth_signed_dist_to_CA_entry) 
-#         else:
-#             self.states.beh_long_accs[i_YIELDING, i_time_step] = math.nan
-#             beh_is_valid[i_YIELDING] = False
-# =============================================================================
-        
-        """
-        use_stop_acc = False
-        if oth_signed_dist_to_CA_entry > 0:
-            stop_acc = - oth_state.long_speed ** 2 / (2 * oth_signed_dist_to_CA_entry)
-            t_stop = - oth_state.long_speed / stop_acc
-            if self.states.time_left_to_CA_exit[i_time_step] >= t_stop:
-                use_stop_acc = True
-            else:
-                adapt_time_to_CA_entry = \
-                    self.states.time_left_to_CA_exit[i_time_step]
-        else:
-            adapt_time_to_CA_entry = \
-                self.states.time_left_to_CA_entry[i_time_step]
-        if use_stop_acc:
-            # acceleration to come to full stop before conflict area
-            self.states.beh_long_accs[i_YIELDING, i_time_step] = stop_acc
-        else:
-            # acceleration to "adapt" - to reach CA entrance at the same time 
-            # as I am exiting it, or before I am entering it
-            # if other agent already past CA entrance
-            if adapt_time_to_CA_entry == math.inf:
-                adapt_acc = 0
-            else:
-                if adapt_time_to_CA_entry <= 0:
-                    adapt_acc = MIN_ADAPT_ACC
-                else:
-                    adapt_acc = \
-                        2 * (oth_signed_dist_to_CA_entry \
-                        - oth_state.long_speed * adapt_time_to_CA_entry) \
-                        / adapt_time_to_CA_entry ** 2
-                # do not allow positive or overly large negative adaptation 
-                # accelerations
-                adapt_acc = max(MIN_ADAPT_ACC, min(0, adapt_acc))
-            self.states.beh_long_accs[i_YIELDING, i_time_step] = adapt_acc 
-        """
-            
-
+         
         # do first loops over all own actions and behaviors of the other
         # agent, and get the predicted states
         pred_own_states = []
