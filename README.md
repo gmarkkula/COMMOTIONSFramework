@@ -4,10 +4,12 @@ This repository contains some sketches and work in progress code for the COMMOTI
 
 * ~~New architecture for the behaviour estimation functionality (allowing also for assumptions of impact of own actions on behaviour of the other agent)~~
 * ~~Improved functions for calculating speeds/accelerations for passing in front / behind another agent, to be used both for estimating behaviour of another agent, and in the intended updated interaction terms in the value functions~~
-* Add more advanced logic re the "constant" behaviour - it is still needed when there is no `oBE*` assumption
+* ~~Add more advanced logic re the "constant" behaviour - it is still needed when there is no `oBE*` assumption.~~
 * ~~Updating the collision course calculations in `sc_scenario.py` to match those in `sc_scenario_helper.py`, i.e., conflict space based rather than based on distances between agent coordinates.~~
 * Updated, affordance-based interaction terms in the value functions, and separate values for both potential outcomes
 * Improved consideration of time in the value functions
+* Minor problems/bugs:
+    * Some mismatch between the new conflict space based TTC calculations (`sc_scenario_helper.get_time_to_sc_agent_collision()`) and the behaviour acceleration calculations (`sc_scenario_helper.get_access_order_accs()`) - obvious in "expected accelerations" plots just as the agents pass each other, and in the speed-ups sometimes caused at these times, seemingly because the first-passing agent becomes alarmed about the other agent's "pass 2nd" behaviour running the risk of making it collide with the first-passing agent.
 
 
 # Explanation of repository contents

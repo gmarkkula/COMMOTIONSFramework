@@ -246,7 +246,7 @@ class SCAgent(commotions.AgentWithGoal):
         # calculate the accelerations needed for the different behaviors of the 
         # other agent, as of the current time 
         # - constant behavior
-        self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0          
+        self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0  
         # - use helper function to get other agent's expected accelerations to
         #   pass in front of or behind me, given my current position and speed
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
@@ -256,10 +256,19 @@ class SCAgent(commotions.AgentWithGoal):
                      self.oth_k, self.oth_v_free, 
                      self.other_agent.curr_state, self.curr_state, 
                      SHARED_PARAMS.d_C)
-        # the helper function above returns nan if behaviour is invalid for 
-        # this time step
+             
+        # determine which behaviours are valid at this time step
+        # - the helper function above returns nan if behaviour is invalid for 
+        # - this time step
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
+        # - is the constant behaviour valid for this time step?
+        if (self.assumptions[DerivedAssumption.oBE] and
+            (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND])):
+            # no - we are estimating behaviours and at least one of the 
+            # behaviours is valid
+            beh_is_valid[i_CONSTANT] = False
+            self.states.beh_long_accs[i_CONSTANT, i_time_step] = math.nan
          
         # do first loops over all own actions and behaviors of the other
         # agent, and get the predicted states

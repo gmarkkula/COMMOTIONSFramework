@@ -14,9 +14,6 @@ class CtrlType(Enum):
     ACCELERATION = 1
 
 
-warnings.warn('Currently removing target_dist > 0 requirement from '
-             'get_acc_to_be_at_dist_at_time - needed because of current slight '
-             'incompatibility between definitions of collision course.')
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
     """ Return acceleration required to travel a further distance target_dist
         in time target_time if starting at speed speed. Handle infinite
@@ -111,9 +108,11 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
           entrance to the conflict space (to wait there until the other
           agent passes).
         
-        If the ego agent has already exited the conflict space, both outputs 
-        will be math.nan. If the other agent has already entered the conflict 
-        space, acc_1st will be math.nan.
+        If the ego agent has already exited the conflict space, or if there is
+        and ongoing collision, both outputs will be math.nan. 
+        
+        If the other agent has already entered the conflict space, acc_1st 
+        will be math.nan.
     """
     # not supporting special cases with negative initial speeds (but allowing 
     # some minor imprecision in reaching zero speeds)
@@ -122,6 +121,12 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
     
     # has the ego agent already exited the conflict space?
     if ego_state.signed_CP_dist <= -coll_dist:
+        # yes, so nothing to do here
+        return (math.nan, math.nan)
+    
+    # are both agents currently in the conflict space (i.e., a collision)?
+    if (abs(ego_state.signed_CP_dist) < coll_dist and 
+        abs(oth_state.signed_CP_dist) < coll_dist):
         # yes, so nothing to do here
         return (math.nan, math.nan)
     
@@ -166,8 +171,7 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
         # has the ego agent already entered conflict space?
         if ego_state.signed_CP_dist <= coll_dist:
             # yes, so need to move back out of it again before the other agent 
-            # arrives (will give weird results during ongoing collisions, but
-            # that's ok)
+            # arrives
             ego_dist_to_entry = ego_state.signed_CP_dist - coll_dist
             ego_acc_2nd = get_acc_to_be_at_dist_at_time(ego_state.long_speed, 
                                                         ego_dist_to_entry,
