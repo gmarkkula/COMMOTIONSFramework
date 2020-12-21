@@ -17,13 +17,13 @@ class CtrlType(Enum):
 warnings.warn('Currently removing target_dist > 0 requirement from '
              'get_acc_to_be_at_dist_at_time - needed because of current slight '
              'incompatibility between definitions of collision course.')
-def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time):
+def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
     """ Return acceleration required to travel a further distance target_dist
         in time target_time if starting at speed speed. Handle infinite
         target_time by returning machine epsilon with correct sign.
     """
         
-    #assert target_time > 0    
+    assert target_time > 0    
     
     # time horizon finite or not?
     if target_time == math.inf:
@@ -43,36 +43,41 @@ def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time):
         # finite time horizon --> general answer for most situations
         target_acc = 2 * (target_dist - speed * target_time) / (target_time ** 2)
     
-    # check whether this is a stopping situation - if so we should apply 
-    # stopping deceleration instead (to avoid passing beyond target distance 
-    # and reversing back toward it again)
-    if target_dist > 0 and speed > 0 and target_acc < 0:
-        stop_acc = -speed ** 2 / (2 * target_dist)
-        stop_time = speed / (-stop_acc)
-        if stop_time < target_time:
-            # stopping time is shorter than target time, so we will need to
-            # stop at target and wait
-            return stop_acc
+    # might this be a stopping situation?
+    if consider_stop:
+        # check whether this is a stopping situation - if so we should apply 
+        # stopping deceleration instead (to avoid passing beyond target distance 
+        # and reversing back toward it again)
+        if target_dist > 0 and speed > 0 and target_acc < 0:
+            stop_acc = -speed ** 2 / (2 * target_dist)
+            stop_time = speed / (-stop_acc)
+            if stop_time < target_time:
+                # stopping time is shorter than target time, so we will need to
+                # stop at target and wait
+                return stop_acc
     
     # not a stopping situation, so return what was calculated above
     return target_acc
         
 
 def get_entry_exit_times(state, coll_dist):
-    """ Return tuple of times left to entry and exit  into conflict zone defined by 
+    """ Return tuple of times left to entry and exit into conflict zone defined by 
         +/-coll_dist around conflict point, for agent currently at distance 
         state.signed_CP_dist to conflict point and travelling toward it at 
-        speed state.long_speed. Returning inf for zero speeds, but not 
-        checking for negative distances or speeds.
+        speed state.long_speed, with entry/exit apparently in the past returned
+        as negative times. Return inf if speed is zero. 
     """
-    # only supporting positive speeds
-    assert state.long_speed > SMALL_NEG_SPEED
     # is the agent moving?
-    if state.long_speed <= 0:
+    if state.long_speed == 0:
         return (math.inf, math.inf)
     else:
-        entry_time = (state.signed_CP_dist - coll_dist) / state.long_speed
-        exit_time = (state.signed_CP_dist + coll_dist) / state.long_speed
+        # get the time to reach the entry/exit edge of the conflict space,
+        # taking into account the speed when defining which edge is entry vs exit
+        sp_sign = np.sign(state.long_speed)
+        entry_time = (state.signed_CP_dist 
+                      - sp_sign * coll_dist) / state.long_speed
+        exit_time = (state.signed_CP_dist 
+                     + sp_sign * coll_dist) / state.long_speed
         return (entry_time, exit_time)
     
     
@@ -143,32 +148,45 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
         # --> get acceleration that has the ego agent be at exit of the conflict 
         # space at the same time as the other agent enters it
         ego_dist_to_exit = ego_state.signed_CP_dist + coll_dist
-        ego_acc_1st = get_acc_to_be_at_dist_at_time(ego_state.long_speed, ego_dist_to_exit,
-                                                    oth_state.CS_entry_time)
+        ego_acc_1st = get_acc_to_be_at_dist_at_time(ego_state.long_speed, 
+                                                    ego_dist_to_exit,
+                                                    oth_state.CS_entry_time,
+                                                    consider_stop=False)
         # if the acceleration to free speed is higher than the acceleration
         # needed to exit just as the other agent enters, there is no need to
         # assume that the agent will move slower than its free speed
         ego_acc_1st = max(ego_acc_1st, ego_free_acc)
         
     # get acceleration needed to pass second
-    # - ego agent already entered conflict space?
-    if ego_state.signed_CP_dist <= coll_dist:
-        # yes, so need to move back out of it again before the other agent 
-        # arrives
-        ego_dist_to_entry = ego_state.signed_CP_dist - coll_dist
-        ego_acc_2nd = get_acc_to_be_at_dist_at_time(ego_state.long_speed, ego_dist_to_entry,
-                                                    oth_state.CS_entry_time)
+    # - has the other agent already exited the conflict space?
+    if oth_state.signed_CP_dist <= -coll_dist:
+        # yes, so just accelerate to free speed
+        ego_acc_2nd = ego_free_acc
     else:
-        # not yet reached conflict space, so get acceleration that has the ego 
-        # agent be at entrance to the conflict space at the same time as the 
-        # other agent exits it
-        ego_dist_to_entry = ego_state.signed_CP_dist - coll_dist
-        ego_acc_2nd = get_acc_to_be_at_dist_at_time(ego_state.long_speed, ego_dist_to_entry,
-                                                    oth_state.CS_exit_time)
-        # if the acceleration to free speed is lower than the acceleration
-        # needed to enter just as the other agent exits, there is no need to
-        # assume that the agent will move faster than its free speed
-        ego_acc_2nd = min(ego_acc_2nd, ego_free_acc)
+        # has the ego agent already entered conflict space?
+        if ego_state.signed_CP_dist <= coll_dist:
+            # yes, so need to move back out of it again before the other agent 
+            # arrives (will give weird results during ongoing collisions, but
+            # that's ok)
+            ego_dist_to_entry = ego_state.signed_CP_dist - coll_dist
+            ego_acc_2nd = get_acc_to_be_at_dist_at_time(ego_state.long_speed, 
+                                                        ego_dist_to_entry,
+                                                        oth_state.CS_entry_time,
+                                                        consider_stop=False)
+        else:
+            # not yet reached conflict space, so get acceleration that has the ego 
+            # agent be at entrance to the conflict space at the same time as the 
+            # other agent exits it (possibly by stopping completely, possibly
+            # even before the other agent reaches the conflict space)
+            ego_dist_to_entry = ego_state.signed_CP_dist - coll_dist
+            ego_acc_2nd = get_acc_to_be_at_dist_at_time(ego_state.long_speed, 
+                                                        ego_dist_to_entry,
+                                                        oth_state.CS_exit_time,
+                                                        consider_stop=True)
+            # if the acceleration to free speed is lower than the acceleration
+            # needed to enter just as the other agent exits, there is no need to
+            # assume that the agent will move faster than its free speed
+            ego_acc_2nd = min(ego_acc_2nd, ego_free_acc)
     
     return (ego_acc_1st, ego_acc_2nd)
         
@@ -228,7 +246,7 @@ if __name__ == "__main__":
     
     plt.close('all')
     
-    TEST_ACCESS_ORDER_ACCS = False
+    TEST_ACCESS_ORDER_ACCS = True
     TEST_TTCS = True
 
 # =============================================================================
