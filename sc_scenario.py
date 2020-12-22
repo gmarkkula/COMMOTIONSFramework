@@ -460,7 +460,7 @@ class SCAgent(commotions.AgentWithGoal):
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
         implications = sc_scenario_helper.get_access_order_implications(
-                ego_image, ego_pred_state, oth_pred_state)
+                ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C)
         
         # get constant value for remainder of trip after interaction
         post_value = ( (ego_image.params.T_delta / math.log(2)) * 
@@ -1028,8 +1028,11 @@ if __name__ == "__main__":
     INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
-    optional_assumptions = get_assumptions_dict(
-            default_value = False, oBEao = False, oBEvs = False, oEA = False, oAN = False)  
+    optional_assumptions = get_assumptions_dict(default_value = False, 
+                                                oBEao = False, 
+                                                oBEvs = False, 
+                                                oEA = False, 
+                                                oAN = False)  
 
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
