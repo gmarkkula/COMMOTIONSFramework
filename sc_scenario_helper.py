@@ -14,16 +14,16 @@ class CtrlType(Enum):
     SPEED = 0
     ACCELERATION = 1
     
-class Outcome(Enum):
+class AccessOrder(Enum):
     EGOFIRST = 0
     EGOSECOND = 1
-i_EGOFIRST = Outcome.EGOFIRST.value
-i_EGOSECOND = Outcome.EGOSECOND.value
-N_OUTCOMES = len(Outcome)
+i_EGOFIRST = AccessOrder.EGOFIRST.value
+i_EGOSECOND = AccessOrder.EGOSECOND.value
+N_ACCESS_ORDERS = len(AccessOrder)
 
     
-OutcomeImplication = collections.namedtuple('OutcomeImplication', 
-                                            ['acc', 'T_acc', 'T_dw', 'T_dr'])
+AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
+                                                ['acc', 'T_acc', 'T_dw', 'T_dr'])
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
                                       ['ctrl_type', 'params', 'v_free'])
@@ -110,10 +110,10 @@ def get_access_order_accs(ego_image, ego_state, oth_state, coll_dist):
     """ Return a tuple (acc_1st, acc_2nd) of expected accelerations 
         for the ego agent described by ego_image, with state ego_state (using 
         fields signed_CP_dist, long_speed), to pass respectively before or 
-        after, respecting collision 
-        distance coll_dist, the other agent described by oth_state (same fields
-        as above, but also CS_entry/exit_time), assumed to maintain zero 
-        acceleration from the current time. 
+        after, respecting collision distance coll_dist, the other agent 
+        described by oth_state (same fields as above, but also 
+        CS_entry/exit_time), assumed to maintain zero acceleration from the 
+        current time. 
         
         More specifically, "expected accelerations" above means:
         
@@ -243,8 +243,9 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
     return T * av_value_rate
     
 
-def get_outcome_implications(ego_image, ego_state, oth_state):
-    """ Return a dict over Outcome with an OutcomeImplication for each, for an 
+def get_access_order_implications(ego_image, ego_state, oth_state, 
+                             get_delay_times = True):
+    """ Return a dict over AccessOrder with an AccessOrderImplication for each, for an 
         agent described by ego_image, with state ego_state, given the other 
         agent's state ego_state.
     
@@ -253,9 +254,9 @@ def get_outcome_implications(ego_image, ego_state, oth_state):
     """
     
     implications = {}
-    for outcome in Outcome:
-        implications[outcome] = OutcomeImplication(acc = 0, T_acc = 0, 
-                                                   T_dw = 0, T_dr = 0)
+    for access_order in AccessOrder:
+        implications[access_order] = AccessOrderImplication(
+                acc = 0, T_acc = 0, T_dw = 0, T_dr = 0)
     
     return implications
  
