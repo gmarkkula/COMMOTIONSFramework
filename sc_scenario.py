@@ -567,8 +567,9 @@ class SCAgent(commotions.AgentWithGoal):
         #   (needs a bit of code restructuring, or storing the cost somewhere)
         value = 0
         # add value of the state
-        value += self.get_value_of_state_for_agent(oth_state, \
-            self.other_agent.goal, my_state, self.other_agent.ctrl_type, self.oth_k) 
+        value += self.get_value_of_state_for_agent(
+                oth_state, self.other_agent.goal, my_state, 
+                self.other_agent.ctrl_type, self.oth_image.params.k) 
         return value
 
 
