@@ -275,10 +275,8 @@ class SCAgent(commotions.AgentWithGoal):
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
          self.states.beh_long_accs[i_PASS2ND, i_time_step]) = \
              sc_scenario_helper.get_access_order_accs(
-                     self.other_agent.ctrl_type, self.oth_image.params.DeltaT,
-                     self.oth_image.params.k, self.oth_image.v_free, 
-                     self.other_agent.curr_state, self.curr_state, 
-                     SHARED_PARAMS.d_C)
+                     self.oth_image, self.other_agent.curr_state, 
+                     self.curr_state, SHARED_PARAMS.d_C)
              
         # determine which behaviours are valid at this time step
         # - the helper function above returns nan if behaviour is invalid for 

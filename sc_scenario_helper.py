@@ -106,13 +106,11 @@ def add_entry_exit_times_to_state(state, coll_dist):
     return state
 
 
-def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
-                          ego_state, oth_state, coll_dist):
+def get_access_order_accs(ego_image, ego_state, oth_state, coll_dist):
     """ Return a tuple (acc_1st, acc_2nd) of expected accelerations 
-        for the ego agent of CtrlType ego_ctrl_type with action duration 
-        ego_action_dur and cost function gains ego_k, state ego_state (using 
-        fields signed_CP_dist, long_speed), and free speed 
-        ego_v_free, to pass respectively before or after, respecting collision 
+        for the ego agent described by ego_image, with state ego_state (using 
+        fields signed_CP_dist, long_speed), to pass respectively before or 
+        after, respecting collision 
         distance coll_dist, the other agent described by oth_state (same fields
         as above, but also CS_entry/exit_time), assumed to maintain zero 
         acceleration from the current time. 
@@ -153,16 +151,18 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
         return (math.nan, math.nan)
     
     # get ego agent's acceleration if just aiming for free speed
-    if ego_ctrl_type is CtrlType.SPEED:
+    if ego_image.ctrl_type is CtrlType.SPEED:
         # assuming straight acc to free speed
-        ego_free_acc = (ego_v_free - ego_state.long_speed) / ego_action_dur
+        ego_free_acc = (ego_image.v_free 
+                        - ego_state.long_speed) / ego_image.params.DeltaT
     else:
         # calculate the expected acceleration given the current deviation
         # from the free speed (see hand written notes from 2020-07-08)
-        dev_from_v_free = ego_state.long_speed - ego_v_free
+        dev_from_v_free = ego_state.long_speed - ego_image.v_free
+        ego_k = ego_image.params.k
         ego_free_acc = (
-                - ego_k._dv * dev_from_v_free * ego_action_dur 
-                / (0.5 * ego_k._dv * ego_action_dur ** 2 
+                - ego_k._dv * dev_from_v_free * ego_image.params.DeltaT 
+                / (0.5 * ego_k._dv * ego_image.params.DeltaT ** 2 
                    + 2 * ego_k._da)
                 )
     
