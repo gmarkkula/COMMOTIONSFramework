@@ -318,10 +318,14 @@ class SCAgent(commotions.AgentWithGoal):
                                 self.get_access_order_values_for_me_v02(
                                         pred_own_states[i_action],
                                         pred_oth_states[i_beh]))
+#                        if np.all(np.isnan(
+#                                self.states.action_vals_given_behs_outcs[
+#                                i_action, i_beh, i_time_step, :])):
+#                            print('apa')
                         self.states.action_vals_given_behs[
-                                i_action, i_beh, i_time_step] = (
+                                i_action, i_beh, i_time_step] = np.nanmax(
                                 self.states.action_vals_given_behs_outcs[
-                                        i_action, i_beh, i_time_step, :].max() )
+                                        i_action, i_beh, i_time_step, :])
                         # get value for for the other agent of this 
                         # action/behavior combination
                         self.states.beh_vals_given_actions_outcs[
@@ -330,9 +334,9 @@ class SCAgent(commotions.AgentWithGoal):
                                         pred_oth_states[i_beh],
                                         pred_own_states[i_action]) )
                         self.states.beh_vals_given_actions[
-                                i_beh, i_action, i_time_step] = (
+                                i_beh, i_action, i_time_step] = np.nanmax(
                                 self.states.beh_vals_given_actions_outcs[
-                                        i_beh, i_action, i_time_step, :].max() )
+                                        i_beh, i_action, i_time_step, :])
                     else:
                         # get value for me of this action/behavior combination
                         self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
@@ -456,16 +460,17 @@ class SCAgent(commotions.AgentWithGoal):
         action_value = sc_scenario_helper.get_value_of_const_jerk_interval(
                 v0 = ego_curr_state.long_speed, a0 = action_acc0, j = action_jerk, 
                 T = ego_image.params.DeltaT, k = ego_image.params.k)
-              
+        
+        # get constant value for remainder of trip after action and possible
+        # interaction
+        post_value = ( (ego_image.params.T_delta / math.log(2)) * 
+                      sc_scenario_helper.get_const_value_rate(
+                              v=ego_image.v_free, a=0, k=ego_image.params.k) ) 
+        
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
         implications = sc_scenario_helper.get_access_order_implications(
                 ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C)
-        
-        # get constant value for remainder of trip after interaction
-        post_value = ( (ego_image.params.T_delta / math.log(2)) * 
-                      sc_scenario_helper.get_const_value_rate(
-                              v=ego_image.v_free, a=0, k=ego_image.params.k) ) 
         
         # loop over the access orders and get value for each
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
@@ -473,13 +478,17 @@ class SCAgent(commotions.AgentWithGoal):
             # valuation of the action/prediction time interval
             value = action_value
             # valuation of the manoeuvre needed to achieve the access order
-            value += sc_scenario_helper.get_value_of_const_jerk_interval(
+            value += (
+                    get_delay_discount(ego_image.params.DeltaT, 
+                                       ego_image.params.T_delta) 
+                    * sc_scenario_helper.get_value_of_const_jerk_interval(
                     ego_pred_state.long_speed, implications[access_order].acc, 
                     j = 0, T = implications[access_order].T_acc, 
-                    k = ego_image.params.k)
+                    k = ego_image.params.k) )
             # valuation of the remainder of the journey, factoring in the
             # delays associated with this access order
-            total_delay = (implications[access_order].T_acc 
+            total_delay = (ego_image.params.DeltaT
+                           + implications[access_order].T_acc 
                            + implications[access_order].T_dw 
                            + implications[access_order].T_dr)
             value += get_delay_discount(
@@ -1029,9 +1038,9 @@ if __name__ == "__main__":
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     optional_assumptions = get_assumptions_dict(default_value = False, 
-                                                oBEao = False, 
-                                                oBEvs = False, 
-                                                oEA = False, 
+                                                oBEao = True, 
+                                                oBEvs = True, 
+                                                oEA = True, 
                                                 oAN = False)  
 
     sc_simulation = SCSimulation(

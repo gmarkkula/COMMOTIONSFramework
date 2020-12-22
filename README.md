@@ -7,7 +7,11 @@ This repository contains some sketches and work in progress code for the COMMOTI
 * ~~Add more advanced logic re the "constant" behaviour - it is still needed when there is no `oBE*` assumption.~~
 * ~~Updating the collision course calculations in `sc_scenario.py` to match those in `sc_scenario_helper.py`, i.e., conflict space based rather than based on distances between agent coordinates.~~
 * Updated, affordance-based interaction terms in the value functions, and separate values for both potential outcomes
+    * This is ongoing - but still not quite working as of the current commit (2020-12-22). There are NaNs or Infs or something sneaking their way into the value calculations - for example run the committed version of `sc_scenario.py` to see this behaviour.
+        * A locus of interest is `sc_scenario_helper.get_access_order_implications()` and how it should be dealing with "invalid" outcomes, like passing first when the other agent has already entered the conflict space, etc.
+        * Another possible culprit is `sc_scenario_helper.get_value_of_const_jerk_interval()`, where I am getting `invalid value encountered in double scalars` warnings...
 * Improved consideration of time in the value functions
+    * Most of this is in place as of 2020-12-22, but needs further looking at - again `sc_scenario_helper.get_access_order_implications()` is the place to look
 * Minor problems/bugs:
     * Some mismatch between the new conflict space based TTC calculations (`sc_scenario_helper.get_time_to_sc_agent_collision()`) and the behaviour acceleration calculations (`sc_scenario_helper.get_access_order_accs()`) - obvious in "expected accelerations" plots just as the agents pass each other, and in the speed-ups sometimes caused at these times, seemingly because the first-passing agent becomes alarmed about the other agent's "pass 2nd" behaviour running the risk of making it collide with the first-passing agent.
 
