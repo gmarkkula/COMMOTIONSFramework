@@ -1,4 +1,5 @@
 import warnings
+import collections
 import math
 from enum import Enum
 import numpy as np
@@ -12,6 +13,16 @@ SMALL_NEG_SPEED = -0.01 # m/s - used as threshold for functions that don't accep
 class CtrlType(Enum):
     SPEED = 0
     ACCELERATION = 1
+    
+class Outcome(Enum):
+    EGOFIRST = 0
+    EGOSECOND = 1
+    
+OutcomeImplication = collections.namedtuple('OutcomeImplication', 
+                                            ['acc', 'T_acc', 'T_dw', 'T_dr'])
+
+SCAgentImage = collections.namedtuple('SCAgentImage', 
+                                      ['ctrl_type', 'params', 'v_free'])
 
 
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
@@ -193,7 +204,50 @@ def get_access_order_accs(ego_ctrl_type, ego_action_dur, ego_k, ego_v_free,
             ego_acc_2nd = min(ego_acc_2nd, ego_free_acc)
     
     return (ego_acc_1st, ego_acc_2nd)
+       
+
+def get_delay_discount(T, T_delta):
+    return 2**(-T / T_delta)
+
+
+def get_const_value_rate(v, a, k):
+    """ Return value accrual rate for an agent with value function gains k, if
+        travelling at speed v toward goal and acceleration a. Inputs v and a
+        can be numpy arrays.
+    """
+    return (k._g * v - k._dv * v ** 2 - k._da * a ** 2)
+
+
+def get_value_of_const_jerk_interval(v0, a0, j, T, k):
+    """ Return value for an agent with value function gains k of applying
+        constant jerk j during a time interval T, from initial speed and 
+        acceleration v0 and a0.
         
+        See hand written notes from 2020-12-21.
+    """
+    av_value_rate = get_const_value_rate(v0, a0) \
+        + (1/2) * (k._g * a0 - 2 * k._dv * v0 * a0 - 2 * k._da * a0 * j) * T \
+        + (1/3) * (k._g * j / 2 - k._dv * (a0**2 + v0 * j) - k._da * j**2) * T**2 \
+        - (k._dv * j / 4) * (a0 + j * T / 5) * T**3
+    return T * av_value_rate
+    
+
+def get_outcome_implications(ego_image, ego_state, oth_state):
+    """ Return a dict over Outcome with an OutcomeImplication for each, for an 
+        agent described by ego_image, with state ego_state, given the other 
+        agent's state ego_state.
+    
+        TODO IMPLEMENT
+        
+    """
+    
+    implications = {}
+    for outcome in Outcome:
+        implications[outcome] = OutcomeImplication(acc = 0, T_acc = 0, 
+                                                   T_dw = 0, T_dr = 0)
+    
+    return implications
+ 
 
 def get_time_to_sc_agent_collision(state1, state2):
     """ Return the time left until the two agents with states state1 and state2

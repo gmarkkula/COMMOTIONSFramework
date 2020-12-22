@@ -10,7 +10,9 @@ from enum import Enum
 
 import commotions
 import sc_scenario_helper
-from sc_scenario_helper import CtrlType, get_sc_agent_collision_margins
+from sc_scenario_helper import (CtrlType, Outcome, 
+                                get_sc_agent_collision_margins, 
+                                get_delay_discount)
 
 #matplotlib.use('qt4agg')
 
@@ -387,6 +389,72 @@ class SCAgent(commotions.AgentWithGoal):
         # set long acc in actual trajectory
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
         
+
+    def get_outcome_values_for_agent_v02(self, ego_image, ego_curr_state,
+                                         ego_pred_state, oth_pred_state):
+        
+        # skipping goal stopping for now - I think the sensible way of adding
+        # it back in later is to include an independent term for it, valuating
+        # the needed manoeuvre for stopping just like this function valuates
+        # the needed manoevure for achieving each outcome
+        
+        # get the effective average jerk in the action/prediction interval and
+        # get a valuation of the action/prediction interval
+        jerk = (ego_pred_state.long_acc 
+                - ego_curr_state.long_acc) / ego_image.params.DeltaT
+        action_value = sc_scenario_helper.get_value_of_const_jerk_interval(
+                ego_curr_state.long_speed, ego_curr_state.long_acc, jerk, 
+                T = ego_image.params.DeltaT, k = ego_image.params.k)
+              
+        # call helper function to get needed manoeuvring and delay times for
+        # each outcome, starting from this state
+        implications = sc_scenario_helper.get_outcome_implications(
+                ego_image, ego_pred_state, oth_pred_state)
+        
+        # get constant value for remainder of trip after interaction
+        post_value = ( (ego_image.params.T_delta / math.log(2)) * 
+                      sc_scenario_helper.get_const_value_rate(
+                              v=ego_image.v_free, a=0, k=ego_image.params.k) ) 
+        
+        # loop over the outcomes and get value for each
+        outcome_values = {}
+        for outcome in Outcome:
+            # valuation of the action/prediction time interval
+            value = action_value
+            # valuation of the manoeuvre needed to achieve the outcome
+            value += sc_scenario_helper.get_value_of_const_jerk_interval(
+                    ego_pred_state.long_speed, implications[outcome].acc, 
+                    j = 0, T = implications[outcome].T_acc, 
+                    k = ego_image.params.k)
+            # valuation of the remainder of the journey, factoring in the
+            # delays associated with this outcome
+            total_delay = (implications[outcome].T_acc 
+                           + implications[outcome].T_dw 
+                           + implications[outcome].T_dr)
+            value += get_delay_discount(total_delay) * post_value
+            # store the value of this outcome in the output dict
+            outcome_values[outcome] = value
+            
+        return outcome_values
+        
+    
+    def get_outcome_values_for_me_v02(self, my_pred_state, oth_pred_state):
+        outcome_values = self.get_outcome_values_for_agent_v02(
+                ego_image = self.self_image, 
+                ego_curr_state = self.curr_state, 
+                ego_pred_state = my_pred_state, 
+                oth_pred_state = oth_pred_state)
+        return outcome_values
+        
+    
+    def get_outcome_values_for_other_v02(self, oth_pred_state, my_pred_state):
+        outcome_values = self.get_outcome_values_for_agent_v02(
+                ego_image = self.oth_image, 
+                ego_curr_state = self.other_agent.curr_state, 
+                ego_pred_state = oth_pred_state,
+                oth_pred_state = my_pred_state)
+        return outcome_values
+
 
     def get_value_of_state_for_agent(self, own_state, own_goal, oth_state, \
         ctrl_type, k):
