@@ -17,6 +17,10 @@ class CtrlType(Enum):
 class Outcome(Enum):
     EGOFIRST = 0
     EGOSECOND = 1
+i_EGOFIRST = Outcome.EGOFIRST.value
+i_EGOSECOND = Outcome.EGOSECOND.value
+N_OUTCOMES = len(Outcome)
+
     
 OutcomeImplication = collections.namedtuple('OutcomeImplication', 
                                             ['acc', 'T_acc', 'T_dw', 'T_dr'])
@@ -25,13 +29,20 @@ SCAgentImage = collections.namedtuple('SCAgentImage',
                                       ['ctrl_type', 'params', 'v_free'])
 
 
+
+def get_agent_free_speed(k):
+    return k._g / (2 * k._dv)
+
+
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
     """ Return acceleration required to travel a further distance target_dist
         in time target_time if starting at speed speed. Handle infinite
         target_time by returning machine epsilon with correct sign.
     """
         
-    assert target_time > 0    
+    #assert target_time > 0    
+    if target_time <= 0:
+        return math.nan
     
     # time horizon finite or not?
     if target_time == math.inf:
@@ -225,7 +236,7 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
         
         See hand written notes from 2020-12-21.
     """
-    av_value_rate = get_const_value_rate(v0, a0) \
+    av_value_rate = get_const_value_rate(v0, a0, k) \
         + (1/2) * (k._g * a0 - 2 * k._dv * v0 * a0 - 2 * k._da * a0 * j) * T \
         + (1/3) * (k._g * j / 2 - k._dv * (a0**2 + v0 * j) - k._da * j**2) * T**2 \
         - (k._dv * j / 4) * (a0 + j * T / 5) * T**3

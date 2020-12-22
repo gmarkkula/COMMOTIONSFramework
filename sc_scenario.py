@@ -10,11 +10,16 @@ from enum import Enum
 
 import commotions
 import sc_scenario_helper
-from sc_scenario_helper import (CtrlType, Outcome, 
+from sc_scenario_helper import (CtrlType, Outcome, N_OUTCOMES, SCAgentImage,
                                 get_sc_agent_collision_margins, 
                                 get_delay_discount)
 
 #matplotlib.use('qt4agg')
+
+
+# for now just a simple constant to choose value function flavour - decide
+# later how to structure this as optional assumptions
+V02VALUEFCN = True
 
 
 class OptionalAssumption(Enum):
@@ -73,7 +78,8 @@ DEFAULT_PARAMS.sigma_ao = .01
 DEFAULT_PARAMS.sigma_V = 0.1 # value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
-DEFAULT_PARAMS.T_P = 0.5 # prediction time (s)
+DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
+DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
 i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
@@ -81,18 +87,26 @@ warnings.warn('N_ACTIONS set to no of actions in default params, so will not wor
 
 DEFAULT_PARAMS_K = {}
 DEFAULT_PARAMS_K[CtrlType.SPEED] = commotions.Parameters()
-DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
-DEFAULT_PARAMS_K[CtrlType.SPEED]._c = 1
-DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
-DEFAULT_PARAMS_K[CtrlType.SPEED]._e = 0.1
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION] = commotions.Parameters()
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sc = 1
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sg = 0.25
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.05
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.01
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._e = 0.1
-
+if V02VALUEFCN:
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._da = 0.05  
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.05
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.03
+else:
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._c = 1   
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._e = 0.1   
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.05
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.01
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sc = 1    
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sg = 0.25 
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._e = 0.1    
+    
 def get_default_params():
     params = copy.copy(DEFAULT_PARAMS)
     params_k = copy.deepcopy(DEFAULT_PARAMS_K)
@@ -118,11 +132,12 @@ class SCAgent(commotions.AgentWithGoal):
         for agent in self.simulation.agents:
             if agent is not self:
                 self.other_agent = agent
-        # store assumed value function gains for the other agent
-        self.oth_k = copy.copy(DEFAULT_PARAMS_K[self.other_agent.ctrl_type])
-        # precalculate speed at which assumed value for other agent is maximum 
-        # (if heading toward goal, and no obstacles - disregarding any acceleration costs)
-        self.oth_v_free = self.oth_k._g / (2 * self.oth_k._dv) 
+        # store an "image" of the other agent, with assumed default parameters
+        oth_params = copy.copy(DEFAULT_PARAMS)
+        oth_params.k = copy.copy(DEFAULT_PARAMS_K[self.other_agent.ctrl_type])
+        oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
+        self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
+                                      params = oth_params, v_free = oth_v_free)
         # allocate vectors for storing internal states
         self.n_actions = len(self.params.ctrl_deltas)
         n_time_steps = self.simulation.settings.n_time_steps
@@ -134,6 +149,8 @@ class SCAgent(commotions.AgentWithGoal):
             math.nan * np.ones((self.n_actions, n_time_steps)) # Vhat_a(t)
         self.states.est_action_surplus_vals = \
             math.nan * np.ones((self.n_actions, n_time_steps)) # DeltaVhat_a(t)
+        self.states.action_vals_given_behs_outcs = \
+            math.nan * np.ones((self.n_actions, N_BEHAVIORS, n_time_steps, N_OUTCOMES)) # V_a|b,Omega_A(t)
         self.states.action_vals_given_behs = \
             math.nan * np.ones((self.n_actions, N_BEHAVIORS, n_time_steps)) # V_a|b(t)
         #self.states.action_probs = \
@@ -149,6 +166,8 @@ class SCAgent(commotions.AgentWithGoal):
             math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # P_b|a(t)
         self.states.beh_vals_given_actions = \
             math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # V_b|a(t)
+        self.states.beh_vals_given_actions_outcs = \
+            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps, N_OUTCOMES)) # V_b|a,Omega_B(t)
         self.states.sensory_probs_given_behs = \
             math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # P_{x_o|b}(t)
         self.states.beh_long_accs = \
@@ -200,6 +219,8 @@ class SCAgent(commotions.AgentWithGoal):
             for both agents in do_action_update().
         """
         self.curr_state = self.get_current_kinematic_state()
+        self.curr_state.long_acc = \
+            self.trajectory.long_acc[self.simulation.state.i_time_step-1]
         self.curr_state = self.add_sc_state_info(self.curr_state)
 
 
@@ -254,8 +275,8 @@ class SCAgent(commotions.AgentWithGoal):
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
          self.states.beh_long_accs[i_PASS2ND, i_time_step]) = \
              sc_scenario_helper.get_access_order_accs(
-                     self.other_agent.ctrl_type, self.other_agent.params.DeltaT,
-                     self.oth_k, self.oth_v_free, 
+                     self.other_agent.ctrl_type, self.oth_image.params.DeltaT,
+                     self.oth_image.params.k, self.oth_image.v_free, 
                      self.other_agent.curr_state, self.curr_state, 
                      SHARED_PARAMS.d_C)
              
@@ -289,14 +310,39 @@ class SCAgent(commotions.AgentWithGoal):
             for i_beh in range(N_BEHAVIORS):
                 # is this behaviour valid for this time step? (if not leave values as NaNs)
                 if beh_is_valid[i_beh]:
-                    # get value for me of this action/behavior combination
-                    self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
-                        self.get_value_for_me(pred_own_states[i_action], 
-                                              pred_oth_states[i_beh], i_action)
-                    # get value for the other agent of this action/behavior combination
-                    self.states.beh_vals_given_actions[i_beh, i_action, i_time_step] = \
-                        self.get_value_for_other(pred_oth_states[i_beh], 
-                                                 pred_own_states[i_action], i_beh)
+                    if V02VALUEFCN:
+                        # get value for me of this action/behavior combination,
+                        # storing both the per-outcome values and the max value
+                        # of those
+                        self.states.action_vals_given_behs_outcs[
+                                i_action, i_beh, i_time_step, :] = (
+                                self.get_outcome_values_for_me_v02(
+                                        pred_own_states[i_action],
+                                        pred_oth_states[i_beh]))
+                        self.states.action_vals_given_behs[
+                                i_action, i_beh, i_time_step] = (
+                                self.states.action_vals_given_behs_outcs[
+                                        i_action, i_beh, i_time_step, :].max() )
+                        # get value for for the other agent of this 
+                        # action/behavior combination
+                        self.states.beh_vals_given_actions_outcs[
+                                i_beh, i_action, i_time_step, :] = (
+                                self.get_outcome_values_for_other_v02(
+                                        pred_oth_states[i_beh],
+                                        pred_own_states[i_action]) )
+                        self.states.beh_vals_given_actions[
+                                i_beh, i_action, i_time_step] = (
+                                self.states.beh_vals_given_actions_outcs[
+                                        i_beh, i_action, i_time_step, :].max() )
+                    else:
+                        # get value for me of this action/behavior combination
+                        self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
+                            self.get_value_for_me(pred_own_states[i_action], 
+                                                  pred_oth_states[i_beh], i_action)
+                        # get value for the other agent of this action/behavior combination
+                        self.states.beh_vals_given_actions[i_beh, i_action, i_time_step] = \
+                            self.get_value_for_other(pred_oth_states[i_beh], 
+                                                     pred_own_states[i_action], i_beh)
 
         ## get my estimated probabilities for my own actions - based on value 
         ## estimates from the previous time step
@@ -398,12 +444,18 @@ class SCAgent(commotions.AgentWithGoal):
         # the needed manoeuvre for stopping just like this function valuates
         # the needed manoevure for achieving each outcome
         
-        # get the effective average jerk in the action/prediction interval and
-        # get a valuation of the action/prediction interval
-        jerk = (ego_pred_state.long_acc 
-                - ego_curr_state.long_acc) / ego_image.params.DeltaT
+        # get the effective average acceleration or jerk (depending on agent 
+        # type) in the action/prediction interval 
+        if ego_image.ctrl_type is CtrlType.SPEED:
+            action_acc0 = (ego_pred_state.long_speed 
+                          - ego_curr_state.long_speed) / ego_image.params.DeltaT
+            action_jerk = 0
+        else:
+            action_acc0 = ego_curr_state.long_acc
+            action_jerk = (ego_pred_state.long_acc
+                           - ego_curr_state.long_acc) / ego_image.params.DeltaT
         action_value = sc_scenario_helper.get_value_of_const_jerk_interval(
-                ego_curr_state.long_speed, ego_curr_state.long_acc, jerk, 
+                v0 = ego_curr_state.long_speed, a0 = action_acc0, j = action_jerk, 
                 T = ego_image.params.DeltaT, k = ego_image.params.k)
               
         # call helper function to get needed manoeuvring and delay times for
@@ -417,7 +469,7 @@ class SCAgent(commotions.AgentWithGoal):
                               v=ego_image.v_free, a=0, k=ego_image.params.k) ) 
         
         # loop over the outcomes and get value for each
-        outcome_values = {}
+        outcome_values = np.full(N_OUTCOMES, math.nan)
         for outcome in Outcome:
             # valuation of the action/prediction time interval
             value = action_value
@@ -431,9 +483,10 @@ class SCAgent(commotions.AgentWithGoal):
             total_delay = (implications[outcome].T_acc 
                            + implications[outcome].T_dw 
                            + implications[outcome].T_dr)
-            value += get_delay_discount(total_delay) * post_value
-            # store the value of this outcome in the output dict
-            outcome_values[outcome] = value
+            value += get_delay_discount(
+                    total_delay, ego_image.params.T_delta) * post_value
+            # store the value of this outcome in the output numpy array
+            outcome_values[outcome.value] = value
             
         return outcome_values
         
@@ -595,7 +648,7 @@ class SCAgent(commotions.AgentWithGoal):
 
         # set control type
         self.ctrl_type = ctrl_type
-
+        
         # set initial state and call inherited init method
         can_reverse = (self.ctrl_type is CtrlType.SPEED) # no reversing for acceleration-controlling agents
         super().__init__(name, simulation, goal_pos, \
@@ -633,9 +686,17 @@ class SCAgent(commotions.AgentWithGoal):
         self.params.alpha = self.simulation.settings.time_step / self.params.T
         self.params.gamma = self.simulation.settings.time_step / self.params.T_G
 
+        # get and store own free speed
+        self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
+        
+        # store a (correct) representation of oneself
+        self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
+                                       params = self.params, 
+                                       v_free = self.v_free)
+
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
-        # store some derived constants
+        # store derived constants relating to the actions
         self.n_action_time_steps = math.ceil(
             self.params.DeltaT / self.simulation.settings.time_step)
         self.n_prediction_time_steps = math.ceil(self.params.T_P \
@@ -695,7 +756,7 @@ class SCSimulation(commotions.Simulation):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
                     plt.subplot(N_ACTIONS, N_AGENTS, \
                                 i_action * N_AGENTS +  i_agent + 1)
-                    plt.ylim(-2, 5)
+                    #plt.ylim(-2, 5)
                     for i_beh in range(N_BEHAVIORS):
                         plt.plot(self.time_stamps, \
                                  agent.states.action_vals_given_behs[i_action, 
