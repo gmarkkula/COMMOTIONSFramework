@@ -82,6 +82,7 @@ DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
+DEFAULT_PARAMS.V_ny = -15 * 0
 i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
 warnings.warn('N_ACTIONS set to no of actions in default params, so will not work if non-default params are set.')
@@ -392,15 +393,20 @@ class SCAgent(commotions.AgentWithGoal):
         # get my estimated probabilities for the other agent's behavior
         if self.assumptions[DerivedAssumption.oBE]:
             for i_action in range(self.n_actions):
+                # get probabilities as softmax over activations for valid
+                # behaviors
                 self.states.beh_probs_given_actions[
                         beh_is_valid, i_action, i_time_step] = \
                     scipy.special.softmax(
                             self.params.Lambda 
                             * self.states.beh_activations_given_actions[
                                     beh_is_valid, i_action, i_time_step])
+                # set probabilities of invalid behaviors to zero
                 self.states.beh_probs_given_actions[
                         np.invert(beh_is_valid), i_action, i_time_step] = 0
         else:
+            # not estimating behaviors, so set probability for constant 
+            # acceleration behavior to one
             self.states.beh_probs_given_actions[:, :, i_time_step] = 0
             self.states.beh_probs_given_actions[i_CONSTANT, :, i_time_step] = 1
 
@@ -479,25 +485,33 @@ class SCAgent(commotions.AgentWithGoal):
         # loop over the access orders and get value for each
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
         for access_order in AccessOrder:
-            # valuation of the action/prediction time interval
-            value = action_value
-            # valuation of the manoeuvre needed to achieve the access order
-            value += (
-                    get_delay_discount(ego_image.params.DeltaT, 
-                                       ego_image.params.T_delta) 
-                    * sc_scenario_helper.get_value_of_const_jerk_interval(
-                    ego_pred_state.long_speed, implications[access_order].acc, 
-                    j = 0, T = implications[access_order].T_acc, 
-                    k = ego_image.params.k) )
-            # valuation of the remainder of the journey, factoring in the
-            # delays associated with this access order
-            total_delay = (ego_image.params.DeltaT
-                           + implications[access_order].T_acc 
-                           + implications[access_order].T_dw 
-                           + implications[access_order].T_dr)
-            value += get_delay_discount(
-                    total_delay, ego_image.params.T_delta) * post_value
+            if np.isnan(implications[access_order].acc):
+                # access order not valid from this state
+                value = -math.inf
+            else:
+                # valuation of the action/prediction time interval
+                value = action_value
+                # valuation of the manoeuvre needed to achieve the access order
+                value += (
+                        get_delay_discount(ego_image.params.DeltaT, 
+                                           ego_image.params.T_delta) 
+                        * sc_scenario_helper.get_value_of_const_jerk_interval(
+                        ego_pred_state.long_speed, implications[access_order].acc, 
+                        j = 0, T = implications[access_order].T_acc, 
+                        k = ego_image.params.k) )
+                # valuation of the remainder of the journey, factoring in the
+                # delays associated with this access order
+                total_delay = (ego_image.params.DeltaT
+                               + implications[access_order].T_acc 
+                               + implications[access_order].T_dw 
+                               + implications[access_order].T_dr)
+                value += get_delay_discount(
+                        total_delay, ego_image.params.T_delta) * post_value
+                if (ego_image.ctrl_type is CtrlType.ACCELERATION 
+                    and access_order is AccessOrder.EGOFIRST):
+                    value += ego_image.params.V_ny
             # store the value of this access order in the output numpy array
+            value = max(-100, min(100, value)) # awaiting some proper value fcn squashing
             access_order_values[access_order.value] = value
             
         return access_order_values
@@ -816,7 +830,7 @@ class SCSimulation(commotions.Simulation):
                              agent.states.mom_action_vals[i_action, :])
                     plt.plot(self.time_stamps, 
                              agent.states.est_action_vals[i_action, :])
-                    plt.ylim(-2, 2)
+                    #plt.ylim(-2, 2)
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
                         if i_agent == 1:
@@ -835,9 +849,9 @@ class SCSimulation(commotions.Simulation):
                     plt.plot(self.time_stamps, 
                              agent.states.est_action_surplus_vals[i_action, :])
                     plt.plot([self.time_stamps[0], self.time_stamps[-1]], 
-                        [agent.params.DeltaV_th, agent.params.DeltaV_th] , 
-                        color = 'gray')
-                    plt.ylim(-.5, .3)
+                        [agent.params.DeltaV_th, agent.params.DeltaV_th], 
+                        '--', color = 'gray')
+                    #plt.ylim(-.5, .3)
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
                     if i_agent == 0:
@@ -1060,8 +1074,8 @@ if __name__ == "__main__":
             agent_names = ('P', 'V'))
     sc_simulation.run()
     sc_simulation.do_plots(
-            trajs = True, surplus_action_vals = True, kinem_states = True, 
-            beh_accs = True, beh_probs = True, action_vals = True, 
+            trajs = True, action_val_ests = True, surplus_action_vals = True, 
+            kinem_states = True, beh_accs = True, beh_probs = True, action_vals = True, 
             sensory_prob_dens = False, beh_activs = True)
 
 

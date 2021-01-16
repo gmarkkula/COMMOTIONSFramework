@@ -139,7 +139,7 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
     
 
 def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
-                                  get_durations = True, return_nans = False):
+                                  get_durations = True, return_nans = True):
     """ Return a dict over AccessOrder with an AccessOrderImplication for each, 
         for the ego agent described by ego_image, with state ego_state (using 
         fields signed_CP_dist, long_speed), to pass respectively before or 
@@ -235,12 +235,8 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # to free speed for both outcomes
         implications = {}
         for access_order in AccessOrder:
-            if return_nans:
-                implications[access_order] = AccessOrderImplication(
-                        math.nan, math.nan, math.nan, math.nan)
-            else:
-                implications[access_order] = AccessOrderImplication(
-                        acc = ego_free_acc, T_acc = T_acc_free, T_dw = 0, T_dr = 0)
+            implications[access_order] = AccessOrderImplication(
+                    acc = ego_free_acc, T_acc = T_acc_free, T_dw = 0, T_dr = 0)
         return implications
         
     # prepare dicts
