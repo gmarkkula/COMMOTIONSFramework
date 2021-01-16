@@ -748,6 +748,13 @@ class SCSimulation(commotions.Simulation):
                  sensory_prob_dens = False, kinem_states = False, 
                  times_to_ca = False):
 
+
+        if self.agents[0].assumptions[DerivedAssumption.oBE]:
+            plot_behaviors = BEHAVIORS
+        else:
+            plot_behaviors = (BEHAVIORS[i_CONSTANT],)
+        n_plot_behaviors = len(plot_behaviors)
+
         if trajs:
             # plot trajectories
             plt.figure('Trajectories')
@@ -766,14 +773,14 @@ class SCSimulation(commotions.Simulation):
                     plt.subplot(N_ACTIONS, N_AGENTS, \
                                 i_action * N_AGENTS +  i_agent + 1)
                     #plt.ylim(-2, 5)
-                    for i_beh in range(N_BEHAVIORS):
+                    for i_beh in range(n_plot_behaviors):
                         plt.plot(self.time_stamps, \
                                  agent.states.action_vals_given_behs[i_action, 
                                                                      i_beh, :])
                     if i_action == 0:
                         plt.title('Agent %s' % agent.name)
                         if i_agent == 1:
-                            plt.legend(BEHAVIORS)
+                            plt.legend(plot_behaviors)
                     if i_agent == 0:
                         plt.ylabel('$V(%.1f | b)$' % deltav)
 
@@ -839,17 +846,17 @@ class SCSimulation(commotions.Simulation):
                            (agent.name, agent.other_agent.name), 
                            figsize = [7, 7])
                 plt.clf()
-                for i_beh in range(N_BEHAVIORS):
+                for i_beh in range(n_plot_behaviors):
                     # action observation contribution
-                    plt.subplot(N_ACTIONS+1, N_BEHAVIORS, i_beh + 1)
+                    plt.subplot(N_ACTIONS+1, n_plot_behaviors, i_beh + 1)
                     plt.plot(self.time_stamps, agent.states.beh_activ_O[i_beh, :])
                     plt.title(BEHAVIORS[i_beh])
-                    if i_beh == N_BEHAVIORS-1:
+                    if i_beh == n_plot_behaviors-1:
                         plt.legend(('$A_{O,b}$',))
                     # value contribution and total activation - both per action
                     for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                        plt.subplot(N_ACTIONS+1, N_BEHAVIORS, 
-                                    (i_action+1) * N_BEHAVIORS + i_beh + 1)
+                        plt.subplot(N_ACTIONS+1, n_plot_behaviors, 
+                                    (i_action+1) * n_plot_behaviors + i_beh + 1)
                         plt.plot(self.time_stamps, 
                                  agent.states.beh_activ_V_given_actions[
                                          i_beh, i_action,  :])
@@ -857,7 +864,7 @@ class SCSimulation(commotions.Simulation):
                                  agent.states.beh_activations_given_actions[
                                          i_beh, i_action, :])
                         plt.ylim(-2, 5)
-                        if i_beh == N_BEHAVIORS-1 and i_action == 0:
+                        if i_beh == n_plot_behaviors-1 and i_action == 0:
                             plt.legend(('$A_{V,b|a}$', '$A_{b|a}$'))
                         if i_beh == 0:
                             plt.ylabel('$\\Delta v=%.1f$' % deltav)
@@ -868,8 +875,8 @@ class SCSimulation(commotions.Simulation):
                        figsize = (10.0, 10.0))
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_beh in range(N_BEHAVIORS):
-                    plt.subplot(N_BEHAVIORS, N_AGENTS, 
+                for i_beh in range(n_plot_behaviors):
+                    plt.subplot(n_plot_behaviors, N_AGENTS, 
                                 i_beh * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, agent.states.beh_long_accs[i_beh, :], 
                         '--', color = 'gray', linewidth = 2)
@@ -890,7 +897,7 @@ class SCSimulation(commotions.Simulation):
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
                     plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
-                    for i_beh in range(N_BEHAVIORS):
+                    for i_beh in range(n_plot_behaviors):
                         # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
                         plt.plot(self.time_stamps, 
                                  agent.states.beh_probs_given_actions[
@@ -902,15 +909,15 @@ class SCSimulation(commotions.Simulation):
                     if i_agent == 0:
                         plt.ylabel('$P_{b|\\Delta v=%.1f}$ (-)' % deltav)
                     elif i_action == 0:
-                        plt.legend(BEHAVIORS)
+                        plt.legend(plot_behaviors)
                     
         if sensory_prob_dens:
             # - sensory probability densities
             plt.figure('Sensory probability densities')
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_beh in range(N_BEHAVIORS):
-                    plt.subplot(N_BEHAVIORS, N_AGENTS, 
+                for i_beh in range(n_plot_behaviors):
+                    plt.subplot(n_plot_behaviors, N_AGENTS, 
                                 i_beh * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, \
                         np.log(agent.states.sensory_probs_given_behs[i_beh, :]))
@@ -1034,13 +1041,13 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [50, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     optional_assumptions = get_assumptions_dict(default_value = False, 
-                                                oBEao = True, 
-                                                oBEvs = True, 
-                                                oEA = True, 
+                                                oBEao = False, 
+                                                oBEvs = False, 
+                                                oEA = False, 
                                                 oAN = False)  
 
     sc_simulation = SCSimulation(
