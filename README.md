@@ -10,6 +10,7 @@ This repository contains some sketches and work in progress code for the COMMOTI
     * This is ongoing - but still not quite working as of the current commit (2020-12-22). There are NaNs or Infs or something sneaking their way into the value calculations - for example run the committed version of `sc_scenario.py` (same scenario as in recent diary entries; and oBEao, oBEvs, oEA) to see this behaviour.
         * A locus of interest is `sc_scenario_helper.get_access_order_implications()` and how it should be dealing with "invalid" outcomes, like passing first when the other agent has already entered the conflict space, etc.
         * Another possible culprit is `sc_scenario_helper.get_value_of_const_jerk_interval()`, where I am getting `invalid value encountered in double scalars` warnings...
+    * Another limitation here currently is that the estimation of future acceleration to regain free speed in `sc_scenario_helper.get_access_order_implications()` is currently hardcoded to "acceleration needed to reach free speed in 10 s"
 * Improved consideration of time in the value functions
     * Most of this is in place as of 2020-12-22, but needs further looking at - again `sc_scenario_helper.get_access_order_implications()` is the place to look. (The delay times are not implemented yet - also sounds like I was saying I was slightly unsure about the rest when I originally wrote this note 2020-12-22?)
 * Minor problems/bugs:

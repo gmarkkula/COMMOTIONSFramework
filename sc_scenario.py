@@ -90,12 +90,16 @@ DEFAULT_PARAMS_K = {}
 DEFAULT_PARAMS_K[CtrlType.SPEED] = commotions.Parameters()
 DEFAULT_PARAMS_K[CtrlType.ACCELERATION] = commotions.Parameters()
 if V02VALUEFCN:
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._da = 0.05  
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.05
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.03
+    FREE_SPEED_SPEED_CTRL = 1.5
+    FREE_SPEED_ACC_CTRL = 10
+    # set k_g and k_dv for normalised value rates across agent types 
+    # (see handwritten notes from 2021-01-16)
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 2 / FREE_SPEED_SPEED_CTRL 
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 1 / FREE_SPEED_SPEED_CTRL ** 2
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._da = 0.5 # gives sensible-looking acceleration from standstill
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 2 / FREE_SPEED_ACC_CTRL 
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 1 / FREE_SPEED_ACC_CTRL ** 2
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.5 # gives sensible-looking acceleration from standstill
 else:
     DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
     DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
@@ -1041,7 +1045,7 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [50, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     optional_assumptions = get_assumptions_dict(default_value = False, 

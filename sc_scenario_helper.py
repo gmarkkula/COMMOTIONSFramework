@@ -209,14 +209,19 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # assuming straight acc to free speed
         ego_free_acc = -dev_from_v_free / ego_image.params.DeltaT
     else:
-        # calculate the expected acceleration given the current deviation
-        # from the free speed (see hand written notes from 2020-07-08)
-        ego_k = ego_image.params.k
-        ego_free_acc = (
-                - ego_k._dv * dev_from_v_free * ego_image.params.DeltaT 
-                / (0.5 * ego_k._dv * ego_image.params.DeltaT ** 2 
-                   + 2 * ego_k._da)
-                )
+        # currently hardcoded to "acceleration needed to reach free speed in 
+        # 10 s"
+        ego_free_acc = -dev_from_v_free / 10
+# =============================================================================
+#         # calculate the expected acceleration given the current deviation
+#         # from the free speed (see hand written notes from 2020-07-08)
+#         ego_k = ego_image.params.k
+#         ego_free_acc = (
+#                 - ego_k._dv * dev_from_v_free * ego_image.params.DeltaT 
+#                 / (0.5 * ego_k._dv * ego_image.params.DeltaT ** 2 
+#                    + 2 * ego_k._da)
+#                 )
+# =============================================================================
                 
     # get time to reach free speed if applying free acceleration
     if dev_from_v_free == 0:
