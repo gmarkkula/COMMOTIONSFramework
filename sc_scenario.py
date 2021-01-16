@@ -82,7 +82,7 @@ DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
-DEFAULT_PARAMS.V_ny = -15 * 0
+DEFAULT_PARAMS.V_ny = -15 * 0 # value function term for non-yielding 
 i_NO_ACTION = 2
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
 warnings.warn('N_ACTIONS set to no of actions in default params, so will not work if non-default params are set.')
@@ -1059,9 +1059,9 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
-    SPEEDS = np.array((0, 10))
+    SPEEDS = np.array((0, 0))
     optional_assumptions = get_assumptions_dict(default_value = False, 
                                                 oBEao = False, 
                                                 oBEvs = False, 

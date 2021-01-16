@@ -6,15 +6,16 @@ This repository contains some sketches and work in progress code for the COMMOTI
 * ~~Improved functions for calculating speeds/accelerations for passing in front / behind another agent, to be used both for estimating behaviour of another agent, and in the intended updated interaction terms in the value functions~~
 * ~~Add more advanced logic re the "constant" behaviour - it is still needed when there is no `oBE*` assumption.~~
 * ~~Updating the collision course calculations in `sc_scenario.py` to match those in `sc_scenario_helper.py`, i.e., conflict space based rather than based on distances between agent coordinates.~~
-* Updated, affordance-based interaction terms in the value functions, and separate values for both potential outcomes
-    * This is ongoing - but still not quite working as of the current commit (2020-12-22). There are NaNs or Infs or something sneaking their way into the value calculations - for example run the committed version of `sc_scenario.py` (same scenario as in recent diary entries; and oBEao, oBEvs, oEA) to see this behaviour.
-        * A locus of interest is `sc_scenario_helper.get_access_order_implications()` and how it should be dealing with "invalid" outcomes, like passing first when the other agent has already entered the conflict space, etc.
-        * Another possible culprit is `sc_scenario_helper.get_value_of_const_jerk_interval()`, where I am getting `invalid value encountered in double scalars` warnings...
-    * Another limitation here currently is that the estimation of future acceleration to regain free speed in `sc_scenario_helper.get_access_order_implications()` is currently hardcoded to "acceleration needed to reach free speed in 10 s"
-* Improved consideration of time in the value functions
-    * Most of this is in place as of 2020-12-22, but needs further looking at - again `sc_scenario_helper.get_access_order_implications()` is the place to look. (The delay times are not implemented yet - also sounds like I was saying I was slightly unsure about the rest when I originally wrote this note 2020-12-22?)
-* Minor problems/bugs:
-    * Some mismatch between the new conflict space based TTC calculations (`sc_scenario_helper.get_time_to_sc_agent_collision()`) and the behaviour acceleration calculations (`sc_scenario_helper.get_access_order_accs()`) - obvious in "expected accelerations" plots just as the agents pass each other, and in the speed-ups sometimes caused at these times, seemingly because the first-passing agent becomes alarmed about the other agent's "pass 2nd" behaviour running the risk of making it collide with the first-passing agent.
+* Updated, affordance-based interaction terms in the value functions, and separate values for both potential outcomes. This is ongoing. Currently open issues, in some form of falling order of priority (from 2021-01-16 diary entry):
+
+    * If both agents start from standstill, they currently don't get going at all...?! (they did in previous commits today 2021-01-16 I believe, but not in this final one...)
+    * The action values become -inf on and off when different access orders are deemed impossible by the current implementation. In principle this is as intended, but the way it looks currently doesn't seem completely right. (Another possible culprit is `sc_scenario_helper.get_value_of_const_jerk_interval()`, where I am getting `invalid value encountered in double scalars` warnings...)
+    * When yielding to (near-)standstill just at the edge of the pedestrian's crossing area, the car sometimes continues sliding into it and just keeps going (see further below for an example). I think the problem here lies in how collisions are treated; basically once the collision is a fact the value function does not care whether the car continues going. One idea might be to allow some sort of tolerance for small incursions into the pedestrian crossing area at very low speeds?
+    * Strange estimated behaviour probabilities, whereby both speed(/acceleration) increases and decreases can cause an estimate that the other agent will pass first to change into an estimate that the other agent will pass second. See below for example.
+    * I have not yet added calculation of delays for waiting time and regaining speed - these are made use of in `SCAgent.get_access_order_values_for_agent_v02()` but are currently just set to zero in `sc_scenario_helper.get_access_order_implications()`.
+    * The estimation of future acceleration to regain free speed in `sc_scenario_helper.get_access_order_implications()` is currently hardcoded to "acceleration needed to reach free speed in 10 s" (the calculation previously used there was sort of ok for v0.1, but probably rather incorrect for v0.2 - and I was seeing weird results from using it).
+    * I have added a simple placeholder $\pm$100 saturation for value $V$ of an action - pending proper squashing of the value function as experimented with elsewhere.
+
 
 
 # Explanation of repository contents
