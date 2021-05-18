@@ -492,12 +492,14 @@ class SCAgent(commotions.AgentWithGoal):
                 # valuation of the action/prediction time interval
                 value = action_value
                 # valuation of the manoeuvre needed to achieve the access order
+                # (the get_value_... helper function can't handle infinite times
+                # so cap at an hour...)
                 value += (
                         get_delay_discount(ego_image.params.DeltaT, 
                                            ego_image.params.T_delta) 
                         * sc_scenario_helper.get_value_of_const_jerk_interval(
                         ego_pred_state.long_speed, implications[access_order].acc, 
-                        j = 0, T = implications[access_order].T_acc, 
+                        j = 0, T = min(3600, implications[access_order].T_acc), 
                         k = ego_image.params.k) )
                 # valuation of the remainder of the journey, factoring in the
                 # delays associated with this access order
