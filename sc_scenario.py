@@ -319,6 +319,10 @@ class SCAgent(commotions.AgentWithGoal):
                         # get value for me of this action/behavior combination,
                         # storing both the per-access-order values and the max value
                         # of those
+                        
+                        # if self.simulation.time_stamps[self.simulation.state.i_time_step] >= 1.5 and i_action == 3:
+                        #     print('debug')
+                        
                         self.states.action_vals_given_behs_outcs[
                                 i_action, i_beh, i_time_step, :] = (
                                 self.get_access_order_values_for_me_v02(
@@ -478,7 +482,7 @@ class SCAgent(commotions.AgentWithGoal):
         # it back in later is to include an independent term for it, valuating
         # the needed manoeuvre for stopping just like this function valuates
         # the needed manoevure for achieving each access order
-        
+       
         # get the effective average acceleration or jerk (depending on agent 
         # type) in the action/prediction interval 
         if ego_image.ctrl_type is CtrlType.SPEED:
@@ -1094,7 +1098,7 @@ if __name__ == "__main__":
 
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
-            end_time = 5, optional_assumptions = optional_assumptions,
+            end_time = 7, optional_assumptions = optional_assumptions,
             agent_names = ('P', 'V'))
     sc_simulation.run()
     sc_simulation.do_plots(
