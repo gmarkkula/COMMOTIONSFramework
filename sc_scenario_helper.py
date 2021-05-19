@@ -256,11 +256,13 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # no, so it is theoretically possible to pass in front of it
         # --> get acceleration that has the ego agent be at exit of the conflict 
         # space at the same time as the other agent enters it
+        # (need to consider stop as possibility here, in case the other agent
+        # is moving very slowly toward the conflict space)
         ego_dist_to_exit = ego_state.signed_CP_dist + coll_dist
         accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
             get_acc_to_be_at_dist_at_time(
                 ego_state.long_speed, ego_dist_to_exit, 
-                oth_state.CS_entry_time, consider_stop=False)
+                oth_state.CS_entry_time, consider_stop=True)
         # if the acceleration to free speed is higher than the acceleration
         # needed to exit just as the other agent enters, there is no need to
         # assume that the agent will move slower than its free speed

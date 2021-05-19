@@ -11,6 +11,7 @@ from enum import Enum
 import commotions
 import sc_scenario_helper
 from sc_scenario_helper import (CtrlType, AccessOrder, N_ACCESS_ORDERS, 
+                                i_EGOFIRST, i_EGOSECOND,
                                 SCAgentImage,
                                 get_sc_agent_collision_margins, 
                                 get_delay_discount)
@@ -307,7 +308,7 @@ class SCAgent(commotions.AgentWithGoal):
         for i_beh in range(N_BEHAVIORS):
             # get predicted state of other agent with this behavior
             pred_oth_states.append(self.get_predicted_other_state(i_beh))
-
+            
         # now loop over all combinations of own actions and other's behaviors, 
         # and get values from both agents' perspectives
         for i_action in range(self.n_actions):
@@ -323,25 +324,46 @@ class SCAgent(commotions.AgentWithGoal):
                                 self.get_access_order_values_for_me_v02(
                                         pred_own_states[i_action],
                                         pred_oth_states[i_beh]))
-#                        if np.all(np.isnan(
-#                                self.states.action_vals_given_behs_outcs[
-#                                i_action, i_beh, i_time_step, :])):
-#                            print('apa')
                         self.states.action_vals_given_behs[
                                 i_action, i_beh, i_time_step] = np.nanmax(
                                 self.states.action_vals_given_behs_outcs[
                                         i_action, i_beh, i_time_step, :])
                         # get value for for the other agent of this 
                         # action/behavior combination
+                        # - first across both possible outcomes
                         self.states.beh_vals_given_actions_outcs[
                                 i_beh, i_action, i_time_step, :] = (
                                 self.get_access_order_values_for_other_v02(
                                         pred_oth_states[i_beh],
                                         pred_own_states[i_action]) )
-                        self.states.beh_vals_given_actions[
-                                i_beh, i_action, i_time_step] = np.nanmax(
-                                self.states.beh_vals_given_actions_outcs[
-                                        i_beh, i_action, i_time_step, :])
+                        # - then use the value for the outcome corresponding
+                        #   to the behaviour in question
+                        if i_beh == i_PASS1ST:
+                            self.states.beh_vals_given_actions[
+                                    i_beh, i_action, i_time_step] = (
+                                    self.states.beh_vals_given_actions_outcs[
+                                            i_beh, i_action, i_time_step, i_EGOFIRST])
+                        elif i_beh == i_PASS2ND:
+                            self.states.beh_vals_given_actions[
+                                    i_beh, i_action, i_time_step] = (
+                                    self.states.beh_vals_given_actions_outcs[
+                                            i_beh, i_action, i_time_step, i_EGOSECOND])
+                        elif i_beh == i_CONSTANT:
+                            # not quite sure what is appropriate to do here -
+                            # constant behaviour being considered valid means
+                            # that we are either not estimating behaviours (in
+                            # which case these behaviour values shouldn't
+                            # be used anywhere), or no other behaviour is 
+                            # considered valid, which means that the
+                            # interaction is over anyway (I am pretty sure of
+                            # that at least?) - so the value set here may
+                            # not matter much anyway
+                            self.states.beh_vals_given_actions[
+                                    i_beh, i_action, i_time_step] = np.nanmax(
+                                    self.states.beh_vals_given_actions_outcs[
+                                            i_beh, i_action, i_time_step, :])
+                        else:
+                            raise Exception('Unexpected behaviour.')
                     else:
                         # get value for me of this action/behavior combination
                         self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
@@ -883,7 +905,7 @@ class SCSimulation(commotions.Simulation):
                         plt.plot(self.time_stamps, 
                                  agent.states.beh_activations_given_actions[
                                          i_beh, i_action, :])
-                        plt.ylim(-2, 5)
+                        #plt.ylim(-2, 5)
                         if i_beh == n_plot_behaviors-1 and i_action == 0:
                             plt.legend(('$A_{V,b|a}$', '$A_{b|a}$'))
                         if i_beh == 0:
@@ -1061,18 +1083,18 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
-    SPEEDS = np.array((0, 0))
+    SPEEDS = np.array((0, 10))
     optional_assumptions = get_assumptions_dict(default_value = False, 
                                                 oBEao = False, 
-                                                oBEvs = False, 
+                                                oBEvs = True, 
                                                 oEA = False, 
                                                 oAN = False)  
 
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
-            end_time = 15, optional_assumptions = optional_assumptions,
+            end_time = 5, optional_assumptions = optional_assumptions,
             agent_names = ('P', 'V'))
     sc_simulation.run()
     sc_simulation.do_plots(
