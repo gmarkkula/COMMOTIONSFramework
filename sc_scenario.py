@@ -508,6 +508,13 @@ class SCAgent(commotions.AgentWithGoal):
         implications = sc_scenario_helper.get_access_order_implications(
                 ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C)
         
+        # get the estimated time needed for the agent to regain free speed, 
+        # if not already at it
+        if ego_image.ctrl_type is CtrlType.SPEED:
+            agent_time_to_v_free = ego_image.params.DeltaT
+        else:
+            agent_time_to_v_free = sc_scenario_helper.ACC_CTRL_REGAIN_SPD_TIME
+        
         # loop over the access orders and get value for each
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
         for access_order in AccessOrder:
@@ -517,22 +524,42 @@ class SCAgent(commotions.AgentWithGoal):
             else:
                 # valuation of the action/prediction time interval
                 value = action_value
+                # get the duration of the interval where the access order is 
+                # achieved (the get_value_... helper function can't handle 
+                # infinite times so cap at an hour...)
+                T_omega = min(3600, implications[access_order].T_acc)
                 # valuation of the manoeuvre needed to achieve the access order
-                # (the get_value_... helper function can't handle infinite times
-                # so cap at an hour...)
                 value += (
                         get_delay_discount(ego_image.params.DeltaT, 
                                            ego_image.params.T_delta) 
                         * sc_scenario_helper.get_value_of_const_jerk_interval(
                         ego_pred_state.long_speed, implications[access_order].acc, 
-                        j = 0, T = min(3600, implications[access_order].T_acc), 
+                        j = 0, T = T_omega, 
+                        k = ego_image.params.k) )
+                # valuation of the step of regaining the free speed after the
+                # access order has been achieved (may be a zero duration
+                # step if the access order was achieved by an acceleration to
+                # the free speed)
+                # - get the delay before the regaining can happen, including
+                #   any waiting time
+                delay_bef_reg_free = (ego_image.params.DeltaT
+                                    + T_omega 
+                                    + implications[access_order].T_dw)
+                # - get the speed after having achieved the access order
+                vprime = (ego_pred_state.long_speed 
+                          + T_omega * implications[access_order].acc)
+                # - get the acceleration that will be applied to regain free speed
+                accprime = -(vprime - ego_image.v_free) / agent_time_to_v_free
+                # - calculate the value contribution
+                value += (
+                    get_delay_discount(delay_bef_reg_free,
+                                       ego_image.params.T_delta) 
+                    * sc_scenario_helper.get_value_of_const_jerk_interval(
+                        vprime, accprime, j = 0, T = agent_time_to_v_free, 
                         k = ego_image.params.k) )
                 # valuation of the remainder of the journey, factoring in the
                 # delays associated with this access order
-                total_delay = (ego_image.params.DeltaT
-                               + implications[access_order].T_acc 
-                               + implications[access_order].T_dw 
-                               + implications[access_order].T_dr)
+                total_delay = delay_bef_reg_free + agent_time_to_v_free
                 value += get_delay_discount(
                         total_delay, ego_image.params.T_delta) * post_value
                 if (ego_image.ctrl_type is CtrlType.ACCELERATION 
@@ -818,7 +845,7 @@ class SCSimulation(commotions.Simulation):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
                     plt.subplot(N_ACTIONS, N_AGENTS, \
                                 i_action * N_AGENTS +  i_agent + 1)
-                    #plt.ylim(-2, 5)
+                    plt.ylim(-0, 50)
                     for i_beh in range(n_plot_behaviors):
                         plt.plot(self.time_stamps, \
                                  agent.states.action_vals_given_behs[i_action, 

@@ -9,6 +9,7 @@ import commotions
 EPSILON = np.finfo(float).eps
 
 SMALL_NEG_SPEED = -0.01 # m/s - used as threshold for functions that don't accept negative speeds - but to allow minor speed imprecisions at stopping
+ACC_CTRL_REGAIN_SPD_TIME = 10 # s - assumed time needed for acceleration-controlling agent to regain free speed (regardless of starting speed)
 
 class CtrlType(Enum):
     SPEED = 0
@@ -21,9 +22,10 @@ i_EGOFIRST = AccessOrder.EGOFIRST.value
 i_EGOSECOND = AccessOrder.EGOSECOND.value
 N_ACCESS_ORDERS = len(AccessOrder)
 
+
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
-                                                ['acc', 'T_acc', 'T_dw', 'T_dr'])
+                                                ['acc', 'T_acc', 'T_dw'])
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
                                       ['ctrl_type', 'params', 'v_free'])
@@ -139,7 +141,7 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
     
 
 def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
-                                  get_durations = True, return_nans = True):
+                                  return_nans = True):
     """ Return a dict over AccessOrder with an AccessOrderImplication for each, 
         for the ego agent described by ego_image, with state ego_state (using 
         fields signed_CP_dist, long_speed), to pass respectively before or 
@@ -194,24 +196,26 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         if return_nans:
             for access_order in AccessOrder:
                 implications[access_order] = AccessOrderImplication(
-                        math.nan, math.nan, math.nan, math.nan)
+                        math.nan, math.nan, math.nan)
         else:
             implications[AccessOrder.EGOFIRST] = AccessOrderImplication(
-                    acc = math.inf, T_acc = math.inf, T_dw = 0, T_dr = 0)
+                    acc = math.inf, T_acc = math.inf, T_dw = 0)
             implications[AccessOrder.EGOSECOND] = AccessOrderImplication(
-                    acc = -math.inf, T_acc = math.inf, T_dw = 0, T_dr = 0)
+                    acc = -math.inf, T_acc = math.inf, T_dw = 0)
         return implications
     
-    
+
     # get ego agent's acceleration if just aiming for free speed
     dev_from_v_free = ego_state.long_speed - ego_image.v_free
     if ego_image.ctrl_type is CtrlType.SPEED:
         # assuming straight acc to free speed
-        ego_free_acc = -dev_from_v_free / ego_image.params.DeltaT
+        agent_time_to_v_free = ego_image.params.DeltaT
     else:
-        # currently hardcoded to "acceleration needed to reach free speed in 
-        # 10 s"
-        ego_free_acc = -dev_from_v_free / 10
+        # simplified approach for acc-controlling agents (the calculations
+        # commented out below were also relying on lots of simplifying
+        # assumptions, most notably constant acceleration while regaining speed,
+        # which is not close to the truth)
+        agent_time_to_v_free = ACC_CTRL_REGAIN_SPD_TIME
 # =============================================================================
 #         # calculate the expected acceleration given the current deviation
 #         # from the free speed (see hand written notes from 2020-07-08)
@@ -222,12 +226,13 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
 #                    + 2 * ego_k._da)
 #                 )
 # =============================================================================
+    ego_free_acc = -dev_from_v_free / agent_time_to_v_free
                 
     # get time to reach free speed if applying free acceleration
     if dev_from_v_free == 0:
         T_acc_free = 0
     else:
-        T_acc_free = -dev_from_v_free / ego_free_acc
+        T_acc_free = agent_time_to_v_free
         
     # has the ego agent already exited the conflict space?
     if ego_state.signed_CP_dist <= -coll_dist:
@@ -236,12 +241,16 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         implications = {}
         for access_order in AccessOrder:
             implications[access_order] = AccessOrderImplication(
-                    acc = ego_free_acc, T_acc = T_acc_free, T_dw = 0, T_dr = 0)
+                    acc = ego_free_acc, T_acc = T_acc_free, T_dw = 0)
         return implications
         
     # prepare dicts
     accs = {}
     T_accs = {}
+    T_dws = {}
+    
+    # never any waiting time involved in passing first
+    T_dws[AccessOrder.EGOFIRST] = 0
     
     # get acceleration needed to pass first
     # - other agent already entered conflict space?
@@ -256,8 +265,8 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # no, so it is theoretically possible to pass in front of it
         # --> get acceleration that has the ego agent be at exit of the conflict 
         # space at the same time as the other agent enters it
-        # (need to consider stop as possibility here, in case the other agent
-        # is moving very slowly toward the conflict space)
+        # (need to consider stop as possibility here, in case there is a long
+        # time left until the other agent reaches the conflict space)
         ego_dist_to_exit = ego_state.signed_CP_dist + coll_dist
         accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
             get_acc_to_be_at_dist_at_time(
@@ -277,7 +286,9 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # yes, so just accelerate to free speed
         accs[AccessOrder.EGOSECOND] = ego_free_acc
         T_accs[AccessOrder.EGOSECOND] = T_acc_free
+        T_dws[AccessOrder.EGOSECOND] = 0
     else:
+        # no, the other agent hasn't already exited the conflict space
         # has the ego agent already entered conflict space?
         if ego_state.signed_CP_dist <= coll_dist:
             # yes, so need to move back out of it again before the other agent 
@@ -287,6 +298,13 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
                 get_acc_to_be_at_dist_at_time(
                     ego_state.long_speed, ego_dist_to_entry,
                     oth_state.CS_entry_time, consider_stop=False)
+            # once having moved out, will need to wait for the other agent to 
+            # exit before continuing
+            if math.isinf(oth_state.CS_exit_time):
+                T_dws[AccessOrder.EGOSECOND] = math.inf
+            else:
+                T_dws[AccessOrder.EGOSECOND] = (oth_state.CS_exit_time
+                                                - T_accs[AccessOrder.EGOSECOND])
         else:
             # not yet reached conflict space, so get acceleration that has the ego 
             # agent be at entrance to the conflict space at the same time as the 
@@ -297,46 +315,27 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
                 get_acc_to_be_at_dist_at_time(
                     ego_state.long_speed, ego_dist_to_entry,
                     oth_state.CS_exit_time, consider_stop=True)
+            if math.isinf(oth_state.CS_exit_time):
+                T_dws[AccessOrder.EGOSECOND] = math.inf
+            else:
+                T_dws[AccessOrder.EGOSECOND] = (oth_state.CS_exit_time
+                                                - T_accs[AccessOrder.EGOSECOND])
             # if the acceleration to free speed is lower than the acceleration
             # needed to enter just as the other agent exits, there is no need to
             # assume that the agent will move faster than its free speed
             if ego_free_acc < accs[AccessOrder.EGOSECOND]:
                 accs[AccessOrder.EGOSECOND] = ego_free_acc
                 T_accs[AccessOrder.EGOSECOND] = T_acc_free
-         
-    # has the caller requested durations also?
-    if not get_durations:
-        # no - so can return now
-        implications = {}
-        for access_order in AccessOrder:
-            implications[access_order] = AccessOrderImplication(
-                    accs[access_order], T_accs[access_order], math.nan, math.nan)
-        return implications
+                T_dws[AccessOrder.EGOSECOND] = 0
         
-    # getting delay durations - so prepare dicts
-    T_dws = {}
-    T_drs = {}
-    
-#    # get durations for ego first access order
-#    if accs[AccessOrder.EGOFIRST] == math.nan:
-#        # if we can't calculate the acceleration, we can't calculate the 
-#        # durations
-#        T_dws[AccessOrder.EGOFIRST] = math.nan
-#        T_drs[AccessOrder.EGOFIRST] = math.nan 
-#    else:
-    T_dws[AccessOrder.EGOFIRST] = 0
-    T_drs[AccessOrder.EGOFIRST] = 0 
-        
-    # get durations for ego second access order   
-    T_dws[AccessOrder.EGOSECOND] = 0
-    T_drs[AccessOrder.EGOSECOND] = 0   
+            
     
     # return dict with the full results
     implications = {}
     for access_order in AccessOrder:
         implications[access_order] = AccessOrderImplication(
                 acc = accs[access_order], T_acc = T_accs[access_order], 
-                T_dw = T_dws[access_order], T_dr = T_drs[access_order])
+                T_dw = T_dws[access_order])
     return implications
 
 
@@ -348,7 +347,6 @@ def get_access_order_accs(ego_image, ego_state, oth_state, coll_dist):
     """
     implications = get_access_order_implications(ego_image, ego_state, 
                                                  oth_state, coll_dist,
-                                                 get_durations = False,
                                                  return_nans = True)
     return (implications[AccessOrder.EGOFIRST].acc, 
             implications[AccessOrder.EGOSECOND].acc)
