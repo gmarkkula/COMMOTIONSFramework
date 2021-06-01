@@ -75,7 +75,7 @@ DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = 1
 DEFAULT_PARAMS.T_G = DEFAULT_PARAMS.T # value acc / LP filter rel time in game-theoretic estimate of value for the other agent
 DEFAULT_PARAMS.kappa = 0.3
-DEFAULT_PARAMS.Lambda = 10
+DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.sigma_ao = .01 
 DEFAULT_PARAMS.sigma_V = 0.1 # value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
@@ -220,6 +220,29 @@ class SCAgent(commotions.AgentWithGoal):
         return state
     
     
+    def plot_state_snapshot(self, state, plot_color, alpha=False, 
+                            speed_label=False):
+        if alpha:
+            alpha_val = 0.5
+        else:
+            alpha_val = 1
+        speed_vect = (state.long_speed * self.params.DeltaT
+                      * np.array((math.cos(state.yaw_angle), 
+                                  math.sin(state.yaw_angle))))
+        vect_pos = state.pos + speed_vect
+        self.snapshot_ax.plot((state.pos[0], vect_pos[0]),
+                              (state.pos[1], vect_pos[1]), '-',
+                              color=plot_color, alpha=alpha_val)
+        self.snapshot_ax.plot(state.pos[0], state.pos[1], 'o', 
+                              color=plot_color, alpha=alpha_val)
+        if speed_label:
+            text_pos = state.pos + 2 * speed_vect
+            self.snapshot_ax.text(text_pos[0], text_pos[1], 
+                                  '%.2f' % state.long_speed, 
+                                  color=plot_color, alpha=alpha_val,
+                                  ha='center', va='center', size=8)
+    
+    
     def prepare_for_action_update(self):
         """ Override the base class method with some per-timestep 
             precalculation - done here so that both agents can access these
@@ -237,6 +260,7 @@ class SCAgent(commotions.AgentWithGoal):
 
         i_time_step = self.simulation.state.i_time_step
         time_step = self.simulation.settings.time_step
+        time_stamp = self.simulation.time_stamps[i_time_step]
         
         # is this agent just supposed to keep constant speed?
         if self.const_speed:
@@ -314,6 +338,18 @@ class SCAgent(commotions.AgentWithGoal):
             # get predicted state of other agent with this behavior
             pred_oth_states.append(self.get_predicted_other_state(i_beh))
             
+        # are we doing a value function snapshot at this time step? 
+        if self.doing_snapshots and (time_stamp in self.snapshot_times):
+            self.do_snapshot_now = True
+            # set up the figure
+            fig_name = 'Snapshot for %s at t = %.2f s' % (self.name, time_stamp)
+            fig = plt.figure(num=fig_name, figsize=(15, 10))
+            fig.clf()
+            axs = fig.subplots(nrows=N_BEHAVIORS, ncols=N_ACTIONS,
+                                    sharex=True, sharey=True)
+        else:
+            self.do_snapshot_now = False
+            
         # now loop over all combinations of own actions and other's behaviors, 
         # and get values from both agents' perspectives
         for i_action in range(self.n_actions):
@@ -321,13 +357,24 @@ class SCAgent(commotions.AgentWithGoal):
                 # is this behaviour valid for this time step? (if not leave values as NaNs)
                 if beh_is_valid[i_beh]:
                     if V02VALUEFCN:
+                        # doing snapshot?
+                        if self.do_snapshot_now:
+                            self.snapshot_ax = axs[i_beh, i_action]
+                            self.plot_state_snapshot(self.curr_state, 
+                                                     self.plot_color, 
+                                                     alpha=True)
+                            self.plot_state_snapshot(self.other_agent.curr_state, 
+                                                     self.other_agent.plot_color, 
+                                                     alpha=True)
+                            self.plot_state_snapshot(pred_own_states[i_action],
+                                                     self.plot_color, 
+                                                     speed_label = True)
+                            self.plot_state_snapshot(pred_oth_states[i_beh],
+                                                     self.other_agent.plot_color, 
+                                                     speed_label = True)
                         # get value for me of this action/behavior combination,
                         # storing both the per-access-order values and the max value
-                        # of those
-                        
-                        # if self.simulation.time_stamps[self.simulation.state.i_time_step] >= 1.5 and i_action == 3:
-                        #     print('debug')
-                        
+                        # of those                        
                         self.states.action_vals_given_behs_outcs[
                                 i_action, i_beh, i_time_step, :] = (
                                 self.get_access_order_values_for_me_v02(
@@ -481,7 +528,8 @@ class SCAgent(commotions.AgentWithGoal):
         
 
     def get_access_order_values_for_agent_v02(self, ego_image, ego_curr_state,
-                                         ego_pred_state, oth_pred_state):
+                                         ego_pred_state, oth_pred_state,
+                                         snapshot_color, snapshot_loc):
         
         # skipping goal stopping for now - I think the sensible way of adding
         # it back in later is to include an independent term for it, valuating
@@ -521,6 +569,8 @@ class SCAgent(commotions.AgentWithGoal):
             agent_time_to_v_free = sc_scenario_helper.ACC_CTRL_REGAIN_SPD_TIME
         
         # loop over the access orders and get value for each
+        if self.do_snapshot_now:
+            snapshot_str = ''
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
         for access_order in AccessOrder:
             if np.isnan(implications[access_order].acc):
@@ -534,13 +584,21 @@ class SCAgent(commotions.AgentWithGoal):
                 # infinite times so cap at an hour...)
                 T_omega = min(3600, implications[access_order].T_acc)
                 # valuation of the manoeuvre needed to achieve the access order
-                value += (
+                ach_access_value = (
                         get_delay_discount(ego_image.params.DeltaT, 
                                            ego_image.params.T_delta) 
                         * sc_scenario_helper.get_value_of_const_jerk_interval(
                         ego_pred_state.long_speed, implications[access_order].acc, 
                         j = 0, T = T_omega, 
                         k = ego_image.params.k) )
+                value += ach_access_value
+                # inherent value of this access order
+                if (ego_image.ctrl_type is CtrlType.ACCELERATION 
+                    and access_order is AccessOrder.EGOFIRST):
+                    inh_access_value = ego_image.params.V_ny
+                else:
+                    inh_access_value = 0
+                value += inh_access_value
                 # valuation of the step of regaining the free speed after the
                 # access order has been achieved (may be a zero duration
                 # step if the access order was achieved by an acceleration to
@@ -556,23 +614,52 @@ class SCAgent(commotions.AgentWithGoal):
                 # - get the acceleration that will be applied to regain free speed
                 accprime = -(vprime - ego_image.v_free) / agent_time_to_v_free
                 # - calculate the value contribution
-                value += (
+                regain_value = (
                     get_delay_discount(delay_bef_reg_free,
                                        ego_image.params.T_delta) 
                     * sc_scenario_helper.get_value_of_const_jerk_interval(
                         vprime, accprime, j = 0, T = agent_time_to_v_free, 
                         k = ego_image.params.k) )
+                value += regain_value
                 # valuation of the remainder of the journey, factoring in the
                 # delays associated with this access order
                 total_delay = delay_bef_reg_free + agent_time_to_v_free
-                value += get_delay_discount(
+                final_value = get_delay_discount(
                         total_delay, ego_image.params.T_delta) * post_value
-                if (ego_image.ctrl_type is CtrlType.ACCELERATION 
-                    and access_order is AccessOrder.EGOFIRST):
-                    value += ego_image.params.V_ny
+                value += final_value
+                # snapshot info
+                if self.do_snapshot_now:
+                    snapshot_str += ('(%.1f m/s^2, %.1f s, %.1f s)' %
+                                     (implications[access_order].acc,
+                                      implications[access_order].T_acc,
+                                      implications[access_order].T_dw) + '\n'
+                                     + 'V = %.2f' % value + '\n'
+                                     +'(%.1f, %.1f, %.1f, %.1f, %.1f)' % 
+                                     (action_value, ach_access_value,
+                                      inh_access_value, regain_value,
+                                      final_value) + '\n')
             # store the value of this access order in the output numpy array
             value = max(-100, min(100, value)) # awaiting some proper value fcn squashing
             access_order_values[access_order.value] = value
+            
+        # snapshot info
+        if self.do_snapshot_now:
+            if snapshot_loc == 'topleft':
+                text_x = 0.05
+                text_y = 0.95
+                halign = 'left'
+                valign = 'top'
+            elif snapshot_loc == 'bottomright':
+                text_x = 0.95
+                text_y = 0.05
+                halign = 'right'
+                valign = 'bottom'
+            else:
+                raise Exception('Unexpected location for snapshot info.')
+            self.snapshot_ax.text(text_x, text_y, snapshot_str, 
+                                  transform=self.snapshot_ax.transAxes,
+                                  ha=halign, va=valign, fontsize=7,
+                                  color=snapshot_color)
             
         return access_order_values
         
@@ -582,7 +669,9 @@ class SCAgent(commotions.AgentWithGoal):
                 ego_image = self.self_image, 
                 ego_curr_state = self.curr_state, 
                 ego_pred_state = my_pred_state, 
-                oth_pred_state = oth_pred_state)
+                oth_pred_state = oth_pred_state,
+                snapshot_color = self.plot_color,
+                snapshot_loc = 'topleft')
         return access_order_values
         
     
@@ -591,7 +680,9 @@ class SCAgent(commotions.AgentWithGoal):
                 ego_image = self.oth_image, 
                 ego_curr_state = self.other_agent.curr_state, 
                 ego_pred_state = oth_pred_state,
-                oth_pred_state = my_pred_state)
+                oth_pred_state = my_pred_state,
+                snapshot_color = self.other_agent.plot_color,
+                snapshot_loc = 'bottomright')
         return access_order_values
 
 
@@ -732,7 +823,7 @@ class SCAgent(commotions.AgentWithGoal):
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, const_speed = False, 
-                 plot_color = 'k'):
+                 plot_color = 'k', snapshot_times = None):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -744,6 +835,10 @@ class SCAgent(commotions.AgentWithGoal):
             
         # is this agent to just keep constant speed?
         self.const_speed = const_speed
+        
+        # doing any value function snapshots?
+        self.snapshot_times = snapshot_times
+        self.doing_snapshots = snapshot_times != None
 
         # get default parameters or use user-provided parameters
         if params is None:
@@ -807,7 +902,8 @@ class SCSimulation(commotions.Simulation):
                  start_time = 0, end_time = 10, time_step = 0.1, 
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, const_speeds = (False, False),
-                 agent_names = ('A', 'B'), plot_colors = ('c', 'm')):
+                 agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
+                 snapshot_times = (None, None)):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -823,7 +919,8 @@ class SCSimulation(commotions.Simulation):
                     optional_assumptions = optional_assumptions, 
                     params = params, params_k = params_k, 
                     const_speed = const_speeds[i_agent],
-                    plot_color = plot_colors[i_agent])
+                    plot_color = plot_colors[i_agent],
+                    snapshot_times = snapshot_times[i_agent])
 
     def do_plots(self, trajs = False, action_vals = False, action_probs = False, 
                  action_val_ests = False, surplus_action_vals = False, 
@@ -1124,13 +1221,15 @@ class SCSimulation(commotions.Simulation):
 if __name__ == "__main__":
 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [30, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     CONST_SPEEDS = (False, False)
+    SNAPSHOT_TIMES = (None, (0,))
     
     (params, params_k) = get_default_params()
     params.T_delta = 30
+    params.V_ny = 0
     
     optional_assumptions = get_assumptions_dict(default_value = False, 
                                                 oBEao = False, 
@@ -1142,7 +1241,7 @@ if __name__ == "__main__":
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
             end_time = 7, optional_assumptions = optional_assumptions,
             const_speeds = CONST_SPEEDS, agent_names = ('P', 'V'), 
-            params = params)
+            params = params, snapshot_times = SNAPSHOT_TIMES)
     sc_simulation.run()
     sc_simulation.do_plots(
             trajs = True, action_val_ests = True, surplus_action_vals = True, 
