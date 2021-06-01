@@ -16,6 +16,11 @@ This repository contains some sketches and work in progress code for the COMMOTI
     * ~~I have not yet added calculation of delays for waiting time and regaining speed - these are made use of in `SCAgent.get_access_order_values_for_agent_v02()` but are currently just set to zero in `sc_scenario_helper.get_access_order_implications()`.~~
     * The estimation of future acceleration to regain free speed in `sc_scenario_helper.get_access_order_implications()` for acceleration-controlling agents is currently hardcoded to "acceleration needed to reach free speed in 10 s" (the calculation previously used there was sort of ok for v0.1, but probably rather incorrect for v0.2 - and I was seeing weird results from using it).
     * I have added a simple placeholder $\pm$100 saturation for value $V$ of an action - pending proper squashing of the value function as experimented with elsewhere.
+    * Might be good to improve the delay discounting of value for slow returns to free speed - see note in 2021-06-01 diary entry, under the "testing hypotheses" heading. A good way to check if any modifications have improved things in practice would be to see if the small deceleration pulse that is noted in that diary entry goes away.
+    * Imperfect handling of special cases in `sc_scenario_helper.get_access_order_implications()`:
+        * When agent A is in movement within the conflict space and agent B is stationary in front of it, the value estimates for A effectively break - they all go to very large values. The reason is that the current implementation of `sc_scenario_helper.get_access_order_implications()` suggests that the "pass in second" outcome can be achieved by an infinitely long zero acceleration, which looks very valuable given the current approximate way of adding up the value contributions. See the 2021-06-01 notes under "A pedestrian will start..." for a test case.
+        * If agent B is reversing, the current implementation of this function will not be able to compute the deceleration for agent A to pass behind B - logically it would make sense to describe it as a stopping deceleration (followed by an infinite waiting time).
+
 
 
 
