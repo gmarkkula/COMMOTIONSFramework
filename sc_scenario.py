@@ -1109,7 +1109,7 @@ class SCSimulation(commotions.Simulation):
 
         if kinem_states:
             # - kinematic/action states
-            plt.figure('Kinematic and action states')
+            fig = plt.figure('Kinematic and action states')
             plt.clf()
             """             N_PLOTROWS = 3
             for i_agent, agent in enumerate(self.agents):
@@ -1135,22 +1135,20 @@ class SCSimulation(commotions.Simulation):
                     plt.ylabel('a (m/s^2)') """
             N_PLOTROWS = 4
             distance_CPs = []
+            axs = fig.subplots(N_PLOTROWS, 1)
             for i_agent, agent in enumerate(self.agents):
                 
                 # acceleration
-                plt.subplot(N_PLOTROWS, 1, 1)
-                plt.plot(self.time_stamps, agent.trajectory.long_acc, 
+                axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
                          '-' + agent.plot_color)
-                plt.ylabel('a (m/s^2)') 
+                axs[0].set_ylabel('a (m/s^2)') 
                 
                 # speed
-                plt.subplot(N_PLOTROWS, 1, 2)
-                plt.plot(self.time_stamps, agent.trajectory.long_speed, 
+                axs[1].plot(self.time_stamps, agent.trajectory.long_speed, 
                          '-' + agent.plot_color)
-                plt.ylabel('v (m/s)') 
+                axs[1].set_ylabel('v (m/s)') 
                 
                 # distance to conflict point
-                plt.subplot(N_PLOTROWS, 1, 3)
                 # - get signed distances to CP
                 vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
                 yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
@@ -1166,36 +1164,35 @@ class SCSimulation(commotions.Simulation):
                     t_en = math.nan
                     t_ex = math.nan
                 # - illustrate when agent is in CS
-                plt.fill(np.array((t_en, t_ex, t_ex, t_en)), 
+                axs[2].fill(np.array((t_en, t_ex, t_ex, t_en)), 
                          np.array((-1, -1, 1, 1)) * SHARED_PARAMS.d_C, 
                          color = agent.plot_color, alpha = 0.3,
                          edgecolor = None)
                 # - horizontal lines
                 if i_agent == 0:
-                    plt.axhline(SHARED_PARAMS.d_C, 
+                    axs[2].axhline(SHARED_PARAMS.d_C, 
                                 color='r', linestyle='--', lw=0.5)
-                    plt.axhline(-SHARED_PARAMS.d_C, 
+                    axs[2].axhline(-SHARED_PARAMS.d_C, 
                                 color='r', linestyle='--', lw=0.5)
-                    plt.axhline(0, color='k', linestyle=':')
+                    axs[2].axhline(0, color='k', linestyle=':')
                 # - plot the distance itself
-                plt.plot(self.time_stamps, distance_CPs[i_agent], 
+                axs[2].plot(self.time_stamps, distance_CPs[i_agent], 
                          '-' + agent.plot_color)
-                plt.ylim(-5, 5)
-                plt.ylabel('$d_{CP}$ (m)') 
+                axs[2].set_ylim(-5, 5)
+                axs[2].set_ylabel('$d_{CP}$ (m)') 
                 
             # distance margin to agent collision
-            plt.subplot(N_PLOTROWS, 1, 4)
-            plt.axhline(0, color='k', linestyle=':')
+            axs[3].axhline(0, color='k', linestyle=':')
             coll_margins, coll_idxs = \
                 get_sc_agent_collision_margins(distance_CPs[0], 
                                                distance_CPs[1],
                                                SHARED_PARAMS.d_C)
-            plt.plot(self.time_stamps, coll_margins, 'k-')
-            plt.plot(self.time_stamps[coll_idxs], 
+            axs[3].plot(self.time_stamps, coll_margins, 'k-')
+            axs[3].plot(self.time_stamps[coll_idxs], 
                      coll_margins[coll_idxs], 'r-')
-            plt.ylim(-1, 10)
-            plt.ylabel('$d_{coll}$ (m)')
-            plt.xlabel('t (s)')      
+            axs[3].set_ylim(-1, 10)
+            axs[3].set_ylabel('$d_{coll}$ (m)')
+            axs[3].set_xlabel('t (s)')      
             
 
         if times_to_ca:
@@ -1220,19 +1217,20 @@ class SCSimulation(commotions.Simulation):
 
 if __name__ == "__main__":
 
+    NAMES = ('P', 'V')
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [30, 0]])
+    INITIAL_POSITIONS = np.array([[0,-3], [30, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
-    CONST_SPEEDS = (False, False)
-    SNAPSHOT_TIMES = (None, (0,))
+    CONST_SPEEDS = (True, False)
+    SNAPSHOT_TIMES = (None, None)
     
     (params, params_k) = get_default_params()
     params.T_delta = 30
     params.V_ny = 0
     
     optional_assumptions = get_assumptions_dict(default_value = False, 
-                                                oBEao = False, 
+                                               oBEao = False, 
                                                 oBEvs = True, 
                                                 oEA = False, 
                                                 oAN = False)  
@@ -1240,7 +1238,7 @@ if __name__ == "__main__":
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
             end_time = 7, optional_assumptions = optional_assumptions,
-            const_speeds = CONST_SPEEDS, agent_names = ('P', 'V'), 
+            const_speeds = CONST_SPEEDS, agent_names = NAMES, 
             params = params, snapshot_times = SNAPSHOT_TIMES)
     sc_simulation.run()
     sc_simulation.do_plots(
