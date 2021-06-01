@@ -263,8 +263,8 @@ class SCAgent(commotions.AgentWithGoal):
         time_stamp = self.simulation.time_stamps[i_time_step]
         
         # is this agent just supposed to keep constant speed?
-        if self.const_speed:
-            self.trajectory.long_acc[i_time_step] = 0
+        if self.const_acc != None:
+            self.trajectory.long_acc[i_time_step] = self.const_acc
             return
 
         # if agent can't reverse and is now at zero speed, make sure that any
@@ -822,7 +822,7 @@ class SCAgent(commotions.AgentWithGoal):
 
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
                  optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, const_speed = False, 
+                 params = None, params_k = None, const_acc = None, 
                  plot_color = 'k', snapshot_times = None):
 
         # set control type
@@ -833,8 +833,8 @@ class SCAgent(commotions.AgentWithGoal):
         super().__init__(name, simulation, goal_pos, \
             initial_state, can_reverse = can_reverse, plot_color = plot_color)
             
-        # is this agent to just keep constant speed?
-        self.const_speed = const_speed
+        # is this agent to just keep a constant acceleration?
+        self.const_acc = const_acc
         
         # doing any value function snapshots?
         self.snapshot_times = snapshot_times
@@ -901,7 +901,7 @@ class SCSimulation(commotions.Simulation):
                  initial_speeds = np.array((0, 0)), 
                  start_time = 0, end_time = 10, time_step = 0.1, 
                  optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, const_speeds = (False, False),
+                 params = None, params_k = None, const_accs = (None, None),
                  agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
                  snapshot_times = (None, None)):
 
@@ -918,7 +918,7 @@ class SCSimulation(commotions.Simulation):
                     initial_state = initial_state, 
                     optional_assumptions = optional_assumptions, 
                     params = params, params_k = params_k, 
-                    const_speed = const_speeds[i_agent],
+                    const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
 
@@ -1222,7 +1222,7 @@ if __name__ == "__main__":
     INITIAL_POSITIONS = np.array([[0,-3], [30, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
-    CONST_SPEEDS = (True, False)
+    CONST_ACCS = (0, None)
     SNAPSHOT_TIMES = (None, None)
     
     (params, params_k) = get_default_params()
@@ -1238,7 +1238,7 @@ if __name__ == "__main__":
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
             end_time = 7, optional_assumptions = optional_assumptions,
-            const_speeds = CONST_SPEEDS, agent_names = NAMES, 
+            const_accs = CONST_ACCS, agent_names = NAMES, 
             params = params, snapshot_times = SNAPSHOT_TIMES)
     sc_simulation.run()
     sc_simulation.do_plots(
