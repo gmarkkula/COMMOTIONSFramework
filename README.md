@@ -18,7 +18,12 @@ This repository contains some sketches and work in progress code for the COMMOTI
 
 # Todo notes and next steps
 
-* Further thinking about and testing of `oBEao`, to possibly tweak implementation and/or default parameterisation to give more sensible behaviour. See the 2021-06-01 diary notes.
+
+* In focus for the next paper:
+    * Further thinking about and testing of `oBEao`, to possibly tweak implementation and/or default parameterisation to give more sensible behaviour. See the 2021-06-01 diary notes.
+    * Test whether smaller crossing RTs can be obtained for smaller initial TTAs in a pedestrian crossing situation, with v1 value functions --> If yes, consider moving v2 value functions to some sort of parking lot, reverting to v1 functions for the time being.
+    * Revert to the previous oBEvs functionality, where the value for the other agent of a behaviour was estimated based on the current state, not the predicted state as a function of my own action.
+    * Add priority rules functionality to v1 value functions. 
 * Add functionality for resetting/rerunning the same simulation without creating new objects? (relevant now that probabilistic features have been added)
 * Allow for separate $\Delta T$ between agents (note that $\Delta T$ is used in multiple places in the code; e.g., also to calculate behaviour accelerations.)
 * Extend to allow the user of SCSimulation/SCAgent to also provide the parameters to use when estimating value of a predicted state for another agent (currently the default parameters are used).
