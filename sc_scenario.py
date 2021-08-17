@@ -354,7 +354,8 @@ class SCAgent(commotions.AgentWithGoal):
         # and get values from both agents' perspectives
         for i_action in range(self.n_actions):
             for i_beh in range(N_BEHAVIORS):
-                # is this behaviour valid for this time step? (if not leave values as NaNs)
+                # is this behaviour valid for this time step? 
+                # (if not leave values as NaNs)
                 if beh_is_valid[i_beh]:
                     if V02VALUEFCN:
                         # doing snapshot?
@@ -398,12 +399,14 @@ class SCAgent(commotions.AgentWithGoal):
                             self.states.beh_vals_given_actions[
                                     i_beh, i_action, i_time_step] = (
                                     self.states.beh_vals_given_actions_outcs[
-                                            i_beh, i_action, i_time_step, i_EGOFIRST])
+                                            i_beh, i_action, i_time_step, 
+                                            i_EGOFIRST])
                         elif i_beh == i_PASS2ND:
                             self.states.beh_vals_given_actions[
                                     i_beh, i_action, i_time_step] = (
                                     self.states.beh_vals_given_actions_outcs[
-                                            i_beh, i_action, i_time_step, i_EGOSECOND])
+                                            i_beh, i_action, i_time_step, 
+                                            i_EGOSECOND])
                         elif i_beh == i_CONSTANT:
                             # not quite sure what is appropriate to do here -
                             # constant behaviour being considered valid means
@@ -422,13 +425,18 @@ class SCAgent(commotions.AgentWithGoal):
                             raise Exception('Unexpected behaviour.')
                     else:
                         # get value for me of this action/behavior combination
-                        self.states.action_vals_given_behs[i_action, i_beh, i_time_step] = \
+                        self.states.action_vals_given_behs[
+                            i_action, i_beh, i_time_step] = \
                             self.get_value_for_me(pred_own_states[i_action], 
-                                                  pred_oth_states[i_beh], i_action)
-                        # get value for the other agent of this action/behavior combination
-                        self.states.beh_vals_given_actions[i_beh, i_action, i_time_step] = \
+                                                  pred_oth_states[i_beh], 
+                                                  i_action)
+                        # get value for the other agent of this action/behavior 
+                        # combination
+                        self.states.beh_vals_given_actions[
+                            i_beh, i_action, i_time_step] = \
                             self.get_value_for_other(pred_oth_states[i_beh], 
-                                                     pred_own_states[i_action], i_beh)
+                                                     pred_own_states[i_action], 
+                                                     i_beh)
 
         ## get my estimated probabilities for my own actions - based on value 
         ## estimates from the previous time step
@@ -439,32 +447,42 @@ class SCAgent(commotions.AgentWithGoal):
         # activations (my "belief" in these behaviors)
         for i_beh in range(N_BEHAVIORS):
             if not beh_is_valid[i_beh]:
-                self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] = 0
+                self.states.beh_activ_V_given_actions[
+                    i_beh, :, i_time_step] = 0
                 self.states.beh_activ_O[i_beh, i_time_step] = 0
-                self.states.beh_activations_given_actions[i_beh, :, i_time_step] = 0
+                self.states.beh_activations_given_actions[
+                    i_beh, :, i_time_step] = 0
             else:
                 # update value-based activations
                 if self.assumptions[OptionalAssumption.oBEvs]:
-                    self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] = \
-                        self.states.beh_vals_given_actions[i_beh, :, i_time_step] # for now just simply equal to the predictedvalue
+                    self.states.beh_activ_V_given_actions[
+                        i_beh, :, i_time_step] = \
+                        self.states.beh_vals_given_actions[
+                            i_beh, :, i_time_step] # for now just simply equal to the predictedvalue
                 else:
-                    self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] = 0
+                    self.states.beh_activ_V_given_actions[
+                        i_beh, :, i_time_step] = 0
                 # update the "Kalman filter" activations
                 if self.assumptions[OptionalAssumption.oBEao]:
                     self.states.beh_activ_O[i_beh, i_time_step] = \
-                        self.params.kappa * self.states.beh_activ_O[i_beh, i_time_step-1]
+                        self.params.kappa * self.states.beh_activ_O[
+                            i_beh, i_time_step-1]
                     if i_time_step > 0:
-                        self.states.sensory_probs_given_behs[i_beh, i_time_step] = \
+                        self.states.sensory_probs_given_behs[
+                            i_beh, i_time_step] = \
                             self.get_prob_of_current_state_given_beh(i_beh)
                         self.states.beh_activ_O[i_beh, i_time_step] += \
                             (1 - self.params.kappa) * (1/self.params.Lambda) \
-                            * math.log(self.states.sensory_probs_given_behs[i_beh, i_time_step])
+                            * math.log(self.states.sensory_probs_given_behs[
+                                i_beh, i_time_step])
                 else:
                     self.states.beh_activ_O[i_beh, i_time_step] = 0
                 # get total activation for this behaviour
-                self.states.beh_activations_given_actions[i_beh, :, i_time_step] = \
+                self.states.beh_activations_given_actions[
+                    i_beh, :, i_time_step] = \
                     self.params.beta_V * \
-                        self.states.beh_activ_V_given_actions[i_beh, :, i_time_step] \
+                        self.states.beh_activ_V_given_actions[
+                            i_beh, :, i_time_step] \
                     + self.params.beta_O * \
                         self.states.beh_activ_O[i_beh, i_time_step] 
 
@@ -1219,19 +1237,19 @@ if __name__ == "__main__":
 
     NAMES = ('P', 'V')
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-3], [30, 0]])
+    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
-    CONST_ACCS = (0, None)
+    CONST_ACCS = (None, None)
     SNAPSHOT_TIMES = (None, None)
     
     (params, params_k) = get_default_params()
-    params.T_delta = 30
-    params.V_ny = 0
+    #params.T_delta = 30
+    #params.V_ny = 0
     
     optional_assumptions = get_assumptions_dict(default_value = False, 
                                                oBEao = False, 
-                                                oBEvs = True, 
+                                                oBEvs = False, 
                                                 oEA = False, 
                                                 oAN = False)  
 
