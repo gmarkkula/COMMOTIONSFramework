@@ -144,12 +144,10 @@ class SCAgent(commotions.AgentWithGoal):
         for agent in self.simulation.agents:
             if agent is not self:
                 self.other_agent = agent
-        # store an "image" of the other agent, with assumed default parameters
-        oth_params = copy.copy(DEFAULT_PARAMS)
-        if self.assumptions[OptionalAssumption.oVA]:
-            oth_params.k = copy.copy(DEFAULT_PARAMS_K_VA[self.other_agent.ctrl_type])
-        else: 
-            oth_params.k = copy.copy(DEFAULT_PARAMS_K_NVA[self.other_agent.ctrl_type])
+        # store an "image" of the other agent, with parameters assumed same as 
+        # own parameters (but for the appropriate ctrl type)
+        oth_params = copy.copy(self.params)
+        oth_params.k = copy.copy(self.params.k_all[self.other_agent.ctrl_type])
         oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
                                       params = oth_params, v_free = oth_v_free)
@@ -936,17 +934,21 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions = optional_assumptions
 
         # get default parameters or use user-provided parameters
+        # - non-value function parameters
         if params is None:
             self.params = copy.copy(DEFAULT_PARAMS)
         else:
             self.params = copy.copy(params)
+        # - value function gains
         if params_k is None:
             if self.assumptions[OptionalAssumption.oVA]:
-                self.params.k = copy.deepcopy(DEFAULT_PARAMS_K_VA[self.ctrl_type])
+                self.params.k_all = copy.deepcopy(DEFAULT_PARAMS_K_VA)
             else:
-                self.params.k = copy.deepcopy(DEFAULT_PARAMS_K_NVA[self.ctrl_type])
+                self.params.k_all = copy.deepcopy(DEFAULT_PARAMS_K_NVA)
         else:
-            self.params.k = copy.deepcopy(params_k[self.ctrl_type])
+            self.params.k_all = copy.deepcopy(params_k)
+        # get value function gains for own ctrl type, for quick access
+        self.params.k = copy.copy(self.params.k_all[self.ctrl_type])
 
         # parse the optional assumptions
         if not self.assumptions[OptionalAssumption.oEA]:
@@ -1328,8 +1330,8 @@ if __name__ == "__main__":
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oBEo = False, 
-                                                oBEv = False, 
-                                                oAI = False,
+                                                oBEv = True, 
+                                                oAI = True,
                                                 oEA = False, 
                                                 oAN = False)  
 
