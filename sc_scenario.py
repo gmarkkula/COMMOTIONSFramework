@@ -1330,8 +1330,8 @@ if __name__ == "__main__":
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oBEo = False, 
-                                                oBEv = True, 
-                                                oAI = True,
+                                                oBEv = False, 
+                                                oAI = False,
                                                 oEA = False, 
                                                 oAN = False)  
 
