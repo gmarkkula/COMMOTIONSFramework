@@ -29,6 +29,7 @@ class OptionalAssumption(Enum):
     oAN = 'oAN'
     oBEo = 'oBEo'
     oBEv = 'oBEv'
+    oAI = 'oAI'
 
 def get_assumptions_dict(default_value = False, **kwargs):
     """ Return a dictionary with all the members of OptionalAssumption as keys.
@@ -83,9 +84,9 @@ DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence a
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
-DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
 DEFAULT_PARAMS.V_ny = -15 * 0 # value function term for non-yielding 
-i_NO_ACTION = 2
+DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
+i_NO_ACTION = np.argwhere(DEFAULT_PARAMS.ctrl_deltas == 0)[0][0]
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
 warnings.warn('N_ACTIONS set to no of actions in default params, so will not work if non-default params are set.')
 
@@ -401,11 +402,27 @@ class SCAgent(commotions.AgentWithGoal):
                         # get value for for the other agent of this 
                         # action/behavior combination
                         # - first across both possible outcomes
-                        self.states.beh_vals_given_actions_outcs[
-                                i_beh, i_action, i_time_step, :] = (
-                                self.get_access_order_values_for_other_v02(
-                                        pred_oth_states[i_beh],
-                                        pred_own_states[i_action]) )
+                        if self.assumptions[OptionalAssumption.oAI]:
+                            # considering impact of own actions on value for other agent
+                            self.states.beh_vals_given_actions_outcs[
+                                    i_beh, i_action, i_time_step, :] = (
+                                    self.get_access_order_values_for_other_v02(
+                                            pred_oth_states[i_beh],
+                                            pred_own_states[i_action]) )
+                        else:
+                            # not considering impact of own actions on value for other agent
+                            if i_action == 0:
+                                self.states.beh_vals_given_actions_outcs[
+                                    i_beh, i_action, i_time_step, :] = (
+                                    self.get_access_order_values_for_other_v02(
+                                            pred_oth_states[i_beh],
+                                            pred_own_states[i_NO_ACTION]) )
+                            else:
+                                # no need to recalculate the same value as above
+                                self.states.beh_vals_given_actions_outcs[
+                                    i_beh, i_action, i_time_step, :] = (
+                                        self.states.beh_vals_given_actions_outcs[
+                                            i_beh, 0, i_time_step, :])
                         # - then use the value for the outcome corresponding
                         #   to the behaviour in question
                         if i_beh == i_PASS1ST:
@@ -445,11 +462,31 @@ class SCAgent(commotions.AgentWithGoal):
                                                   i_action)
                         # get value for the other agent of this action/behavior 
                         # combination
-                        self.states.beh_vals_given_actions[
-                            i_beh, i_action, i_time_step] = \
-                            self.get_value_for_other(pred_oth_states[i_beh], 
-                                                     pred_own_states[i_action], 
-                                                     i_beh)
+                        if self.assumptions[OptionalAssumption.oAI]:
+                            # considering impact of own actions on value for other agent
+                            self.states.beh_vals_given_actions[
+                                i_beh, i_action, i_time_step] = \
+                                self.get_value_for_other(pred_oth_states[i_beh], 
+                                                         pred_own_states[i_action], 
+                                                         i_beh)
+                        else:
+                            # not considering impact of own actions on value for other agent
+                            if i_action == 0:
+                                # if this is the first action being considered,
+                                # calculate value, assuming no ego action
+                                self.states.beh_vals_given_actions[
+                                    i_beh, i_action, i_time_step] = \
+                                    self.get_value_for_other(pred_oth_states[i_beh], 
+                                                             pred_own_states[i_NO_ACTION], 
+                                                             i_beh)
+                            else:
+                                # no need to recalculate the same value as above
+                                self.states.beh_vals_given_actions[
+                                    i_beh, i_action, i_time_step] = \
+                                    self.states.beh_vals_given_actions[
+                                        i_beh, 0, i_time_step]
+                                
+                            
 
         ## get my estimated probabilities for my own actions - based on value 
         ## estimates from the previous time step
@@ -1276,6 +1313,7 @@ if __name__ == "__main__":
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oBEo = False, 
                                                 oBEv = False, 
+                                                oAI = False,
                                                 oEA = False, 
                                                 oAN = False)  
 
