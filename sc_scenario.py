@@ -157,9 +157,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.est_action_surplus_vals = \
             math.nan * np.ones((self.n_actions, n_time_steps)) # DeltaVhat_a(t)
         self.states.action_vals_given_behs_outcs = \
-            math.nan * np.ones((self.n_actions, N_BEHAVIORS, n_time_steps, N_ACCESS_ORDERS)) # V_a|b,Omega_A(t)
+            math.nan * np.ones((self.n_actions, N_BEHAVIORS, n_time_steps, 
+                                N_ACCESS_ORDERS)) # V_A[xtilde(t)|(a,b,Omega)]
         self.states.action_vals_given_behs = \
-            math.nan * np.ones((self.n_actions, N_BEHAVIORS, n_time_steps)) # V_a|b(t)
+            math.nan * np.ones((self.n_actions, N_BEHAVIORS, 
+                                n_time_steps)) # V_A[xtilde(t)|(a,b)]
         #self.states.action_probs = \
         #    math.nan * np.ones((self.n_actions, n_time_steps)) # P_a(t)
         # - states regarding the behavior of the other agent
