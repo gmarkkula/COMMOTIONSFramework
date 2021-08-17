@@ -151,9 +151,9 @@ class SCAgent(commotions.AgentWithGoal):
         self.states = States()
         # - states regarding my own actions
         self.states.mom_action_vals = \
-            math.nan * np.ones((self.n_actions, n_time_steps)) # V_a(t)
+            math.nan * np.ones((self.n_actions, n_time_steps)) # Vtilde_A,a(t)
         self.states.est_action_vals = \
-            math.nan * np.ones((self.n_actions, n_time_steps)) # Vhat_a(t)
+            math.nan * np.ones((self.n_actions, n_time_steps)) # Vhat_A,a(t)
         self.states.est_action_surplus_vals = \
             math.nan * np.ones((self.n_actions, n_time_steps)) # DeltaVhat_a(t)
         self.states.action_vals_given_behs_outcs = \
@@ -523,11 +523,10 @@ class SCAgent(commotions.AgentWithGoal):
         # update the accumulative estimates of action value
         value_noise = np.random.randn(N_ACTIONS) * self.params.sigma_V \
             * math.sqrt(self.simulation.settings.time_step)
+        f = self.simulation.settings.time_step / self.params.T
         self.states.est_action_vals[:, i_time_step] = \
-            (1 - self.params.alpha) \
-            * self.states.est_action_vals[:, i_time_step-1] \
-            + self.params.alpha \
-            * (self.states.mom_action_vals[:, i_time_step] + value_noise)
+            (1 - f) * self.states.est_action_vals[:, i_time_step-1] \
+            + f * (self.states.mom_action_vals[:, i_time_step] + value_noise)
 
         # any action over threshold?
         self.states.est_action_surplus_vals[:, i_time_step] = \
@@ -887,7 +886,6 @@ class SCAgent(commotions.AgentWithGoal):
             or self.assumptions[OptionalAssumption.oBEvs]
 
         # get derived parameters
-        self.params.alpha = self.simulation.settings.time_step / self.params.T
         self.params.gamma = self.simulation.settings.time_step / self.params.T_G
 
         # get and store own free speed
