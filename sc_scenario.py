@@ -74,10 +74,9 @@ DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation t
 DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = 1
-DEFAULT_PARAMS.T_G = DEFAULT_PARAMS.T # value acc / LP filter rel time in game-theoretic estimate of value for the other agent
 DEFAULT_PARAMS.kappa = 0.3
 DEFAULT_PARAMS.Lambda = 1
-DEFAULT_PARAMS.sigma_ao = .01 
+DEFAULT_PARAMS.sigma_O = .01 
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
@@ -126,7 +125,7 @@ SHARED_PARAMS = commotions.Parameters()
 SHARED_PARAMS.d_C = 2 # collision distance
 
 TTC_FOR_COLLISION = 0.1
-MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are regarded
+MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are considered zero
 
 class States():
     pass
@@ -862,7 +861,7 @@ class SCAgent(commotions.AgentWithGoal):
                     expected_curr_state.pos 
                     - self.other_agent.get_current_kinematic_state().pos)
             # return the probability density for this observed difference
-            prob_density = norm.pdf(pos_diff, scale = self.params.sigma_ao)
+            prob_density = norm.pdf(pos_diff, scale = self.params.sigma_O)
         return max(prob_density, np.finfo(float).eps) # don't return zero probability
         
 
@@ -916,9 +915,6 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions[DerivedAssumption.dBE] = \
             self.assumptions[OptionalAssumption.oBEo] \
             or self.assumptions[OptionalAssumption.oBEv]
-
-        # get derived parameters
-        self.params.gamma = self.simulation.settings.time_step / self.params.T_G
 
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
