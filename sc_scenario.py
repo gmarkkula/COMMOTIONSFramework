@@ -70,14 +70,16 @@ i_PASS2ND = 2
 MIN_ADAPT_ACC = -10 # m/s^2
 
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.T = 0.2 # value accumulator / low-pass filter relaxation time (s)
+DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
+DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = 1
 DEFAULT_PARAMS.T_G = DEFAULT_PARAMS.T # value acc / LP filter rel time in game-theoretic estimate of value for the other agent
 DEFAULT_PARAMS.kappa = 0.3
 DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.sigma_ao = .01 
-DEFAULT_PARAMS.sigma_V = 0.1 # value noise in evidence accumulation
+DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
+DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
@@ -167,6 +169,8 @@ class SCAgent(commotions.AgentWithGoal):
         # - states regarding the behavior of the other agent
         self.states.beh_activations_given_actions = \
             math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # A_b|a(t)
+        self.states.mom_beh_activ_V_given_actions = \
+            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # Atilde_V,b|a(t)
         self.states.beh_activ_V_given_actions = \
             math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # Ahat_V,b|a(t)
         self.states.beh_activ_O = \
@@ -186,7 +190,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.time_left_to_CA_exit = math.nan * np.ones(n_time_steps)
         # set initial values for states that depend on the previous time step
         self.states.est_action_vals[:, -1] = 0
-        #self.states.beh_activ_V[:, -1] = 0
+        self.states.beh_activ_V_given_actions[:, :, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
         self.states.beh_activ_O[i_CONSTANT, -1] = 10
         warnings.warn('****** Setting initial value of i_CONSTANT behaviour activation to arbitrary high value.')
@@ -243,6 +247,14 @@ class SCAgent(commotions.AgentWithGoal):
                                   '%.2f' % state.long_speed, 
                                   color=plot_color, alpha=alpha_val,
                                   ha='center', va='center', size=8)
+    
+    
+    def noisy_lp_filter(self, T, sigma, prevXhat, currXtilde):
+        noise = np.random.randn(len(prevXhat)) * sigma * math.sqrt(
+            self.simulation.settings.time_step)
+        f = self.simulation.settings.time_step / T
+        currXhat = (1 - f) * prevXhat + f * currXtilde + noise
+        return currXhat
     
     
     def prepare_for_action_update(self):
@@ -449,6 +461,8 @@ class SCAgent(commotions.AgentWithGoal):
         # activations (my "belief" in these behaviors)
         for i_beh in range(N_BEHAVIORS):
             if not beh_is_valid[i_beh]:
+                self.states.mom_beh_activ_V_given_actions[
+                    i_beh, :, i_time_step] = 0
                 self.states.beh_activ_V_given_actions[
                     i_beh, :, i_time_step] = 0
                 self.states.beh_activ_O[i_beh, i_time_step] = 0
@@ -457,11 +471,25 @@ class SCAgent(commotions.AgentWithGoal):
             else:
                 # update value-based activations
                 if self.assumptions[OptionalAssumption.oBEv]:
-                    self.states.beh_activ_V_given_actions[
+                    # get momentary estimates of the value-based activations
+                    # (currently simply equal to the predicted value of
+                    # the behaviour given the actions - but in more advanced 
+                    # formulations could also take into account probabilities 
+                    # of ego agent behaviours, etc)
+                    self.states.mom_beh_activ_V_given_actions[
                         i_beh, :, i_time_step] = \
-                        self.states.beh_vals_given_actions[
-                            i_beh, :, i_time_step] # for now just simply equal to the predictedvalue
+                        self.states.beh_vals_given_actions[i_beh, :, i_time_step] 
+                    # update accumulative estimates of the value-based activations
+                    self.states.beh_activ_V_given_actions[
+                        i_beh, :, i_time_step] = self.noisy_lp_filter(
+                            self.params.Tprime, self.params.sigma_Vprime,
+                            self.states.beh_activ_V_given_actions[
+                                i_beh, :, i_time_step-1],
+                            self.states.mom_beh_activ_V_given_actions[
+                                i_beh, :, i_time_step])
                 else:
+                    self.states.mom_beh_activ_V_given_actions[
+                        i_beh, :, i_time_step] = 0
                     self.states.beh_activ_V_given_actions[
                         i_beh, :, i_time_step] = 0
                 # update the "Kalman filter" activations
@@ -523,12 +551,10 @@ class SCAgent(commotions.AgentWithGoal):
                                 i_action, i_beh, i_time_step]
 
         # update the accumulative estimates of action value
-        value_noise = np.random.randn(N_ACTIONS) * self.params.sigma_V \
-            * math.sqrt(self.simulation.settings.time_step)
-        f = self.simulation.settings.time_step / self.params.T
-        self.states.est_action_vals[:, i_time_step] = \
-            (1 - f) * self.states.est_action_vals[:, i_time_step-1] \
-            + f * (self.states.mom_action_vals[:, i_time_step] + value_noise)
+        self.states.est_action_vals[:, i_time_step] = self.noisy_lp_filter(
+            self.params.T, self.params.sigma_V,
+            self.states.est_action_vals[:, i_time_step-1],
+            self.states.mom_action_vals[:, i_time_step])
 
         # any action over threshold?
         self.states.est_action_surplus_vals[:, i_time_step] = \
@@ -540,7 +566,9 @@ class SCAgent(commotions.AgentWithGoal):
             # add action to the array of future acceleration values
             self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
                 self.simulation.state.i_time_step)
+            # reset the value accumulators
             self.states.est_action_vals[:, i_time_step] = 0
+            self.states.beh_activ_V_given_actions[:, :, i_time_step] = 0
 
         # set long acc in actual trajectory
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
@@ -875,10 +903,12 @@ class SCAgent(commotions.AgentWithGoal):
             # no evidence accumulation, implemented by value accumulation 
             # reaching input value in one time step...
             self.params.T = self.simulation.settings.time_step 
+            self.params.Tprime = self.simulation.settings.time_step 
             # ... and decision threshold at zero
             self.params.DeltaV_th = 0
         if not self.assumptions[OptionalAssumption.oAN]:
             self.params.sigma_V = 0
+            self.params.sigma_Vprime = 0
         if not self.assumptions[OptionalAssumption.oBEo]:
             self.params.beta_O = 0
         if not self.assumptions[OptionalAssumption.oBEv]:
