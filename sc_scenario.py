@@ -27,8 +27,8 @@ V02VALUEFCN = True
 class OptionalAssumption(Enum):
     oEA = 'oEA'
     oAN = 'oAN'
-    oBEao = 'oBEao'
-    oBEvs = 'oBEvs'
+    oBEo = 'oBEo'
+    oBEv = 'oBEv'
 
 def get_assumptions_dict(default_value = False, **kwargs):
     """ Return a dictionary with all the members of OptionalAssumption as keys.
@@ -48,7 +48,7 @@ def get_assumptions_dict(default_value = False, **kwargs):
     return assumptions_dict
 
 class DerivedAssumption(Enum):
-    oBE = 0
+    dBE = 'dBE'
 
 N_AGENTS = 2 # this implementation supports only 2
 
@@ -168,9 +168,9 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.beh_activations_given_actions = \
             math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # A_b|a(t)
         self.states.beh_activ_V_given_actions = \
-            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # A_V,b|a(t)
+            math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # Ahat_V,b|a(t)
         self.states.beh_activ_O = \
-            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # A_O,b(t)
+            math.nan * np.ones((N_BEHAVIORS, n_time_steps)) # Ahat_O,b(t)
         self.states.beh_probs_given_actions = \
             math.nan * np.ones((N_BEHAVIORS, self.n_actions, n_time_steps)) # P_b|a(t)
         self.states.beh_vals_given_actions = \
@@ -322,7 +322,7 @@ class SCAgent(commotions.AgentWithGoal):
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
         # - is the constant behaviour valid for this time step?
-        if (self.assumptions[DerivedAssumption.oBE] and
+        if (self.assumptions[DerivedAssumption.dBE] and
             (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND])):
             # no - we are estimating behaviours and at least one of the 
             # behaviours is valid
@@ -456,7 +456,7 @@ class SCAgent(commotions.AgentWithGoal):
                     i_beh, :, i_time_step] = 0
             else:
                 # update value-based activations
-                if self.assumptions[OptionalAssumption.oBEvs]:
+                if self.assumptions[OptionalAssumption.oBEv]:
                     self.states.beh_activ_V_given_actions[
                         i_beh, :, i_time_step] = \
                         self.states.beh_vals_given_actions[
@@ -465,7 +465,7 @@ class SCAgent(commotions.AgentWithGoal):
                     self.states.beh_activ_V_given_actions[
                         i_beh, :, i_time_step] = 0
                 # update the "Kalman filter" activations
-                if self.assumptions[OptionalAssumption.oBEao]:
+                if self.assumptions[OptionalAssumption.oBEo]:
                     self.states.beh_activ_O[i_beh, i_time_step] = \
                         self.params.kappa * self.states.beh_activ_O[
                             i_beh, i_time_step-1]
@@ -489,7 +489,7 @@ class SCAgent(commotions.AgentWithGoal):
                         self.states.beh_activ_O[i_beh, i_time_step] 
 
         # get my estimated probabilities for the other agent's behavior
-        if self.assumptions[DerivedAssumption.oBE]:
+        if self.assumptions[DerivedAssumption.dBE]:
             for i_action in range(self.n_actions):
                 # get probabilities as softmax over activations for valid
                 # behaviors
@@ -879,13 +879,13 @@ class SCAgent(commotions.AgentWithGoal):
             self.params.DeltaV_th = 0
         if not self.assumptions[OptionalAssumption.oAN]:
             self.params.sigma_V = 0
-        if not self.assumptions[OptionalAssumption.oBEao]:
+        if not self.assumptions[OptionalAssumption.oBEo]:
             self.params.beta_O = 0
-        if not self.assumptions[OptionalAssumption.oBEvs]:
+        if not self.assumptions[OptionalAssumption.oBEv]:
             self.params.beta_V = 0
-        self.assumptions[DerivedAssumption.oBE] = \
-            self.assumptions[OptionalAssumption.oBEao] \
-            or self.assumptions[OptionalAssumption.oBEvs]
+        self.assumptions[DerivedAssumption.dBE] = \
+            self.assumptions[OptionalAssumption.oBEo] \
+            or self.assumptions[OptionalAssumption.oBEv]
 
         # get derived parameters
         self.params.gamma = self.simulation.settings.time_step / self.params.T_G
@@ -947,7 +947,7 @@ class SCSimulation(commotions.Simulation):
                  times_to_ca = False):
 
 
-        if self.agents[0].assumptions[DerivedAssumption.oBE]:
+        if self.agents[0].assumptions[DerivedAssumption.dBE]:
             plot_behaviors = BEHAVIORS
         else:
             plot_behaviors = (BEHAVIORS[i_CONSTANT],)
@@ -1247,9 +1247,9 @@ if __name__ == "__main__":
     #params.T_delta = 30
     #params.V_ny = 0
     
-    optional_assumptions = get_assumptions_dict(default_value = False, 
-                                               oBEao = False, 
-                                                oBEvs = False, 
+    optional_assumptions = get_assumptions_dict(default_value = False,
+                                                oBEo = False, 
+                                                oBEv = False, 
                                                 oEA = False, 
                                                 oAN = False)  
 
