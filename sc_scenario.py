@@ -19,12 +19,8 @@ from sc_scenario_helper import (CtrlType, AccessOrder, N_ACCESS_ORDERS,
 #matplotlib.use('qt4agg')
 
 
-# for now just a simple constant to choose value function flavour - decide
-# later how to structure this as optional assumptions
-V02VALUEFCN = True
-
-
 class OptionalAssumption(Enum):
+    oVA = 'oVA'
     oEA = 'oEA'
     oAN = 'oAN'
     oBEo = 'oBEo'
@@ -68,8 +64,8 @@ i_PASS2ND = 2
 # i_YIELDING = 2
 # =============================================================================
 
-MIN_ADAPT_ACC = -10 # m/s^2
 
+# default parameters
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
@@ -90,35 +86,42 @@ i_NO_ACTION = np.argwhere(DEFAULT_PARAMS.ctrl_deltas == 0)[0][0]
 N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
 warnings.warn('N_ACTIONS set to no of actions in default params, so will not work if non-default params are set.')
 
-DEFAULT_PARAMS_K = {}
-DEFAULT_PARAMS_K[CtrlType.SPEED] = commotions.Parameters()
-DEFAULT_PARAMS_K[CtrlType.ACCELERATION] = commotions.Parameters()
-if V02VALUEFCN:
-    FREE_SPEED_SPEED_CTRL = 1.5
-    FREE_SPEED_ACC_CTRL = 10
-    # set k_g and k_dv for normalised value rates across agent types 
-    # (see handwritten notes from 2021-01-16)
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 2 / FREE_SPEED_SPEED_CTRL 
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 1 / FREE_SPEED_SPEED_CTRL ** 2
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._da = 0.5 # gives sensible-looking acceleration from standstill
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 2 / FREE_SPEED_ACC_CTRL 
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 1 / FREE_SPEED_ACC_CTRL ** 2
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.5 # gives sensible-looking acceleration from standstill
-else:
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1 
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = 0.3
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._c = 1   
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._e = 0.1   
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1 
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = 0.05
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._da = 0.01
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sc = 1    
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._sg = 0.25 
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._e = 0.1    
+# default gains for affordance-based value function
+DEFAULT_PARAMS_K_VA = {}
+DEFAULT_PARAMS_K_VA[CtrlType.SPEED] = commotions.Parameters()
+FREE_SPEED_SPEED_CTRL = 1.5
+FREE_SPEED_ACC_CTRL = 10
+# set k_g and k_dv for normalised value rates across agent types 
+# (see handwritten notes from 2021-01-16)
+DEFAULT_PARAMS_K_VA[CtrlType.SPEED]._g = 2 / FREE_SPEED_SPEED_CTRL 
+DEFAULT_PARAMS_K_VA[CtrlType.SPEED]._dv = 1 / FREE_SPEED_SPEED_CTRL ** 2
+DEFAULT_PARAMS_K_VA[CtrlType.SPEED]._da = 0.5 # gives sensible-looking acceleration from standstill
+DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION] = commotions.Parameters()
+DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION]._g = 2 / FREE_SPEED_ACC_CTRL 
+DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION]._dv = 1 / FREE_SPEED_ACC_CTRL ** 2
+DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION]._da = 0.5 # gives sensible-looking acceleration from standstill
+
+# default gains for original, non-affordance-based value function
+DEFAULT_PARAMS_K_NVA = {}
+DEFAULT_PARAMS_K_NVA[CtrlType.SPEED] = commotions.Parameters()
+DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._g = 1 
+DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._dv = 0.3
+DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._c = 1   
+DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._e = 0.1   
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION] = commotions.Parameters()
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._g = 1 
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._dv = 0.05
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._da = 0.01
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._sc = 1    
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._sg = 0.25 
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._e = 0.1    
     
-def get_default_params():
+def get_default_params(oVA):
     params = copy.copy(DEFAULT_PARAMS)
-    params_k = copy.deepcopy(DEFAULT_PARAMS_K)
+    if oVA:
+        params_k = copy.deepcopy(DEFAULT_PARAMS_K_VA)
+    else:
+        params_k = copy.deepcopy(DEFAULT_PARAMS_K_NVA)
     return (params, params_k)
 
 
@@ -143,7 +146,10 @@ class SCAgent(commotions.AgentWithGoal):
                 self.other_agent = agent
         # store an "image" of the other agent, with assumed default parameters
         oth_params = copy.copy(DEFAULT_PARAMS)
-        oth_params.k = copy.copy(DEFAULT_PARAMS_K[self.other_agent.ctrl_type])
+        if self.assumptions[OptionalAssumption.oVA]:
+            oth_params.k = copy.copy(DEFAULT_PARAMS_K_VA[self.other_agent.ctrl_type])
+        else: 
+            oth_params.k = copy.copy(DEFAULT_PARAMS_K_NVA[self.other_agent.ctrl_type])
         oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
                                       params = oth_params, v_free = oth_v_free)
@@ -371,7 +377,9 @@ class SCAgent(commotions.AgentWithGoal):
                 # is this behaviour valid for this time step? 
                 # (if not leave values as NaNs)
                 if beh_is_valid[i_beh]:
-                    if V02VALUEFCN:
+                    # what type of value functions (affordance-based or not?)
+                    if self.assumptions[OptionalAssumption.oVA]:
+                        # affordance-based value functions
                         # doing snapshot?
                         if self.do_snapshot_now:
                             self.snapshot_ax = axs[i_beh, i_action]
@@ -454,6 +462,7 @@ class SCAgent(commotions.AgentWithGoal):
                         else:
                             raise Exception('Unexpected behaviour.')
                     else:
+                        # original, non-affordance-based value functions
                         # get value for me of this action/behavior combination
                         self.states.action_vals_given_behs[
                             i_action, i_beh, i_time_step] = \
@@ -922,6 +931,9 @@ class SCAgent(commotions.AgentWithGoal):
         # doing any value function snapshots?
         self.snapshot_times = snapshot_times
         self.doing_snapshots = snapshot_times != None
+        
+        # store the optional assumptions
+        self.assumptions = optional_assumptions
 
         # get default parameters or use user-provided parameters
         if params is None:
@@ -929,12 +941,14 @@ class SCAgent(commotions.AgentWithGoal):
         else:
             self.params = copy.copy(params)
         if params_k is None:
-            self.params.k = copy.deepcopy(DEFAULT_PARAMS_K[self.ctrl_type])
+            if self.assumptions[OptionalAssumption.oVA]:
+                self.params.k = copy.deepcopy(DEFAULT_PARAMS_K_VA[self.ctrl_type])
+            else:
+                self.params.k = copy.deepcopy(DEFAULT_PARAMS_K_NVA[self.ctrl_type])
         else:
             self.params.k = copy.deepcopy(params_k[self.ctrl_type])
 
-        # store and parse the optional assumptions
-        self.assumptions = optional_assumptions
+        # parse the optional assumptions
         if not self.assumptions[OptionalAssumption.oEA]:
             # no evidence accumulation, implemented by value accumulation 
             # reaching input value in one time step...
@@ -1305,12 +1319,14 @@ if __name__ == "__main__":
     SPEEDS = np.array((0, 10))
     CONST_ACCS = (None, None)
     SNAPSHOT_TIMES = (None, None)
+    AFF_VAL_FCN = True
     
-    (params, params_k) = get_default_params()
+    (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
     #params.T_delta = 30
     #params.V_ny = 0
     
     optional_assumptions = get_assumptions_dict(default_value = False,
+                                                oVA = AFF_VAL_FCN,
                                                 oBEo = False, 
                                                 oBEv = False, 
                                                 oAI = False,
