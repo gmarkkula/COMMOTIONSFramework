@@ -71,7 +71,7 @@ DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation t
 DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = 1
-DEFAULT_PARAMS.kappa = 0.3
+DEFAULT_PARAMS.T_O = 0.5 # "forgetting" time constant for behaviour observation (s)
 DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.sigma_O = .01 
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
@@ -537,15 +537,15 @@ class SCAgent(commotions.AgentWithGoal):
                         i_beh, :, i_time_step] = 0
                 # update the "Kalman filter" activations
                 if self.assumptions[OptionalAssumption.oBEo]:
-                    self.states.beh_activ_O[i_beh, i_time_step] = \
-                        self.params.kappa * self.states.beh_activ_O[
-                            i_beh, i_time_step-1]
+                    self.states.beh_activ_O[i_beh, i_time_step] = (
+                        (1 - self.simulation.settings.time_step / self.params.T_O) 
+                        * self.states.beh_activ_O[i_beh, i_time_step-1])
                     if i_time_step > 0:
                         self.states.sensory_probs_given_behs[
                             i_beh, i_time_step] = \
                             self.get_prob_of_current_state_given_beh(i_beh)
                         self.states.beh_activ_O[i_beh, i_time_step] += \
-                            (1 - self.params.kappa) * (1/self.params.Lambda) \
+                            (1/self.params.Lambda) \
                             * math.log(self.states.sensory_probs_given_behs[
                                 i_beh, i_time_step])
                 else:
@@ -609,9 +609,10 @@ class SCAgent(commotions.AgentWithGoal):
             # add action to the array of future acceleration values
             self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
                 self.simulation.state.i_time_step)
-            # reset the value accumulators
-            self.states.est_action_vals[:, i_time_step] = 0
-            self.states.beh_activ_V_given_actions[:, :, i_time_step] = 0
+            if self.assumptions[OptionalAssumption.oEA]:
+                # reset the value accumulators
+                self.states.est_action_vals[:, i_time_step] = 0
+                self.states.beh_activ_V_given_actions[:, :, i_time_step] = 0
 
         # set long acc in actual trajectory
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
@@ -1325,14 +1326,15 @@ if __name__ == "__main__":
     
     (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
     #params.T_delta = 30
-    #params.V_ny = 0
+    params.V_ny = -30
+    params.T_P = 1
     
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
-                                                oBEo = False, 
-                                                oBEv = False, 
-                                                oAI = False,
-                                                oEA = False, 
+                                                oBEo = True, 
+                                                oBEv = True, 
+                                                oAI = True,
+                                                oEA = True, 
                                                 oAN = False)  
 
     sc_simulation = SCSimulation(
