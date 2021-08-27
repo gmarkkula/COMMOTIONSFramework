@@ -71,9 +71,9 @@ DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation t
 DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = 1
-DEFAULT_PARAMS.T_O = 0.5 # "forgetting" time constant for behaviour observation (s)
+DEFAULT_PARAMS.T_O = 2 # "forgetting" time constant for behaviour observation (s)
 DEFAULT_PARAMS.Lambda = 1
-DEFAULT_PARAMS.sigma_O = .01 
+DEFAULT_PARAMS.sigma_O = .001 
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
@@ -1315,38 +1315,69 @@ class SCSimulation(commotions.Simulation):
 
 if __name__ == "__main__":
 
+    # scenario basics
     NAMES = ('P', 'V')
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
-    GOALS = np.array([[0, 5], [-50, 0]])
-    SPEEDS = np.array((0, 10))
-    CONST_ACCS = (None, None)
-    SNAPSHOT_TIMES = (None, None)
-    AFF_VAL_FCN = True
     
+    # scenario
+    GOALS = np.array([[0, 5], [-50, 0]])
+    SCE_BASELINE = 0 # "baseline" kinematics
+    SCE_KEIODECEL = 1 # a deceleration scenario from the Keio study
+    SCENARIO = SCE_BASELINE
+    if SCENARIO == SCE_BASELINE:
+        INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
+        SPEEDS = np.array((0, 10))
+        CONST_ACCS = (None, None)
+        
+    elif SCENARIO == SCE_KEIODECEL:
+        INITIAL_POSITIONS = np.array([[0,-2.5], [13.9*2.29, 0]])
+        SPEEDS = np.array((0, 13.9))
+        stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C
+        # fix car behaviour to yielding, and simplify to only a single speed
+        # increase option for the pedestrian
+        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
+        DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
+        i_NO_ACTION = np.argwhere(DEFAULT_PARAMS.ctrl_deltas == 0)[0][0]
+        N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
+    
+    # set parameters and optional assumptions
+    AFF_VAL_FCN = True
     (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
     #params.T_delta = 30
-    params.V_ny = -30
-    params.T_P = 1
-    
+    #params.V_ny = -60
+    #params.T_P = 1
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
-                                                oBEo = True, 
-                                                oBEv = True, 
-                                                oAI = True,
-                                                oEA = True, 
+                                                oBEo = False, 
+                                                oBEv = False, 
+                                                oAI = False,
+                                                oEA = False, 
                                                 oAN = False)  
-
+    
+    # run simulation
+    SNAPSHOT_TIMES = (None, None)
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
-            end_time = 7, optional_assumptions = optional_assumptions,
+            end_time = 8, optional_assumptions = optional_assumptions,
             const_accs = CONST_ACCS, agent_names = NAMES, 
-            params = params, snapshot_times = SNAPSHOT_TIMES)
+            params = params, snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
     sc_simulation.run()
+    
+    # plot and give some results feedback
     sc_simulation.do_plots(
             trajs = True, action_val_ests = True, surplus_action_vals = True, 
             kinem_states = True, beh_accs = True, beh_probs = True, action_vals = True, 
             sensory_prob_dens = False, beh_activs = True)
+    for agent in sc_simulation.agents:
+        ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0) 
+                                <= SHARED_PARAMS.d_C)[0]
+        if len(ca_entered) == 0:
+            print('Agent %s did not enter the conflict area.' % agent.name)
+        else:
+            print('Agent %s entered conflict area at t = %.2f s' 
+                  % (agent.name, sc_simulation.time_stamps[ca_entered[0]]))
+    
+
 
 
 
