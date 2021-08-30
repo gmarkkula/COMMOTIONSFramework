@@ -22,6 +22,7 @@ i_EGOFIRST = AccessOrder.EGOFIRST.value
 i_EGOSECOND = AccessOrder.EGOSECOND.value
 N_ACCESS_ORDERS = len(AccessOrder)
 
+ACC_AWARE_ENTRYEXIT = True # false for old, constant-speed-assuming calculations
 
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
@@ -84,24 +85,69 @@ def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop
     return target_acc, target_time
         
 
+
+def get_time_to_dist_with_acc(state, target_dist):
+    
+    def get_root():
+        return math.sqrt(state.long_speed ** 2 + 2 * state.long_acc * target_dist)
+    
+    # already past the target distance?
+    if target_dist <= 0:
+        return 0
+    # standing still?
+    if state.long_speed == 0 and state.long_acc <= 0:
+        return math.inf
+    # dacceleration status?
+    if state.long_acc == 0:
+        # no acceleration
+        return target_dist / state.long_speed
+    elif state.long_acc < 0:
+        # decelerating
+        # will stop before target distance?
+        stop_dist = state.long_speed ** 2 / (-2 * state.long_acc)
+        if stop_dist <= target_dist:
+            return math.inf
+        # no, so get time of passing target distance as first root of the
+        # quadratic equation
+        return (-state.long_speed - get_root()) / (2 * state.long_acc)
+    else:
+        # accelerating, so get time of passing target distance as second root
+        # of the quadratic equation
+        return (-state.long_speed + get_root()) / (2 * state.long_acc)
+    
+    
+    
 def get_entry_exit_times(state, coll_dist):
     """ Return tuple of times left to entry and exit into conflict zone defined by 
-        +/-coll_dist around conflict point, for agent currently at distance 
+        +/-coll_dist around conflict point.
+        
+        New version, for ACC_AWARE_ENTRYEXIT: Consider agent at 
         state.signed_CP_dist to conflict point and travelling toward it at 
-        speed state.long_speed, with entry/exit apparently in the past returned
+        speed state.long_speed and acceleration state.long_acc. Return zero
+        if entry/exit has happened already. Return inf if speed is zero, or 
+        if the acceleration will have the agent stop before entry/exit.
+        
+        Old version, for ACC_AWARE_ENTRYEXIT = False: As above, but disregard
+        acceleration, and give entry/exit apparently in the past returned
         as negative times. Return inf if speed is zero. 
     """
     # is the agent moving?
     if state.long_speed == 0:
         return (math.inf, math.inf)
     else:
-        # get the time to reach the entry/exit edge of the conflict space,
-        # taking into account the speed when defining which edge is entry vs exit
-        sp_sign = np.sign(state.long_speed)
-        entry_time = (state.signed_CP_dist 
-                      - sp_sign * coll_dist) / state.long_speed
-        exit_time = (state.signed_CP_dist 
-                     + sp_sign * coll_dist) / state.long_speed
+        # get the time to reach the entry/exit edge of the conflict space
+        if ACC_AWARE_ENTRYEXIT:
+            entry_time = get_time_to_dist_with_acc(
+                state, state.signed_CP_dist - coll_dist)
+            exit_time = get_time_to_dist_with_acc(
+                state, state.signed_CP_dist + coll_dist)
+        else:
+            # taking into account the speed when defining which edge is entry vs exit
+            sp_sign = np.sign(state.long_speed)
+            entry_time = (state.signed_CP_dist 
+                          - sp_sign * coll_dist) / state.long_speed
+            exit_time = (state.signed_CP_dist 
+                         + sp_sign * coll_dist) / state.long_speed
         return (entry_time, exit_time)
     
     
@@ -486,6 +532,7 @@ if __name__ == "__main__":
             # get other agent's movement
             oth_distances = (oth_state.signed_CP_dist 
                              - oth_state.long_speed * TIME_STAMPS)
+            oth_state.long_acc = 0
             oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
                 
             # get figure window for test results
