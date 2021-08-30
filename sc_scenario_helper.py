@@ -234,6 +234,8 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     else:
         T_acc_free = agent_time_to_v_free
         
+    # --- I thought I could remove this bit without real effect, but removal 
+    # --- does make a (small) difference, so leaving for now
     # has the ego agent already exited the conflict space?
     if ego_state.signed_CP_dist <= -coll_dist:
         # yes - so no interaction left to do - return just the acceleration 
@@ -243,6 +245,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
             implications[access_order] = AccessOrderImplication(
                     acc = ego_free_acc, T_acc = T_acc_free, T_dw = 0)
         return implications
+    # --- 
         
     # prepare dicts
     accs = {}
@@ -255,6 +258,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     # get acceleration needed to pass first
     # - other agent already entered conflict space?
     if oth_state.signed_CP_dist <= coll_dist:
+        # yes, so not possible for ego agent to pass first
         if return_nans:
             accs[AccessOrder.EGOFIRST] = math.nan
             T_accs[AccessOrder.EGOFIRST] = math.nan
@@ -291,20 +295,15 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # no, the other agent hasn't already exited the conflict space
         # has the ego agent already entered conflict space?
         if ego_state.signed_CP_dist <= coll_dist:
-            # yes, so need to move back out of it again before the other agent 
-            # arrives
-            ego_dist_to_entry = ego_state.signed_CP_dist - coll_dist
-            accs[AccessOrder.EGOSECOND], T_accs[AccessOrder.EGOSECOND] = \
-                get_acc_to_be_at_dist_at_time(
-                    ego_state.long_speed, ego_dist_to_entry,
-                    oth_state.CS_entry_time, consider_stop=False)
-            # once having moved out, will need to wait for the other agent to 
-            # exit before continuing
-            if math.isinf(oth_state.CS_exit_time):
-                T_dws[AccessOrder.EGOSECOND] = math.inf
+            # yes, so passing in second is no longer an option
+            if return_nans:
+                accs[AccessOrder.EGOSECOND] = math.nan
+                T_accs[AccessOrder.EGOSECOND] = math.nan
+                T_dws[AccessOrder.EGOSECOND] = math.nan
             else:
-                T_dws[AccessOrder.EGOSECOND] = (oth_state.CS_exit_time
-                                                - T_accs[AccessOrder.EGOSECOND])
+                accs[AccessOrder.EGOSECOND] = -math.inf
+                T_accs[AccessOrder.EGOSECOND] = math.inf
+                T_dws[AccessOrder.EGOSECOND] = 0
         else:
             # not yet reached conflict space, so get acceleration that has the ego 
             # agent be at entrance to the conflict space at the same time as the 
@@ -329,7 +328,6 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
                 T_dws[AccessOrder.EGOSECOND] = 0
         
             
-    
     # return dict with the full results
     implications = {}
     for access_order in AccessOrder:
