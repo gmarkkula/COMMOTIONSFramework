@@ -920,9 +920,9 @@ class SCAgent(commotions.AgentWithGoal):
         self.ctrl_type = ctrl_type
         
         # set initial state and call inherited init method
-        can_reverse = (self.ctrl_type is CtrlType.SPEED) # no reversing for acceleration-controlling agents
+        # (no reversing, regardless of agent type)
         super().__init__(name, simulation, goal_pos, \
-            initial_state, can_reverse = can_reverse, plot_color = plot_color)
+            initial_state, can_reverse = False, plot_color = plot_color)
             
         # is this agent to just keep a constant acceleration?
         self.const_acc = const_acc
