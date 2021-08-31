@@ -87,17 +87,13 @@ def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop
 
 
 def get_time_to_dist_with_acc(state, target_dist):
-    
-    def get_root():
-        return math.sqrt(state.long_speed ** 2 + 2 * state.long_acc * target_dist)
-    
     # already past the target distance?
     if target_dist <= 0:
         return 0
     # standing still?
     if state.long_speed == 0 and state.long_acc <= 0:
         return math.inf
-    # dacceleration status?
+    # acceleration status?
     if state.long_acc == 0:
         # no acceleration
         return target_dist / state.long_speed
@@ -109,11 +105,11 @@ def get_time_to_dist_with_acc(state, target_dist):
             return math.inf
         # no, so get time of passing target distance as first root of the
         # quadratic equation
-        return (-state.long_speed - get_root()) / (2 * state.long_acc)
-    else:
-        # accelerating, so get time of passing target distance as second root
-        # of the quadratic equation
-        return (-state.long_speed + get_root()) / (2 * state.long_acc)
+    # accelerating (or decelerating) past, so get second (or first - controlled
+    # by the sign of acceleration in denominator) root of the quadratic equation
+    return (-state.long_speed + 
+            math.sqrt(state.long_speed ** 2 + 2 * state.long_acc * target_dist)
+            ) / state.long_acc
     
     
     
@@ -198,41 +194,35 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         
         More specifically, each AccessOrderImplication contains:
             
-        An acceleration acc and an associated duration of acceleration T_acc:
+        * An acceleration acc and an associated duration of acceleration T_acc:
         
-        * Accelerations for passing first: Either just normal acceleration 
-          toward free speed if this is enough (with T_acc being the time 
-          needed to reach the free speed), otherwise the acceleration
-          needed to exit the conflict space just as the other agent enters it 
-          (with T_acc the time until that exit).
-        
-        * Accelerations for passing second: Either just normal acceleration
-          toward free speed if this is enough (with T_acc being the time 
-          needed to reach the free speed), otherwise the acceleration
-          needed to just enter the conflict space as the other agent exits it 
-          (with T_acc the time until that entry), if possible, otherwise the
-          acceleration needed to stop just at the entrance to the conflict 
-          space (to wait there until the other agent passes; with T_acc the 
-          time until full stop).
-          
-        
-        ***
-        NOT YET IMPLEMENTED
-        
-        A waiting delay duration T_dw which is zero in all cases except the full
-        stop cases mentioned above; in these cases T_dw is the time from full
-        stop until the other agent exits the conflict space.
-        
-        A delay duration T_dr for regaining free speed 
-        
-        ***
-        ***
+            - Accelerations for passing first: Either just normal acceleration 
+              toward free speed if this is enough (with T_acc being the time 
+              needed to reach the free speed), otherwise the acceleration
+              needed to exit the conflict space just as the other agent enters it 
+              (with T_acc the time until that exit).
             
-        If the ego agent has already exited the conflict space, or if there is
-        and ongoing collision, outputs for both access orders will be math.nan. 
+            - Accelerations for passing second: Either just normal acceleration
+              toward free speed if this is enough (with T_acc being the time 
+              needed to reach the free speed), otherwise the acceleration
+              needed to just enter the conflict space as the other agent exits it 
+              (with T_acc the time until that entry), if possible, otherwise the
+              acceleration needed to stop just at the entrance to the conflict 
+              space (to wait there until the other agent passes; with T_acc the 
+              time until full stop).
+        
+        * A waiting delay duration T_dw which is zero in all cases except the 
+          full stop cases mentioned above; in these cases T_dw is the time 
+          from full stop until the other agent exits the conflict space.
+            
+        If there is an ongoing collision, outputs for both access orders will 
+        be undefined (math.nan if return_nans is True, otherwise using math.inf)
         
         If the other agent has already entered the conflict space, outputs for
-        the AccessOrder.EGOFIRST will be math.nan.
+        the AccessOrder.EGOFIRST will be undefined.
+        
+        If the ego agent has already exited the conflict space, outputs for 
+        both access orders will be just acceleration to free speed.
     """
             
     # are both agents currently in the conflict space (i.e., a collision)?
@@ -262,16 +252,6 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # assumptions, most notably constant acceleration while regaining speed,
         # which is not close to the truth)
         agent_time_to_v_free = ACC_CTRL_REGAIN_SPD_TIME
-# =============================================================================
-#         # calculate the expected acceleration given the current deviation
-#         # from the free speed (see hand written notes from 2020-07-08)
-#         ego_k = ego_image.params.k
-#         ego_free_acc = (
-#                 - ego_k._dv * dev_from_v_free * ego_image.params.DeltaT 
-#                 / (0.5 * ego_k._dv * ego_image.params.DeltaT ** 2 
-#                    + 2 * ego_k._da)
-#                 )
-# =============================================================================
     ego_free_acc = -dev_from_v_free / agent_time_to_v_free
                 
     # get time to reach free speed if applying free acceleration
@@ -280,8 +260,6 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     else:
         T_acc_free = agent_time_to_v_free
         
-    # --- I thought I could remove this bit without real effect, but removal 
-    # --- does make a (small) difference, so leaving for now
     # has the ego agent already exited the conflict space?
     if ego_state.signed_CP_dist <= -coll_dist:
         # yes - so no interaction left to do - return just the acceleration 
@@ -291,7 +269,6 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
             implications[access_order] = AccessOrderImplication(
                     acc = ego_free_acc, T_acc = T_acc_free, T_dw = 0)
         return implications
-    # --- 
         
     # prepare dicts
     accs = {}
@@ -464,20 +441,38 @@ if __name__ == "__main__":
         TESTS = ('Stationary ped., moving veh.', 'Moving ped., moving veh.',
                  'Ped. moving backwards, moving veh.', 
                  'Stationary veh., moving ped.', 'Moving veh., moving ped.', 
-                 'Moving veh., stationary ped.', 'Stationary veh., stationary ped.')
-        N_TESTS = len(TESTS)
+                 'Moving veh., stationary ped.', 'Stationary veh., stationary ped.',
+                 'Stationary ped., accelerating veh.',
+                 'Stationary ped., stopping veh.',
+                 'Stationary ped., veh. decelerating past')
         EGO_CTRL_TYPES = (CtrlType.SPEED, CtrlType.SPEED, 
                           CtrlType.SPEED,
                           CtrlType.ACCELERATION, CtrlType.ACCELERATION, 
-                          CtrlType.ACCELERATION, CtrlType.ACCELERATION)
+                          CtrlType.ACCELERATION, CtrlType.ACCELERATION,
+                          CtrlType.SPEED,
+                          CtrlType.SPEED,
+                          CtrlType.SPEED)
         EGO_VS = (0, 1.5, 
                   -1.5,
                   0, 10, 
-                  10, 0)
+                  10, 0,
+                  0,
+                  0,
+                  0)
         OTH_VS = (10, 10, 
                   10,
                   1.5, 1.5, 
-                  0, 0)
+                  0, 0,
+                  10,
+                  10,
+                  10)
+        OTH_AS = (0, 0,
+                  0,
+                  0, 0,
+                  0, 0,
+                  2,
+                  -2,
+                  -1)
         
         # constants depending on ego agent control type
         EGO_D_MAX = {}
@@ -526,13 +521,14 @@ if __name__ == "__main__":
                                      EGO_V_FREE[ego_ctrl_type])
             ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
             oth_state = commotions.KinematicState(long_speed = OTH_VS[i_test])
+            oth_state.long_acc = OTH_AS[i_test]
             oth_state.signed_CP_dist = OTH_D[ego_ctrl_type]
             ego_ds = np.linspace(-5, EGO_D_MAX[ego_ctrl_type], 20)
             
             # get other agent's movement
+            oth_speeds = oth_state.long_speed + oth_state.long_acc * TIME_STAMPS
             oth_distances = (oth_state.signed_CP_dist 
-                             - oth_state.long_speed * TIME_STAMPS)
-            oth_state.long_acc = 0
+                             - np.cumsum(oth_speeds * TIME_STEP))
             oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
                 
             # get figure window for test results

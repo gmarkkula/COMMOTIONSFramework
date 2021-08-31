@@ -73,7 +73,7 @@ DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = 1
 DEFAULT_PARAMS.T_O = 2 # "forgetting" time constant for behaviour observation (s)
 DEFAULT_PARAMS.Lambda = 1
-DEFAULT_PARAMS.sigma_O = .001 
+DEFAULT_PARAMS.sigma_O = .001 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
@@ -248,7 +248,8 @@ class SCAgent(commotions.AgentWithGoal):
         if speed_label:
             text_pos = state.pos + 2 * speed_vect
             self.snapshot_ax.text(text_pos[0], text_pos[1], 
-                                  '%.2f' % state.long_speed, 
+                                  '(%.2f, %.2f)' % (state.long_speed,
+                                                    state.long_acc),
                                   color=plot_color, alpha=alpha_val,
                                   ha='center', va='center', size=8)
     
