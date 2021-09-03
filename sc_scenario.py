@@ -327,11 +327,13 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0  
         # - use helper function to get other agent's expected accelerations to
         #   pass in front of or behind me, given my current position and speed
+        #   (but not my current acceleration)
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
          self.states.beh_long_accs[i_PASS2ND, i_time_step]) = \
              sc_scenario_helper.get_access_order_accs(
                      self.oth_image, self.other_agent.curr_state, 
-                     self.curr_state, SHARED_PARAMS.d_C)
+                     self.curr_state, SHARED_PARAMS.d_C, 
+                     consider_oth_acc=False)
              
         # determine which behaviours are valid at this time step
         # - the helper function above returns nan if behaviour is invalid for 
@@ -1315,6 +1317,8 @@ class SCSimulation(commotions.Simulation):
 ### just some test code
 
 if __name__ == "__main__":
+    
+    import time
 
     # scenario basics
     NAMES = ('P', 'V')
@@ -1350,7 +1354,7 @@ if __name__ == "__main__":
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oBEo = False, 
-                                                oBEv = False, 
+                                                oBEv = True, 
                                                 oAI = False,
                                                 oEA = False, 
                                                 oAN = False)  
@@ -1362,7 +1366,10 @@ if __name__ == "__main__":
             end_time = 8, optional_assumptions = optional_assumptions,
             const_accs = CONST_ACCS, agent_names = NAMES, 
             params = params, snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
+    tic = time.perf_counter()
     sc_simulation.run()
+    toc = time.perf_counter()
+    print('Simulation took %.3f s.' % (toc - tic,))
     
     # plot and give some results feedback
     sc_simulation.do_plots(
