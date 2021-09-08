@@ -21,6 +21,7 @@ from sc_scenario_helper import (CtrlType, AccessOrder, N_ACCESS_ORDERS,
 
 class OptionalAssumption(Enum):
     oVA = 'oVA'
+    oVAa = 'oVAa'
     oEA = 'oEA'
     oAN = 'oAN'
     oBEo = 'oBEo'
@@ -73,7 +74,7 @@ DEFAULT_PARAMS.beta_O = 1
 DEFAULT_PARAMS.beta_V = 1
 DEFAULT_PARAMS.T_O = 2 # "forgetting" time constant for behaviour observation (s)
 DEFAULT_PARAMS.Lambda = 1
-DEFAULT_PARAMS.sigma_O = .001 
+DEFAULT_PARAMS.sigma_O = .001 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
@@ -248,7 +249,8 @@ class SCAgent(commotions.AgentWithGoal):
         if speed_label:
             text_pos = state.pos + 2 * speed_vect
             self.snapshot_ax.text(text_pos[0], text_pos[1], 
-                                  '%.2f' % state.long_speed, 
+                                  '(%.2f, %.2f)' % (state.long_speed,
+                                                    state.long_acc),
                                   color=plot_color, alpha=alpha_val,
                                   ha='center', va='center', size=8)
     
@@ -326,11 +328,13 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.beh_long_accs[i_CONSTANT, i_time_step] = 0  
         # - use helper function to get other agent's expected accelerations to
         #   pass in front of or behind me, given my current position and speed
+        #   (but not my current acceleration)
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
          self.states.beh_long_accs[i_PASS2ND, i_time_step]) = \
              sc_scenario_helper.get_access_order_accs(
                      self.oth_image, self.other_agent.curr_state, 
-                     self.curr_state, SHARED_PARAMS.d_C)
+                     self.curr_state, SHARED_PARAMS.d_C, 
+                     consider_oth_acc=False)
              
         # determine which behaviours are valid at this time step
         # - the helper function above returns nan if behaviour is invalid for 
@@ -338,9 +342,12 @@ class SCAgent(commotions.AgentWithGoal):
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
         # - is the constant behaviour valid for this time step?
-        if (self.assumptions[DerivedAssumption.dBE] and
-            (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND])):
-            # no - we are estimating behaviours and at least one of the 
+        if ((not self.assumptions[OptionalAssumption.oVAa]) 
+            and (self.assumptions[DerivedAssumption.dBE] and
+            (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND]))):
+            # no the constant behaviour is not valid, because we are not
+            # doing acceleration-aware affordance-based value estimation, and
+            # we are estimating behaviours, and at least one of the other
             # behaviours is valid
             beh_is_valid[i_CONSTANT] = False
             self.states.beh_long_accs[i_CONSTANT, i_time_step] = math.nan
@@ -650,7 +657,8 @@ class SCAgent(commotions.AgentWithGoal):
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
         implications = sc_scenario_helper.get_access_order_implications(
-                ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C)
+                ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C,
+                consider_oth_acc=self.assumptions[OptionalAssumption.oVAa])
         
         # get the estimated time needed for the agent to regain free speed, 
         # if not already at it
@@ -920,9 +928,9 @@ class SCAgent(commotions.AgentWithGoal):
         self.ctrl_type = ctrl_type
         
         # set initial state and call inherited init method
-        can_reverse = (self.ctrl_type is CtrlType.SPEED) # no reversing for acceleration-controlling agents
+        # (no reversing, regardless of agent type)
         super().__init__(name, simulation, goal_pos, \
-            initial_state, can_reverse = can_reverse, plot_color = plot_color)
+            initial_state, can_reverse = False, plot_color = plot_color)
             
         # is this agent to just keep a constant acceleration?
         self.const_acc = const_acc
@@ -969,6 +977,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions[DerivedAssumption.dBE] = \
             self.assumptions[OptionalAssumption.oBEo] \
             or self.assumptions[OptionalAssumption.oBEv]
+        if not self.assumptions[OptionalAssumption.oVA]:
+            if self.assumptions[OptionalAssumption.oVAa]:
+                warnings.warn('Cannot have oVAa without oVA, so disabling oVA.')
+                self.assumptions[OptionalAssumption.oVAa] = False
+                
 
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
@@ -1314,6 +1327,8 @@ class SCSimulation(commotions.Simulation):
 ### just some test code
 
 if __name__ == "__main__":
+    
+    import time
 
     # scenario basics
     NAMES = ('P', 'V')
@@ -1348,6 +1363,7 @@ if __name__ == "__main__":
     #params.T_P = 1
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
+                                                oVAa = True,
                                                 oBEo = False, 
                                                 oBEv = False, 
                                                 oAI = False,
@@ -1361,7 +1377,10 @@ if __name__ == "__main__":
             end_time = 8, optional_assumptions = optional_assumptions,
             const_accs = CONST_ACCS, agent_names = NAMES, 
             params = params, snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
+    tic = time.perf_counter()
     sc_simulation.run()
+    toc = time.perf_counter()
+    print('Simulation took %.3f s.' % (toc - tic,))
     
     # plot and give some results feedback
     sc_simulation.do_plots(
