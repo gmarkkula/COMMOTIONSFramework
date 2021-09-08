@@ -342,9 +342,12 @@ class SCAgent(commotions.AgentWithGoal):
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
         # - is the constant behaviour valid for this time step?
-        if (self.assumptions[DerivedAssumption.dBE] and
-            (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND])):
-            # no - we are estimating behaviours and at least one of the 
+        if ((not self.assumptions[OptionalAssumption.oVAa]) 
+            and (self.assumptions[DerivedAssumption.dBE] and
+            (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND]))):
+            # no the constant behaviour is not valid, because we are not
+            # doing acceleration-aware affordance-based value estimation, and
+            # we are estimating behaviours, and at least one of the other
             # behaviours is valid
             beh_is_valid[i_CONSTANT] = False
             self.states.beh_long_accs[i_CONSTANT, i_time_step] = math.nan
@@ -1362,7 +1365,7 @@ if __name__ == "__main__":
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = True,
                                                 oBEo = False, 
-                                                oBEv = True, 
+                                                oBEv = False, 
                                                 oAI = False,
                                                 oEA = False, 
                                                 oAN = False)  
