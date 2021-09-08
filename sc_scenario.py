@@ -21,6 +21,7 @@ from sc_scenario_helper import (CtrlType, AccessOrder, N_ACCESS_ORDERS,
 
 class OptionalAssumption(Enum):
     oVA = 'oVA'
+    oVAa = 'oVAa'
     oEA = 'oEA'
     oAN = 'oAN'
     oBEo = 'oBEo'
@@ -653,7 +654,8 @@ class SCAgent(commotions.AgentWithGoal):
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
         implications = sc_scenario_helper.get_access_order_implications(
-                ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C)
+                ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C,
+                consider_oth_acc=self.assumptions[OptionalAssumption.oVAa])
         
         # get the estimated time needed for the agent to regain free speed, 
         # if not already at it
@@ -972,6 +974,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions[DerivedAssumption.dBE] = \
             self.assumptions[OptionalAssumption.oBEo] \
             or self.assumptions[OptionalAssumption.oBEv]
+        if not self.assumptions[OptionalAssumption.oVA]:
+            if self.assumptions[OptionalAssumption.oVAa]:
+                warnings.warn('Cannot have oVAa without oVA, so disabling oVA.')
+                self.assumptions[OptionalAssumption.oVAa] = False
+                
 
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
@@ -1353,6 +1360,7 @@ if __name__ == "__main__":
     #params.T_P = 1
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
+                                                oVAa = True,
                                                 oBEo = False, 
                                                 oBEv = True, 
                                                 oAI = False,
