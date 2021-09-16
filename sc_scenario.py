@@ -70,11 +70,11 @@ i_PASS2ND = 2
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
-DEFAULT_PARAMS.beta_O = 1
-DEFAULT_PARAMS.beta_V = 1
-DEFAULT_PARAMS.T_O = 2 # "forgetting" time constant for behaviour observation (s)
-DEFAULT_PARAMS.Lambda = 1
-DEFAULT_PARAMS.sigma_O = .001 # std dev of behaviour observation noise (m)
+DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
+DEFAULT_PARAMS.beta_V = 60 # scaling of value evidence in behaviour belief activation
+DEFAULT_PARAMS.T_O1 = 0.05 # "sampling" time constant for behaviour observation (s)
+DEFAULT_PARAMS.T_Of = 0.5 # "forgetting" time constant for behaviour observation (s)
+DEFAULT_PARAMS.sigma_O = 0.1 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th_rel = 0.1 # action decision threshold when doing evidence accumulation, in multiples of V_free
@@ -546,14 +546,14 @@ class SCAgent(commotions.AgentWithGoal):
                 # update the "Kalman filter" activations
                 if self.assumptions[OptionalAssumption.oBEo]:
                     self.states.beh_activ_O[i_beh, i_time_step] = (
-                        (1 - self.simulation.settings.time_step / self.params.T_O) 
+                        (1 - self.simulation.settings.time_step / self.params.T_Of) 
                         * self.states.beh_activ_O[i_beh, i_time_step-1])
                     if i_time_step > 0:
                         self.states.sensory_probs_given_behs[
                             i_beh, i_time_step] = \
                             self.get_prob_of_current_state_given_beh(i_beh)
                         self.states.beh_activ_O[i_beh, i_time_step] += \
-                            (1/self.params.Lambda) \
+                            (self.simulation.settings.time_step / self.params.T_O1) \
                             * math.log(self.states.sensory_probs_given_behs[
                                 i_beh, i_time_step])
                 else:
@@ -575,9 +575,8 @@ class SCAgent(commotions.AgentWithGoal):
                 self.states.beh_probs_given_actions[
                         beh_is_valid, i_action, i_time_step] = \
                     scipy.special.softmax(
-                            self.params.Lambda 
-                            * self.states.beh_activations_given_actions[
-                                    beh_is_valid, i_action, i_time_step])
+                        self.states.beh_activations_given_actions[
+                            beh_is_valid, i_action, i_time_step])
                 # set probabilities of invalid behaviors to zero
                 self.states.beh_probs_given_actions[
                         np.invert(beh_is_valid), i_action, i_time_step] = 0
@@ -1384,13 +1383,14 @@ if __name__ == "__main__":
     #params.T_delta = 30
     #params.V_ny = -60
     #params.T_P = 1
-    #params.T_O = 0.5
-    #params.sigma_O = 0.01
-    #params.beta_V = 160
+    #params.T_O1 = 0.05
+    #params.T_Of = 0.5
+    #params.sigma_O = 0.1
+    #params.beta_V = 60
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
-                                                oBEo = False, 
+                                                oBEo = False,
                                                 oBEv = False, 
                                                 oAI = False,
                                                 oEA = False, 
