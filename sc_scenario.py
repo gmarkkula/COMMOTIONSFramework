@@ -77,10 +77,11 @@ DEFAULT_PARAMS.Lambda = 1
 DEFAULT_PARAMS.sigma_O = .001 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
-DEFAULT_PARAMS.DeltaV_th = 0.1 # action decision threshold when doing evidence accumulation
+DEFAULT_PARAMS.DeltaV_th_rel = 0.1 # action decision threshold when doing evidence accumulation, in multiples of V_free
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
+DEFAULT_PARAMS.V_0_rel = 4 # scale of value squashing function, in multiples of V_free
 DEFAULT_PARAMS.V_ny = -15 * 0 # value function term for non-yielding 
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
 i_NO_ACTION = np.argwhere(DEFAULT_PARAMS.ctrl_deltas == 0)[0][0]
@@ -624,6 +625,8 @@ class SCAgent(commotions.AgentWithGoal):
         # set long acc in actual trajectory
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
         
+    def squash_value(self, input_values):
+        return np.tanh(input_values / self.params.V_0)
 
     def get_access_order_values_for_agent_v02(self, ego_image, ego_curr_state,
                                          ego_pred_state, oth_pred_state,
@@ -649,10 +652,8 @@ class SCAgent(commotions.AgentWithGoal):
                 T = ego_image.params.DeltaT, k = ego_image.params.k)
         
         # get constant value for remainder of trip after action and possible
-        # interaction
-        post_value = ( (ego_image.params.T_delta / math.log(2)) * 
-                      sc_scenario_helper.get_const_value_rate(
-                              v=ego_image.v_free, a=0, k=ego_image.params.k) ) 
+        # interaction, i.e., V_free
+        post_value = self.V_free
         
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
@@ -737,8 +738,9 @@ class SCAgent(commotions.AgentWithGoal):
                                      (action_value, ach_access_value,
                                       inh_access_value, regain_value,
                                       final_value) + '\n')
+            # squash the value with a sigmoid
+            value = self.squash_value(value)
             # store the value of this access order in the output numpy array
-            value = max(-100, min(100, value)) # awaiting some proper value fcn squashing
             access_order_values[access_order.value] = value
             
         # snapshot info
@@ -824,6 +826,9 @@ class SCAgent(commotions.AgentWithGoal):
             elif self.ctrl_type is CtrlType.ACCELERATION:
                 value += -k._sc * (own_state.long_speed \
                     / (2 * time_to_agent_collision)) ** 2  
+                    
+        # squash the value with a sigmoid
+        value = self.squash_value(value)
         
         return value
 
@@ -986,6 +991,22 @@ class SCAgent(commotions.AgentWithGoal):
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
         
+        # get and store V_free, the "free" value for the agent of just
+        # proceeding at the free speed, without any interaction
+        if self.assumptions[OptionalAssumption.oVA]:
+            # the time-discounted future total value of the rest of the journey
+            self.V_free = ( (self.params.T_delta / math.log(2)) * 
+                          sc_scenario_helper.get_const_value_rate(
+                                  v=self.v_free, a=0, k=self.params.k) )
+        else:
+            # just the snapshot value of being at the free speed
+            self.V_free = (self.params.k_g * self.v_free 
+                           - self.params.k_dv * self.v_free ** 2)
+        
+        # get derived parameters 
+        self.params.V_0 = self.V_free * self.params.V_0_rel
+        self.params.DeltaV_th - self.V_free * self.params.DeltaV_th_rel
+        
         # store a (correct) representation of oneself
         self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
                                        params = self.params, 
@@ -1063,7 +1084,7 @@ class SCSimulation(commotions.Simulation):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
                     plt.subplot(N_ACTIONS, N_AGENTS, \
                                 i_action * N_AGENTS +  i_agent + 1)
-                    plt.ylim(-0, 50)
+                    plt.ylim(-1.1, 1.1)
                     for i_beh in range(n_plot_behaviors):
                         plt.plot(self.time_stamps, \
                                  agent.states.action_vals_given_behs[i_action, 
@@ -1140,23 +1161,25 @@ class SCSimulation(commotions.Simulation):
                 for i_beh in range(n_plot_behaviors):
                     # action observation contribution
                     plt.subplot(N_ACTIONS+1, n_plot_behaviors, i_beh + 1)
-                    plt.plot(self.time_stamps, agent.states.beh_activ_O[i_beh, :])
+                    plt.plot(self.time_stamps, agent.params.beta_O 
+                             * agent.states.beh_activ_O[i_beh, :])
                     plt.title(BEHAVIORS[i_beh])
                     if i_beh == n_plot_behaviors-1:
-                        plt.legend(('$A_{O,b}$',))
+                        plt.legend(('$\\beta_O A_{O,b}$',))
                     # value contribution and total activation - both per action
                     for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
                         plt.subplot(N_ACTIONS+1, n_plot_behaviors, 
                                     (i_action+1) * n_plot_behaviors + i_beh + 1)
                         plt.plot(self.time_stamps, 
-                                 agent.states.beh_activ_V_given_actions[
+                                 agent.params.beta_V 
+                                 * agent.states.beh_activ_V_given_actions[
                                          i_beh, i_action,  :])
                         plt.plot(self.time_stamps, 
                                  agent.states.beh_activations_given_actions[
                                          i_beh, i_action, :])
                         #plt.ylim(-2, 5)
                         if i_beh == n_plot_behaviors-1 and i_action == 0:
-                            plt.legend(('$A_{V,b|a}$', '$A_{b|a}$'))
+                            plt.legend(('$\\beta_V A_{V,b|a}$', '$A_{b|a}$'))
                         if i_beh == 0:
                             plt.ylabel('$\\Delta v=%.1f$' % deltav)
 
@@ -1361,9 +1384,12 @@ if __name__ == "__main__":
     #params.T_delta = 30
     #params.V_ny = -60
     #params.T_P = 1
+    #params.T_O = 0.5
+    #params.sigma_O = 0.01
+    #params.beta_V = 160
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
-                                                oVAa = True,
+                                                oVAa = False,
                                                 oBEo = False, 
                                                 oBEv = False, 
                                                 oAI = False,
