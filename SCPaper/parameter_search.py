@@ -144,8 +144,15 @@ class ParameterSearch:
         # search the matrix of parameterisations
         self.search_list(params_matrix)
     
-    def save(self, file_name):
-        pass
+    def save(self, file_name, verbose=False):
+        if verbose:
+            print(f'Saving results of "{self.name}" to file "{file_name}"...')
+        file_obj = open(file_name, 'wb')
+        pickle.dump(self, file_obj)
+        file_obj.close()
+        if verbose:
+            print('\tDone.')
+        
     
     def __init__(self, name, param_names, metric_names):
         """
@@ -172,8 +179,17 @@ class ParameterSearch:
         self.metric_names = metric_names
         
 
-def load(file_name):
-    pass
+def load(file_name, verbose=False):
+    if verbose:
+        print(f'Loading parameter search from file "{file_name}"...')
+    file_obj = open(file_name, 'rb')
+    loaded_obj = pickle.load(file_obj)
+    file_obj.close()
+    if not isinstance(loaded_obj, ParameterSearch):
+        raise Exception(f'File {file_name} did not contain a ParameterSearch object.')
+    if verbose:
+        print('\tDone.')
+    return loaded_obj
         
     
 # unit testing
@@ -192,7 +208,6 @@ if __name__ == "__main__":
             super().__init__(name, param_names=('p1', 'p2', 'p3'),
                              metric_names=('m1', 'm2'))
     
-    
     # test list search        
     test_search = TestParameterSearch(name='test1')
     params_matrix = np.array((
@@ -202,6 +217,14 @@ if __name__ == "__main__":
     test_search.search_list(params_matrix)
     results = np.concatenate((test_search.results.params_matrix, 
                test_search.results.metrics_matrix), axis=1)
+    print(results)
+    
+    # test saving and loading
+    file_name = '_delme/search_save_test.pkl'
+    test_search.save(file_name, verbose=True)
+    reloaded_search = load(file_name, verbose=True)
+    results = np.concatenate((reloaded_search.results.params_matrix, 
+               reloaded_search.results.metrics_matrix), axis=1)
     print(results)
     
     # test grid search
