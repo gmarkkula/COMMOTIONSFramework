@@ -154,18 +154,18 @@ class ParameterSearch:
             print('\tDone.')
         
     
-    def __init__(self, name, param_names, metric_names):
+    def __init__(self, param_names, metric_names, name='Unnamed'):
         """
         Constructor.
 
         Parameters
         ----------
-        name : string
-            Name for the parameter search.
         param_names : tuple of strings
             Names of the parameters to be searched.
         metric_names : tuple of strings
             Names of the metrics to be calculated for each parameterisation.
+        name : string, optional
+            Name for the parameter search. The default is 'Unnamed'.
 
         Returns
         -------
@@ -203,10 +203,9 @@ if __name__ == "__main__":
             metrics['m1'] = params['p1'] + params['p2'] + params['p3']
             metrics['m2'] = -metrics['m1']
             return self.get_metrics_array(metrics)
-            
         def __init__(self, name):
-            super().__init__(name, param_names=('p1', 'p2', 'p3'),
-                             metric_names=('m1', 'm2'))
+            super().__init__(param_names=('p1', 'p2', 'p3'),
+                             metric_names=('m1', 'm2'), name=name)
     
     # test list search        
     test_search = TestParameterSearch(name='test1')
