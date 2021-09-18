@@ -22,13 +22,13 @@
     * ~~Make sure both types of agents stop as they should if the other agent is static in the middle of their path.~~ (verified for the 2021-09-16 commit, not documented anywhere) 
     * ~~Go through the various targeted phenomena and try to see if my rough expectations for whether the model will be able to achieve them seem to hold.~~ (verified to a reasonable level, except for `oPN`)
 * Implement code for model fitting
-    * Generic parameter search class
+    * ~~Generic parameter search class~~
         * ~~Basic list and grid searching~~
-        * Parallelisation
-        * Results saving
+        * ~~Results saving~~
     * Classes for SCPaper specific parameter searching
 * Implement `oPN`.
 * Optional stuff
+    * Parallelisation in `parameter_search.py`? Couldn't get it to work due to [this problem](https://stackoverflow.com/questions/41385708/multiprocessing-example-giving-attributeerror), but maybe [Ray](https://towardsdatascience.com/modern-parallel-and-distributed-python-a-quick-tutorial-on-ray-99f8d70369b8) could be an option?
     * Add support for agent width and length.
 
 
