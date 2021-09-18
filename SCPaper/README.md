@@ -22,6 +22,11 @@
     * ~~Make sure both types of agents stop as they should if the other agent is static in the middle of their path.~~ (verified for the 2021-09-16 commit, not documented anywhere) 
     * ~~Go through the various targeted phenomena and try to see if my rough expectations for whether the model will be able to achieve them seem to hold.~~ (verified to a reasonable level, except for `oPN`)
 * Implement code for model fitting
+    * Generic parameter search class
+        * ~~Basic list and grid searching~~
+        * Parallelisation
+        * Results saving
+    * Classes for SCPaper specific parameter searching
 * Implement `oPN`.
 * Optional stuff
     * Add support for agent width and length.
