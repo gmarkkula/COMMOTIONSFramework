@@ -26,6 +26,7 @@
         * ~~Basic list and grid searching~~
         * ~~Results saving~~
     * Classes for SCPaper specific parameter searching
+        * Need to add support for fixing Tprime = T and similar stuff
 * Implement `oPN`.
 * Optional stuff
     * Parallelisation in `parameter_search.py`? Couldn't get it to work due to [this problem](https://stackoverflow.com/questions/41385708/multiprocessing-example-giving-attributeerror), but maybe [Ray](https://towardsdatascience.com/modern-parallel-and-distributed-python-a-quick-tutorial-on-ray-99f8d70369b8) could be an option?
