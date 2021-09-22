@@ -50,7 +50,7 @@ class ParameterSearch:
         
     def verbose_now(self):
         """
-        Indicates whether the user has requested status output at the current 
+        Indicate whether the user has requested status output at the current 
         depth of processing.
 
         Returns
@@ -58,11 +58,24 @@ class ParameterSearch:
         Boolean
             True if the current depth of processing is less than or equal to
             the user-specified threshold.
-
         """
         return (self.curr_verbosity_depth <= self.max_verbosity_depth)
     
     def report(self, message):
+        """
+        If the user has requested status reports at the current depth of 
+        processing, print the provided message, after a header indicating time
+        and the name of this search.
+
+        Parameters
+        ----------
+        message : string
+
+        Returns
+        -------
+        None.
+
+        """
         if self.verbose_now():
             header = datetime.datetime.now().strftime('%x %X') + ' ' + self.name
             if len(header) > STATUS_REP_HEADER_LEN:
@@ -72,7 +85,6 @@ class ParameterSearch:
             padding = '--' * (self.curr_verbosity_depth-1)
             print(header + ' ' + padding + ' ' + message)
                 
-        
     
     def get_params_dict(self, params_array):
         """
