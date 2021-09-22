@@ -84,9 +84,6 @@ DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.V_0_rel = 4 # scale of value squashing function, in multiples of V_free
 DEFAULT_PARAMS.V_ny = -15 * 0 # value function term for non-yielding 
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
-i_NO_ACTION = np.argwhere(DEFAULT_PARAMS.ctrl_deltas == 0)[0][0]
-N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
-warnings.warn('N_ACTIONS set to no of actions in default params, so will not work if non-default params are set.')
 
 # default gains for affordance-based value function
 DEFAULT_PARAMS_K_VA = {}
@@ -154,7 +151,6 @@ class SCAgent(commotions.AgentWithGoal):
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
                                       params = oth_params, v_free = oth_v_free)
         # allocate vectors for storing internal states
-        self.n_actions = len(self.params.ctrl_deltas)
         n_time_steps = self.simulation.settings.n_time_steps
         self.states = States()
         # - states regarding my own actions
@@ -371,7 +367,7 @@ class SCAgent(commotions.AgentWithGoal):
             fig_name = 'Snapshot for %s at t = %.2f s' % (self.name, time_stamp)
             fig = plt.figure(num=fig_name, figsize=(15, 10))
             fig.clf()
-            axs = fig.subplots(nrows=N_BEHAVIORS, ncols=N_ACTIONS,
+            axs = fig.subplots(nrows=N_BEHAVIORS, ncols=self.n_actions,
                                     sharex=True, sharey=True)
         else:
             self.do_snapshot_now = False
@@ -430,7 +426,7 @@ class SCAgent(commotions.AgentWithGoal):
                                     i_beh, i_action, i_time_step, :] = (
                                     self.get_access_order_values_for_other_v02(
                                             pred_oth_states[i_beh],
-                                            pred_own_states[i_NO_ACTION]) )
+                                            pred_own_states[self.i_no_action]) )
                             else:
                                 # no need to recalculate the same value as above
                                 self.states.beh_vals_given_actions_outcs[
@@ -492,7 +488,7 @@ class SCAgent(commotions.AgentWithGoal):
                                 self.states.beh_vals_given_actions[
                                     i_beh, i_action, i_time_step] = \
                                     self.get_value_for_other(pred_oth_states[i_beh], 
-                                                             pred_own_states[i_NO_ACTION], 
+                                                             pred_own_states[self.i_no_action], 
                                                              i_beh)
                             else:
                                 # no need to recalculate the same value as above
@@ -609,7 +605,7 @@ class SCAgent(commotions.AgentWithGoal):
         # any action over threshold?
         self.states.est_action_surplus_vals[:, i_time_step] = \
             self.states.est_action_vals[:, i_time_step] \
-            - self.states.est_action_vals[i_NO_ACTION, i_time_step]
+            - self.states.est_action_vals[self.i_no_action, i_time_step]
         i_best_action = np.argmax(self.states.est_action_surplus_vals[:, i_time_step])
         if self.states.est_action_surplus_vals[i_best_action, i_time_step] \
             > self.params.DeltaV_th:
@@ -986,6 +982,9 @@ class SCAgent(commotions.AgentWithGoal):
                 warnings.warn('Cannot have oVAa without oVA, so disabling oVA.')
                 self.assumptions[OptionalAssumption.oVAa] = False
                 
+        # get and store the number of actions, and the "non-action" action
+        self.n_actions = len(self.params.ctrl_deltas)
+        self.i_no_action = np.argwhere(self.params.ctrl_deltas == 0)[0][0]
 
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
@@ -1081,7 +1080,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, \
+                    plt.subplot(agent.n_actions, N_AGENTS, \
                                 i_action * N_AGENTS +  i_agent + 1)
                     plt.ylim(-1.1, 1.1)
                     for i_beh in range(n_plot_behaviors):
@@ -1101,7 +1100,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, \
+                    plt.subplot(agent.n_actions, N_AGENTS, \
                                 i_action * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, 
                              agent.states.action_probs[i_action, :])
@@ -1117,7 +1116,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, 
+                    plt.subplot(agent.n_actions, N_AGENTS, 
                                 i_action * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, 
                              agent.states.mom_action_vals[i_action, :])
@@ -1137,7 +1136,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, 
+                    plt.subplot(agent.n_actions, N_AGENTS, 
                                 i_action * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, 
                              agent.states.est_action_surplus_vals[i_action, :])
@@ -1159,7 +1158,7 @@ class SCSimulation(commotions.Simulation):
                 plt.clf()
                 for i_beh in range(n_plot_behaviors):
                     # action observation contribution
-                    plt.subplot(N_ACTIONS+1, n_plot_behaviors, i_beh + 1)
+                    plt.subplot(agent.n_actions+1, n_plot_behaviors, i_beh + 1)
                     plt.plot(self.time_stamps, agent.params.beta_O 
                              * agent.states.beh_activ_O[i_beh, :])
                     plt.title(BEHAVIORS[i_beh])
@@ -1167,7 +1166,7 @@ class SCSimulation(commotions.Simulation):
                         plt.legend(('$\\beta_O A_{O,b}$',))
                     # value contribution and total activation - both per action
                     for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                        plt.subplot(N_ACTIONS+1, n_plot_behaviors, 
+                        plt.subplot(agent.n_actions+1, n_plot_behaviors, 
                                     (i_action+1) * n_plot_behaviors + i_beh + 1)
                         plt.plot(self.time_stamps, 
                                  agent.params.beta_V 
@@ -1209,7 +1208,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
-                    plt.subplot(N_ACTIONS, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
+                    plt.subplot(agent.n_actions, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
                     for i_beh in range(n_plot_behaviors):
                         # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
                         plt.plot(self.time_stamps, 
@@ -1374,8 +1373,6 @@ if __name__ == "__main__":
         # increase option for the pedestrian
         CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
         DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
-        i_NO_ACTION = np.argwhere(DEFAULT_PARAMS.ctrl_deltas == 0)[0][0]
-        N_ACTIONS = len(DEFAULT_PARAMS.ctrl_deltas)
     
     # set parameters and optional assumptions
     AFF_VAL_FCN = True
