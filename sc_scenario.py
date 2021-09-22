@@ -915,8 +915,8 @@ class SCAgent(commotions.AgentWithGoal):
             # return the probability density for this observed difference
             prob_density = norm.pdf(pos_diff, scale = self.params.sigma_O)
         return max(prob_density, np.finfo(float).eps) # don't return zero probability
-        
-
+                
+    
 
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
                  optional_assumptions = get_assumptions_dict(False), 
@@ -1050,7 +1050,29 @@ class SCSimulation(commotions.Simulation):
                     const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
-
+            
+            
+    def after_simulation(self):
+        for agent in self.agents:
+            ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0)
+                                    <= SHARED_PARAMS.d_C)[0]
+            if len(ca_entered) == 0:
+                agent.ca_entry_sample = math.inf
+                agent.ca_entry_time = math.inf
+            else:
+                agent.ca_entry_sample = ca_entered[0]
+                agent.ca_entry_time = self.time_stamps[ca_entered[0]]
+        i_first_passer = np.argmin((self.agents[0].ca_entry_time, 
+                                    self.agents[1].ca_entry_time))
+        if math.isinf(self.agents[i_first_passer].ca_entry_time):
+            # neither of the agents entered the conflict area
+            self.first_passer = None
+        else:
+            # at least one agent entered the conflict area
+            self.first_passer = self.agents[i_first_passer]
+            
+                                
+            
     def do_plots(self, trajs = False, action_vals = False, action_probs = False, 
                  action_val_ests = False, surplus_action_vals = False, 
                  beh_activs = False, beh_accs = False, beh_probs = False, 
@@ -1409,17 +1431,17 @@ if __name__ == "__main__":
             trajs = True, action_val_ests = True, surplus_action_vals = True, 
             kinem_states = True, beh_accs = True, beh_probs = True, action_vals = True, 
             sensory_prob_dens = False, beh_activs = True)
-    for agent in sc_simulation.agents:
-        ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0) 
-                                <= SHARED_PARAMS.d_C)[0]
-        if len(ca_entered) == 0:
-            print('Agent %s did not enter the conflict area.' % agent.name)
+    if sc_simulation.first_passer is None:
+        print('Neither agent entered the conflict area.')
+    else:
+        print(f'Agent {sc_simulation.first_passer.name} entered the conflict'
+              f' area first, at t = {sc_simulation.first_passer.ca_entry_time:.2f} s')
+        non_first_passer = sc_simulation.first_passer.other_agent
+        if math.isinf(non_first_passer.ca_entry_time):
+            print(f'Agent {non_first_passer.name} did not enter the conflict area.')
         else:
-            print('Agent %s entered conflict area at t = %.2f s' 
-                  % (agent.name, sc_simulation.time_stamps[ca_entered[0]]))
-    
-
-
+            print(f'Agent {non_first_passer.name} entered the conflict area second,'
+                  f' at t = {non_first_passer.ca_entry_time:.2f} s.')
 
 
 
