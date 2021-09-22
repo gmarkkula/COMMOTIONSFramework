@@ -19,7 +19,11 @@ import sc_scenario_helper
 FIT_RESULTS_FOLDER = 'results/'
 
 # scenario basics
-AGENT_NAMES = ('P', 'V')
+PED_NAME = 'P'
+VEH_NAME = 'V'
+AGENT_NAMES = (PED_NAME, VEH_NAME)
+i_PED_AGENT = 0
+i_VEH_AGENT = 1
 AGENT_CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION)
 AGENT_GOALS = np.array([[0, 5], [-50, 0]])
 TIME_STEP = 0.1 # s
@@ -30,6 +34,7 @@ DET_FIT_SCENARIOS = ('DS1_PedLargeLead', 'DS2_PedSmallLead')
 DET_FIT_SCENARIOS_PED_LEADS = (3, 1) # s
 DET_FIT_PED_INITIAL_TTCP = 4 # s
 DET_FIT_METRICS = ('DP1_PedGapAcc', 'DP2_CarAdv', 'DP3_CarAcc')
+DET_FIT_MIN_ACC = 0.05 # in fractions of the free speed
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
 
 
@@ -86,14 +91,22 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
                 self.report(f'Metric {metric_name} = {metrics[metric_name]}')
             if scenario == 'DS1_PedLargeLead':
                 # did the pedestrian pass first when it had a large lead time?
-                metrics['DP1_PedGapAcc'] = 0
+                metrics['DP1_PedGapAcc'] = int(
+                    not (sc_simulation.first_passer is None)
+                    and (sc_simulation.first_passer.name == PED_NAME))
                 report_metric('DP1_PedGapAcc')
             elif scenario == 'DS2_PedSmallLead':
                 # did the car pass first when the pedestrian had a small lead?
-                metrics['DP2_CarAdv'] = 1
+                metrics['DP2_CarAdv'] = int(
+                    not (sc_simulation.first_passer is None)
+                    and (sc_simulation.first_passer.name == VEH_NAME))
                 report_metric('DP2_CarAdv')
                 # and did the car speed up before reaching the conflict point?
-                metrics['DP3_CarAcc'] = 2
+                veh_agent = sc_simulation.agents[i_VEH_AGENT]
+                av_speed_before_ca = np.mean(
+                    veh_agent.trajectory.long_speed[:veh_agent.ca_entry_sample])
+                metrics['DP3_CarAcc'] = int(
+                    av_speed_before_ca > (1 + DET_FIT_MIN_ACC) * veh_agent.v_free)
                 report_metric('DP3_CarAcc')
             else:
                 raise Exception(f'Unexpected scenario name: {scenario}')
@@ -106,8 +119,8 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
                                        beh_probs = True, action_vals = True, 
                                        sensory_prob_dens = False, 
                                        beh_activs = True)
-                self.report('Showing plots, hold Q key to continue...')
-                while not keyboard.is_pressed('q'):
+                self.report('Showing plots, hold [C] key to continue...')
+                while not keyboard.is_pressed('c'):
                     plt.pause(0.5)
             self.verbosity_pop()
             self.verbosity_pop()
@@ -183,10 +196,16 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
 # unit testing
 if __name__ == "__main__":
     
+    plt.close('all')
+    
     PARAM_ARRAYS = {}
     PARAM_ARRAYS['T_P'] = (0.5, 1)
     
-    OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, oVA=True)
+    OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 
+                                                            oVA=True,
+                                                            oBEo=False,
+                                                            oBEv=False, 
+                                                            oAI=False)
     
     DEFAULT_PARAMS, DEFAULT_PARAMS_K = sc_scenario.get_default_params(
         oVA=OPTIONAL_ASSUMPTIONS[OptionalAssumption.oVA])
