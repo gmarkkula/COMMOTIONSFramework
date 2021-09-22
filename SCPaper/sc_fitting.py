@@ -6,7 +6,9 @@ Created on Tue Sep 21 10:47:55 2021
 """
 
 import copy
+import keyboard
 import numpy as np
+import matplotlib.pyplot as plt
 import parameter_search
 from sc_scenario import CtrlType, OptionalAssumption
 import sc_scenario
@@ -35,6 +37,10 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
     
     def get_metrics_for_params(self, params_vector):
         
+        self.verbosity_push()
+        self.report('Running simulations for parameterisation'
+                    f' {self.get_params_dict(params_vector)}...')
+        
         # loop through the provided free parameter values and assign them
         # to the correct attributes of the local parameter objects
         for i_param, param_name in enumerate(self.param_names):
@@ -58,7 +64,8 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
         # loop through the scenarios, simulate them, and calculate metrics
         metrics = {}
         for i_scenario, scenario in enumerate(DET_FIT_SCENARIOS):
-            print(scenario)
+            self.verbosity_push()
+            self.report(f'Simulating scenario "{scenario}"...')
             veh_initial_ttcp = (DET_FIT_PED_INITIAL_TTCP 
                                 + DET_FIT_SCENARIOS_PED_LEADS[i_scenario])
             initial_pos = np.array([[0, -DET_FIT_PED_INITIAL_TTCP * v_free_P],
@@ -74,22 +81,47 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
             # run the simulation
             sc_simulation.run()
             # calculate metric(s) for this scenario
+            self.verbosity_push()
+            def report_metric(metric_name):
+                self.report(f'Metric {metric_name} = {metrics[metric_name]}')
             if scenario == 'DS1_PedLargeLead':
                 # did the pedestrian pass first when it had a large lead time?
                 metrics['DP1_PedGapAcc'] = 0
+                report_metric('DP1_PedGapAcc')
             elif scenario == 'DS2_PedSmallLead':
                 # did the car pass first when the pedestrian had a small lead?
                 metrics['DP2_CarAdv'] = 1
+                report_metric('DP2_CarAdv')
                 # and did the car speed up before reaching the conflict point?
                 metrics['DP3_CarAcc'] = 2
+                report_metric('DP3_CarAcc')
             else:
                 raise Exception(f'Unexpected scenario name: {scenario}')
+            # plot simulation results?
+            self.verbosity_push()
+            if self.verbose_now():
+                sc_simulation.do_plots(trajs=True, action_val_ests = True, 
+                                       surplus_action_vals = True,
+                                       kinem_states = True, beh_accs = True, 
+                                       beh_probs = True, action_vals = True, 
+                                       sensory_prob_dens = False, 
+                                       beh_activs = True)
+                self.report('Showing plots, hold Q key to continue...')
+                while not keyboard.is_pressed('q'):
+                    plt.pause(0.5)
+            self.verbosity_pop()
+            self.verbosity_pop()
+            self.verbosity_pop()
+    
+        self.verbosity_pop()
+                
         # return the metrics as a vector
         return self.get_metrics_array(metrics)
             
     
     def __init__(self, name, optional_assumptions, 
-                 default_params, default_params_k, param_arrays):
+                 default_params, default_params_k, param_arrays, 
+                 verbosity=0):
         # make local copies of the default params objects, to use for
         # parameterising simulations during the fitting
         self.optional_assumptions = copy.copy(optional_assumptions)
@@ -140,7 +172,8 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
             if optional_assumptions[unsupp]:
                 raise Exception(f'Found unsupported assumption: {unsupp}')
         # call inherited constructor
-        super().__init__(tuple(free_param_names), DET_FIT_METRICS, name=name)
+        super().__init__(tuple(free_param_names), DET_FIT_METRICS, name=name,
+                         verbosity=verbosity)
         # run the grid search
         self.search_grid(free_param_arrays)
         # save the results
@@ -160,6 +193,6 @@ if __name__ == "__main__":
     
     test_fit = SCPaperDeterministicFitting('test', OPTIONAL_ASSUMPTIONS, 
                                            DEFAULT_PARAMS, DEFAULT_PARAMS_K, 
-                                           PARAM_ARRAYS)
+                                           PARAM_ARRAYS, verbosity=5)
     
     

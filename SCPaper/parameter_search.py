@@ -70,6 +70,7 @@ class ParameterSearch:
         Parameters
         ----------
         message : string
+            The message to report.
 
         Returns
         -------
@@ -82,8 +83,9 @@ class ParameterSearch:
                 header = header[:STATUS_REP_HEADER_LEN]
             elif len(header) < STATUS_REP_HEADER_LEN:
                 header = header + ' ' * (STATUS_REP_HEADER_LEN - len(header))
-            padding = '--' * (self.curr_verbosity_depth-1)
-            print(header + ' ' + padding + ' ' + message)
+            padding = ('->' * (self.curr_verbosity_depth-1) 
+                       + ' ' * (self.curr_verbosity_depth > 1))
+            print(header + ' ' + padding + message)
                 
     
     def get_params_dict(self, params_array):
@@ -168,7 +170,7 @@ class ParameterSearch:
                                               n_parameterisations = n_parameterisations,
                                               params_matrix = params_matrix)
         self.report(f'Searching {n_parameterisations} parameterisations for'
-                    f' parameters {self.param_names}...')
+                    f' parameter set {self.param_names}...')
         for i in range(n_parameterisations):
             self.results.metrics_matrix[i, :] = self.get_metrics_for_params(
                 self.results.params_matrix[i, :])
@@ -219,7 +221,7 @@ class ParameterSearch:
         file_obj = open(file_name, 'wb')
         pickle.dump(self, file_obj)
         file_obj.close()
-        self.report('\tSaving done.')
+        self.report('Saving done.')
         self.verbosity_pop()
         
     
