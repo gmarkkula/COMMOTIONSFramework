@@ -194,9 +194,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.est_action_vals[:, -1] = 0
         self.states.beh_activ_V_given_actions[:, :, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
-        self.states.beh_activ_O[i_CONSTANT, -1] = 10
-        warnings.warn('****** Setting initial value of i_CONSTANT behaviour activation to arbitrary high value.')
-
+        self.states.beh_activ_O[i_CONSTANT, -1] = 0
+        
         # calculate where the two agents' paths intersect, if it has not already 
         # been done
         if not hasattr(self.simulation, 'conflict_point'):
