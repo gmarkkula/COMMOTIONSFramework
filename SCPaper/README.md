@@ -457,16 +457,22 @@ The most complex models will have something like seven or eight free parameters 
 Overall focus should be straight pedestrian-vehicle interactions.
 
 
-### By deterministic model fitting
+### By deterministic model fitting, one-sided simulation
 
-My thinking is to narrow down on as many parameters as possible in deterministic simulation, to test some basic phenomena:
+My thinking is to narrow down on as many parameters as possible in deterministic, one-sided simulation, to test some basic phenomena:
  
-* DP1: If pedestrian has X s lead over car, the pedestrian passes first (basic gap acceptance)
-* DP2: If pedestrian has 1 s lead over car, the car passes first (Varhelyi, 1998)
-* DP3: ... and the car accelerates over its free speed before crossing the conflict point (Varhelyi, 1998)
-* DP4: If car has 1 s lead over pedestrian, the car passes first (basic gap acceptance)
-
-The hypothesis is that DP1 and DP4 can be achieved by most models, but that DP2 and DP3 require `oBEv` and `oAI`.
+* Fixed-acceleration pedestrian stationary at kerb, simulate vehicle starting from free speed at initial TTA such that the pedestrian stepping out would be a problem for the vehicle:
+    * `pAP` - **accelerating to assert priority**: If $V_\nu = 0$, the vehicle reaches a peak speed more than 10 % above free speed.
+    * `pSS` - **short-stopping**: if $V_\nu < -V_\mathrm{free}$, the vehicle reaches a peak deceleration more than 10 % larger than needed to stop before the conflict space.
+        * Hypothesis: Both require `oBEv`, `oAI`, `oVA`.
+* Fixed-acceleration vehicle, simulate pedestrian starting from free speed. Check for **deceleration to gauge uncertain situation**, where the pedestrian's speed drops more than 10 % below free speed...
+    * `pDUc` - ... when the vehicle keeps a constant speed, from an initial TTA which would result in a 2 s PET if the pedestrian just walked straight across.
+        * Hypothesis: Not achieved by any deterministic model.
+    * `pDUd` - ... when the vehicle decelerates to stop before the conflict space, from an initial TTA which would result in a collision at the crossing point if the pedestrian just walked straight across. 
+        * Hypothesis: Achieved by all deterministic models.
+* Fixed-acceleration vehicle decelerating to stop before the conflict space, using the kinematics from Fig 6 in Jami's paper, simulate pedestrian starting from zero speed at kerb:
+    * `pGAd` - **yielding-sensitive gap acceptance**: The pedestrian starts walking before the car has come to a full stop.
+        * Hypothesis: Requires `oBEo`
 
 This goes up to six free parameters for the most complex model, so with some quite hard limitations of the grid search, for example:
 
@@ -477,9 +483,15 @@ This goes up to six free parameters for the most complex model, so with some qui
 * $P_\dag \in \{0.1, 0.01, 0.001\}$ 
 * $\sigma_\mathrm{O} \in$ 5 values 
 
-yielding something $3^3 \times 6 \times 4 \times 5 = 3,240$ parameterisations, given that it seems possible to run the four simulations DP1-4 in 1-2 seconds with the current simulation, the most advanced model should not take more than a few hours to test.
+yielding something $3^3 \times 6 \times 4 \times 5 = 3,240$ parameterisations, given that it seems possible to run the five simulations listed above 1-2 seconds with the current simulation, the most advanced model should not take more than a few hours to test.
 
-### By probabilistic model fitting
+
+### By deterministic model fitting, two-sided simulation
+
+Testing (some of) the best parameterisations from the previous step, to maybe see the phenomena mentioned above in actual interactions, verify that there are no problems with collisions, ... ? To be further specified.
+
+
+### By probabilistic model fitting 
 
 Then the parameterisations that achieve all of DP1-4 can be further tested by probabilistic simulations with also `oAN` or `oPN`, to test their ability to reasonably fit the Keio dataset:
 

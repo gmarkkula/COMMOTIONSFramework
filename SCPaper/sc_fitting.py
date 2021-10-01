@@ -5,6 +5,7 @@ Created on Tue Sep 21 10:47:55 2021
 @author: tragma
 """
 
+import math
 import copy
 import keyboard
 import numpy as np
@@ -25,20 +26,75 @@ AGENT_NAMES = (PED_NAME, VEH_NAME)
 i_PED_AGENT = 0
 i_VEH_AGENT = 1
 AGENT_CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION)
-AGENT_GOALS = np.array([[0, 5], [-50, 0]])
+AGENT_FREE_SPEEDS = np.array([1.3, 50 / 3.6]) # m/s 
+AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
+COLLISION_MARGIN = 0.5 # m
 TIME_STEP = 0.1 # s
 END_TIME = 8 # s
+V_NY_REL = -1.1
+
 
 # deterministic fitting
-DET_FIT_SCENARIOS = ('DS1_PedLargeLead', 'DS2_PedSmallLead')
-DET_FIT_SCENARIOS_PED_LEADS = (3, 1) # s
-DET_FIT_PED_INITIAL_TTCP = 4 # s
-DET_FIT_METRICS = ('DP1_PedGapAcc', 'DP2_CarAdv', 'DP3_CarAcc')
-DET_FIT_MIN_ACC = 0.05 # in fractions of the free speed
+class SCPaperScenario:
+    
+    def __init__(self, name, initial_ttcas, ped_prio=False,
+                 ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
+                 ped_const_speed=False, veh_const_speed=False, 
+                 veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN):
+        self.name = name
+        self.ped_prio = ped_prio
+        self.initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
+                                     + sc_scenario.SHARED_PARAMS.d_C)
+        self.initial_speeds = np.copy(AGENT_FREE_SPEEDS)
+        self.const_accs = [None, None]
+        if ped_start_standing:
+            self.initial_cp_distances[i_PED_AGENT] = (
+                sc_scenario.SHARED_PARAMS.d_C + ped_standing_margin)
+            self.initial_speeds[i_PED_AGENT] = 0
+        if ped_const_speed:
+            self.const_accs[i_PED_AGENT] = 0
+        if veh_const_speed:
+            self.const_accs[i_VEH_AGENT] = 0
+        elif veh_yielding:
+            stop_dist = (self.initial_cp_distances[i_VEH_AGENT] 
+                         - sc_scenario.SHARED_PARAMS.d_C - veh_yielding_margin)
+            self.const_accs[i_VEH_AGENT] = (
+                -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
+        
+    
+DET1S_SIMULATIONS = []
+DET1S_SIMULATIONS.append(SCPaperScenario('ActVehStatPed', 
+                                          initial_ttcas=(math.nan, 4),  
+                                          ped_start_standing=True, 
+                                          ped_const_speed=True))
+DET1S_SIMULATIONS.append(SCPaperScenario('ActVehStatPedPrio', 
+                                         initial_ttcas=(math.nan, 4),  
+                                         ped_prio = True,
+                                         ped_start_standing=True, 
+                                         ped_const_speed=True))
+DET1S_SIMULATIONS.append(SCPaperScenario('ActPedLeading', 
+                                         initial_ttcas=(3, 7), 
+                                         veh_const_speed=True))
+DET1S_SIMULATIONS.append(SCPaperScenario('ActPedPrioEncounter', 
+                                         initial_ttcas=(3, 3), 
+                                         ped_prio=True,
+                                         veh_yielding=True))
+# DET1S_SIMULATIONS.append(SCPaperScenario('pGAd', 
+#                                          initial_ttcas=(math.nan, 2.3), 
+#                                          ped_prio=True,
+#                                          ped_start_standing=True,
+#                                          veh_yielding=True))
+DET1S_METRICS_PER_SIM = ['ped_entered', 'veh_entered', 'ped_1st', 'veh_1st', 
+                         'ped_min_speed_before', 'veh_mean_speed_before',
+                         'veh_max_surplus_dec_before', 'veh_speed_at_ped_start']
+DET1S_METRIC_NAMES = []
+for sim in DET1S_SIMULATIONS:
+    for metric_name in DET1S_METRICS_PER_SIM:
+        DET1S_METRIC_NAMES.append(sim.name + '_' + metric_name)
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
 
 
-class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
+class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
     
     def get_metrics_for_params(self, params_vector):
         
@@ -61,70 +117,113 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
                 raise Exception(f'Could not find attribute "{param_attr}"'
                                 ' in parameter object.')
             setattr(params_obj, param_attr, params_vector[i_param])
-        # get the agent free speeds
-        v_free_P = sc_scenario_helper.get_agent_free_speed(
-            self.params_k[CtrlType.SPEED])
-        v_free_V = sc_scenario_helper.get_agent_free_speed(
-            self.params_k[CtrlType.ACCELERATION])
         # loop through the scenarios, simulate them, and calculate metrics
         metrics = {}
-        for i_scenario, scenario in enumerate(DET_FIT_SCENARIOS):
+        for i_sim, sim in enumerate(DET1S_SIMULATIONS):
+            
             self.verbosity_push()
-            self.report(f'Simulating scenario "{scenario}"...')
-            veh_initial_ttcp = (DET_FIT_PED_INITIAL_TTCP 
-                                + DET_FIT_SCENARIOS_PED_LEADS[i_scenario])
-            initial_pos = np.array([[0, -DET_FIT_PED_INITIAL_TTCP * v_free_P],
-                                   [veh_initial_ttcp * v_free_V, 0]])
-            # set up the SCSimulation object
+            self.report(f'Simulating scenario "{sim.name}"...')
+            
+            # prepare the simulation
+            # - initial position
+            initial_pos = np.array([[0, -sim.initial_cp_distances[i_PED_AGENT]],
+                                   [sim.initial_cp_distances[i_VEH_AGENT], 0]])
+            # - pedestrian priority?
+            if sim.ped_prio:
+                self.params.V_ny_rel = V_NY_REL
+            else:
+                self.params.V_ny_rel = 0
+            # - set up the SCSimulation object
             sc_simulation = sc_scenario.SCSimulation(
                 AGENT_CTRL_TYPES, AGENT_GOALS, initial_pos, 
-                initial_speeds=(v_free_P, v_free_V),
+                initial_speeds=sim.initial_speeds, const_accs=sim.const_accs,
                 start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
                 optional_assumptions=self.optional_assumptions, 
                 params=self.params, params_k=self.params_k,
                 agent_names=AGENT_NAMES)
+            
             # run the simulation
             sc_simulation.run()
+            
             # calculate metric(s) for this scenario
-            self.verbosity_push()
-            def report_metric(metric_name):
-                self.report(f'Metric {metric_name} = {metrics[metric_name]}')
-            if scenario == 'DS1_PedLargeLead':
-                # did the pedestrian pass first when it had a large lead time?
-                metrics['DP1_PedGapAcc'] = int(
-                    not (sc_simulation.first_passer is None)
-                    and (sc_simulation.first_passer.name == PED_NAME))
-                report_metric('DP1_PedGapAcc')
-            elif scenario == 'DS2_PedSmallLead':
-                # did the car pass first when the pedestrian had a small lead?
-                metrics['DP2_CarAdv'] = int(
-                    not (sc_simulation.first_passer is None)
-                    and (sc_simulation.first_passer.name == VEH_NAME))
-                report_metric('DP2_CarAdv')
-                # and did the car speed up before reaching the conflict point?
-                veh_agent = sc_simulation.agents[i_VEH_AGENT]
-                av_speed_before_ca = np.mean(
-                    veh_agent.trajectory.long_speed[:veh_agent.ca_entry_sample])
-                metrics['DP3_CarAcc'] = int(
-                    av_speed_before_ca > (1 + DET_FIT_MIN_ACC) * veh_agent.v_free)
-                report_metric('DP3_CarAcc')
+            self.verbosity_push() 
+            def store_metric(metric_name, value):
+                full_metric_name = sim.name + '_' + metric_name
+                metrics[full_metric_name] = value
+                self.report(f'Metric {full_metric_name} = {metrics[full_metric_name]}')
+            # - basic prep and entry into conflict area metrics
+            # -- pedestrian
+            ped_agent = sc_simulation.agents[i_PED_AGENT]
+            ped_entry_sample = ped_agent.ca_entry_sample
+            ped_entered_ca = not math.isinf(ped_entry_sample)
+            if not ped_entered_ca:
+                ped_entry_sample = len(sc_simulation.time_stamps)
+            store_metric('ped_entered', int(ped_entered_ca))
+            # -- vehicle
+            veh_agent = sc_simulation.agents[i_VEH_AGENT]
+            veh_entry_sample = veh_agent.ca_entry_sample
+            veh_entered_ca = not math.isinf(veh_entry_sample)
+            if not veh_entered_ca:
+                veh_entry_sample = len(sc_simulation.time_stamps)
+            store_metric('veh_entered', int(veh_entered_ca))
+            # - first passer metrics
+            if sc_simulation.first_passer is None:
+                ped_1st = False
+                veh_1st = False
             else:
-                raise Exception(f'Unexpected scenario name: {scenario}')
+                first_passer_name = sc_simulation.first_passer.name
+                ped_1st = (first_passer_name == PED_NAME)
+                veh_1st = not ped_1st
+            store_metric('ped_1st', int(ped_1st))
+            store_metric('veh_1st', int(veh_1st))
+            # - min ped speed before conflict area
+            ped_min_speed_before_ca = np.min(
+                ped_agent.trajectory.long_speed[:ped_entry_sample])
+            store_metric('ped_min_speed_before', ped_min_speed_before_ca)
+            # - max veh speed before conflict area
+            veh_mean_speed_before_ca = np.mean(
+                veh_agent.trajectory.long_speed[:veh_entry_sample])
+            store_metric('veh_mean_speed_before', veh_mean_speed_before_ca)
+            # - max veh dec in multiples of the deceleration needed to stop
+            # - just before conflict area
+            # -- get the required deceleration to stop just at the conflict
+            # -- area
+            ca_dist_before_ca = veh_agent.trajectory.pos[
+                0,:veh_entry_sample] - sc_scenario.SHARED_PARAMS.d_C
+            stop_dec_before_ca = veh_agent.trajectory.long_speed[
+                :veh_entry_sample] ** 2 / (2 * ca_dist_before_ca)
+            # -- get the vehicle agent's actual deceleration before the
+            # -- conflict area
+            dec_before_ca = -veh_agent.trajectory.long_acc[:veh_entry_sample]
+            # -- get the max relative deceleration
+            veh_max_surplus_dec_before = np.max(dec_before_ca - stop_dec_before_ca)
+            store_metric('veh_max_surplus_dec_before', veh_max_surplus_dec_before)
+            # - veh speed at first sample where pedestrian increases speed
+            # - before entering conflict area
+            ped_speed_diff_before_ca = np.diff(ped_agent.trajectory.long_speed[
+                :ped_entry_sample])
+            pos_ped_speed_diff_samples = np.nonzero(
+                ped_speed_diff_before_ca > 0)[0]
+            if len(pos_ped_speed_diff_samples) > 0:
+                veh_speed_at_ped_start = veh_agent.trajectory.long_speed[
+                    pos_ped_speed_diff_samples[0]+1]
+            else:
+                veh_speed_at_ped_start = math.nan
+            store_metric('veh_speed_at_ped_start', veh_speed_at_ped_start)
+            
             # plot simulation results?
             self.verbosity_push()
             if self.verbose_now():
-                sc_simulation.do_plots(trajs=True, action_val_ests = True, 
-                                       surplus_action_vals = True,
-                                       kinem_states = True, beh_accs = True, 
-                                       beh_probs = True, action_vals = True, 
+                sc_simulation.do_plots(trajs=False, action_val_ests = False, 
+                                       surplus_action_vals = False,
+                                       kinem_states = True, beh_accs = False, 
+                                       beh_probs = True, action_vals = False, 
                                        sensory_prob_dens = False, 
-                                       beh_activs = True)
-                self.report('Showing plots, hold [C] key to continue...')
-                while not keyboard.is_pressed('c'):
-                    plt.pause(0.5)
-            self.verbosity_pop()
-            self.verbosity_pop()
-            self.verbosity_pop()
+                                       beh_activs = False)
+                self.report('Showing plots, press [Enter] to continue...')
+                input()
+                    
+            self.verbosity_pop(3)
     
         self.verbosity_pop()
                 
@@ -185,8 +284,8 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
             if optional_assumptions[unsupp]:
                 raise Exception(f'Found unsupported assumption: {unsupp}')
         # call inherited constructor
-        super().__init__(tuple(free_param_names), DET_FIT_METRICS, name=name,
-                         verbosity=verbosity)
+        super().__init__(tuple(free_param_names), DET1S_METRIC_NAMES, 
+                         name=name, verbosity=verbosity)
         # run the grid search
         self.search_grid(free_param_arrays)
         # save the results
@@ -196,6 +295,8 @@ class SCPaperDeterministicFitting(parameter_search.ParameterSearch):
 # unit testing
 if __name__ == "__main__":
     
+    %matplotlib inline
+    
     plt.close('all')
     
     PARAM_ARRAYS = {}
@@ -203,14 +304,22 @@ if __name__ == "__main__":
     
     OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 
                                                             oVA=True,
-                                                            oBEo=False,
-                                                            oBEv=False, 
-                                                            oAI=False)
+                                                            oVAa=False,
+                                                            oBEo=True,
+                                                            oBEv=True, 
+                                                            oAI=True)
     
     DEFAULT_PARAMS, DEFAULT_PARAMS_K = sc_scenario.get_default_params(
         oVA=OPTIONAL_ASSUMPTIONS[OptionalAssumption.oVA])
+    # set k_g and k_dv to get correct free speeds
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1
+    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = (
+        1 / (2 * AGENT_FREE_SPEEDS[i_VEH_AGENT]))
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1
+    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = (
+        1 / (2 * AGENT_FREE_SPEEDS[i_PED_AGENT]))
     
-    test_fit = SCPaperDeterministicFitting('test', OPTIONAL_ASSUMPTIONS, 
+    test_fit = SCPaperDeterministicOneSidedFitting('test', OPTIONAL_ASSUMPTIONS, 
                                            DEFAULT_PARAMS, DEFAULT_PARAMS_K, 
                                            PARAM_ARRAYS, verbosity=5)
     

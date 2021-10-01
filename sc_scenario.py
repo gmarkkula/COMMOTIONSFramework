@@ -82,7 +82,7 @@ DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.V_0_rel = 4 # scale of value squashing function, in multiples of V_free
-DEFAULT_PARAMS.V_ny = -15 * 0 # value function term for non-yielding 
+DEFAULT_PARAMS.V_ny_rel = 0 # value function term for non-yielding, in multiples of V_free
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
 
 # default gains for affordance-based value function
@@ -1003,6 +1003,7 @@ class SCAgent(commotions.AgentWithGoal):
         # get derived parameters 
         self.params.V_0 = self.V_free * self.params.V_0_rel
         self.params.DeltaV_th - self.V_free * self.params.DeltaV_th_rel
+        self.params.V_ny = self.V_free * self.params.V_ny_rel
         
         # store a (correct) representation of oneself
         self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 

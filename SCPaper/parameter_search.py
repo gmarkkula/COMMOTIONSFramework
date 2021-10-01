@@ -25,28 +25,40 @@ class ParameterSearchResults:
 
 class ParameterSearch:
     
-    def verbosity_push(self):
+    def verbosity_push(self, levels=1):
         """
         To be called by descendant classes to indicate an increase in depth
         of processing.
+        
+        Parameters
+        ----------
+        levels: int
+            The number of levels by which the depth of processing increased. 
+            Default is 1.
 
         Returns
         -------
         None.
 
         """
-        self.curr_verbosity_depth += 1
+        self.curr_verbosity_depth += levels
     
-    def verbosity_pop(self):
+    def verbosity_pop(self, levels=1):
         """
         To be called by descendant classes to indicate a decrease in depth
         of processing.
+        
+        Parameters
+        ----------
+        levels: int
+            The number of levels by which the depth of processing decreased. 
+            Default is 1.
 
         Returns
         -------
         None.
         """
-        self.curr_verbosity_depth = max(0, self.curr_verbosity_depth - 1)
+        self.curr_verbosity_depth = max(0, self.curr_verbosity_depth - levels)
         
     def verbose_now(self):
         """
