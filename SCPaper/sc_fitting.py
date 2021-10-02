@@ -212,6 +212,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             store_metric('veh_speed_at_ped_start', veh_speed_at_ped_start)
             
             # plot simulation results?
+            # (this will only work nicely if run with %matplotlib inline)
             self.verbosity_push()
             if self.verbose_now():
                 sc_simulation.do_plots(trajs=False, action_val_ests = False, 
@@ -294,9 +295,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         
 # unit testing
 if __name__ == "__main__":
-    
-    %matplotlib inline
-    
+        
     plt.close('all')
     
     PARAM_ARRAYS = {}
@@ -312,12 +311,11 @@ if __name__ == "__main__":
     DEFAULT_PARAMS, DEFAULT_PARAMS_K = sc_scenario.get_default_params(
         oVA=OPTIONAL_ASSUMPTIONS[OptionalAssumption.oVA])
     # set k_g and k_dv to get correct free speeds
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._g = 1
-    DEFAULT_PARAMS_K[CtrlType.ACCELERATION]._dv = (
-        1 / (2 * AGENT_FREE_SPEEDS[i_VEH_AGENT]))
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._g = 1
-    DEFAULT_PARAMS_K[CtrlType.SPEED]._dv = (
-        1 / (2 * AGENT_FREE_SPEEDS[i_PED_AGENT]))
+    sc_scenario_helper.set_val_gains_for_free_speed(
+        DEFAULT_PARAMS_K[CtrlType.SPEED], AGENT_FREE_SPEEDS[i_PED_AGENT])
+    sc_scenario_helper.set_val_gains_for_free_speed(
+        DEFAULT_PARAMS_K[CtrlType.ACCELERATION], AGENT_FREE_SPEEDS[i_VEH_AGENT])
+    
     
     test_fit = SCPaperDeterministicOneSidedFitting('test', OPTIONAL_ASSUMPTIONS, 
                                            DEFAULT_PARAMS, DEFAULT_PARAMS_K, 

@@ -34,6 +34,15 @@ SCAgentImage = collections.namedtuple('SCAgentImage',
 def get_agent_free_speed(k):
     return k._g / (2 * k._dv)
 
+def set_val_gains_for_free_speed(k, v_free):
+    """ Set properties _g and _dv of k to yield the free speed v_free, and 
+        a normalised value at free speed equal to 1. 
+        (See handwritten notes from 2021-01-16.)
+
+    """
+    k._g = 2 / v_free
+    k._dv = 1 / v_free ** 2
+
 
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
     """ Return acceleration required to travel a further distance target_dist

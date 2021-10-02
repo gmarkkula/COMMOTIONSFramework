@@ -81,12 +81,14 @@ i_PASS2ND = 2
 # default parameters
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
+#DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
 DEFAULT_PARAMS.beta_V = 60 # scaling of value evidence in behaviour belief activation
 DEFAULT_PARAMS.T_O1 = 0.05 # "sampling" time constant for behaviour observation (s)
 DEFAULT_PARAMS.T_Of = 0.5 # "forgetting" time constant for behaviour observation (s)
 DEFAULT_PARAMS.sigma_O = 0.1 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
+#DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th_rel = 0.1 # action decision threshold when doing evidence accumulation, in multiples of V_free
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
@@ -97,17 +99,17 @@ DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/a
 
 # default gains for affordance-based value function
 DEFAULT_PARAMS_K_VA = {}
+# - speed-controlling agent
 DEFAULT_PARAMS_K_VA[CtrlType.SPEED] = commotions.Parameters()
 FREE_SPEED_SPEED_CTRL = 1.5
-FREE_SPEED_ACC_CTRL = 10
-# set k_g and k_dv for normalised value rates across agent types 
-# (see handwritten notes from 2021-01-16)
-DEFAULT_PARAMS_K_VA[CtrlType.SPEED]._g = 2 / FREE_SPEED_SPEED_CTRL 
-DEFAULT_PARAMS_K_VA[CtrlType.SPEED]._dv = 1 / FREE_SPEED_SPEED_CTRL ** 2
+sc_scenario_helper.set_val_gains_for_free_speed(
+    DEFAULT_PARAMS_K_VA[CtrlType.SPEED], FREE_SPEED_SPEED_CTRL)
 DEFAULT_PARAMS_K_VA[CtrlType.SPEED]._da = 0.5 # gives sensible-looking acceleration from standstill
+# - acceleration-controlling agent
 DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION] = commotions.Parameters()
-DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION]._g = 2 / FREE_SPEED_ACC_CTRL 
-DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION]._dv = 1 / FREE_SPEED_ACC_CTRL ** 2
+FREE_SPEED_ACC_CTRL = 10
+sc_scenario_helper.set_val_gains_for_free_speed(
+    DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION], FREE_SPEED_ACC_CTRL)
 DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION]._da = 0.5 # gives sensible-looking acceleration from standstill
 
 # default gains for original, non-affordance-based value function
