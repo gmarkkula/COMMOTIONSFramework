@@ -45,6 +45,18 @@ def get_assumptions_dict(default_value = False, **kwargs):
         assumptions_dict[OptionalAssumption(kw)] = kwargs[kw]
     return assumptions_dict
 
+def get_assumptions_dict_from_string(string):
+    """
+    Return a dictionary with all the members of OptionalAssumption as keys, 
+    setting the values to True if the string corresponding to the assumption
+    is found anywhere in the input string.
+
+    """
+    assumptions_dict = {}
+    for assumption in OptionalAssumption:
+        assumptions_dict[assumption] = (assumption.value in string)
+    return assumptions_dict
+
 class DerivedAssumption(Enum):
     dBE = 'dBE'
 
