@@ -89,7 +89,7 @@ DEFAULT_PARAMS.T_Of = 0.5 # "forgetting" time constant for behaviour observation
 DEFAULT_PARAMS.sigma_O = 0.1 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 #DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
-DEFAULT_PARAMS.DeltaV_th_rel = 0.1 # action decision threshold when doing evidence accumulation, in multiples of V_free
+DEFAULT_PARAMS.DeltaV_th_rel = 0.001 # action decision threshold when doing evidence accumulation, in multiples of squashed V_free
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
@@ -977,7 +977,7 @@ class SCAgent(commotions.AgentWithGoal):
             self.params.T = self.simulation.settings.time_step 
             #self.params.Tprime = self.simulation.settings.time_step 
             # ... and decision threshold at zero
-            self.params.DeltaV_th = 0
+            self.params.DeltaV_th_rel = 0
         if not self.assumptions[OptionalAssumption.oAN]:
             self.params.sigma_V = 0
             #self.params.sigma_Vprime = 0
@@ -1014,7 +1014,8 @@ class SCAgent(commotions.AgentWithGoal):
         
         # get derived parameters 
         self.params.V_0 = self.V_free * self.params.V_0_rel
-        self.params.DeltaV_th = self.V_free * self.params.DeltaV_th_rel
+        self.params.DeltaV_th = (self.squash_value(self.V_free) 
+                                 * self.params.DeltaV_th_rel)
         self.params.V_ny = self.V_free * self.params.V_ny_rel
         
         # store a (correct) representation of oneself
@@ -1412,7 +1413,7 @@ if __name__ == "__main__":
     AFF_VAL_FCN = True
     (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
     #params.T_delta = 30
-    #params.V_ny = -60
+    #params.V_ny_rel = -1.1
     #params.T_P = 1
     #params.T_O1 = 0.05
     #params.T_Of = 0.5
