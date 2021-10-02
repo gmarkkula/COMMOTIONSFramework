@@ -1009,12 +1009,12 @@ class SCAgent(commotions.AgentWithGoal):
                                   v=self.v_free, a=0, k=self.params.k) )
         else:
             # just the snapshot value of being at the free speed
-            self.V_free = (self.params.k_g * self.v_free 
-                           - self.params.k_dv * self.v_free ** 2)
+            self.V_free = (self.params.k._g * self.v_free 
+                           - self.params.k._dv * self.v_free ** 2)
         
         # get derived parameters 
         self.params.V_0 = self.V_free * self.params.V_0_rel
-        self.params.DeltaV_th - self.V_free * self.params.DeltaV_th_rel
+        self.params.DeltaV_th = self.V_free * self.params.DeltaV_th_rel
         self.params.V_ny = self.V_free * self.params.V_ny_rel
         
         # store a (correct) representation of oneself
