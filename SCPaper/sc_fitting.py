@@ -31,7 +31,7 @@ AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
 COLLISION_MARGIN = 0.5 # m
 TIME_STEP = 0.1 # s
 END_TIME = 8 # s
-V_NY_REL = -1.1
+V_NY_REL = -1.5
 
 
 # deterministic fitting
@@ -113,9 +113,9 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
                 # other parameter
                 params_obj = self.params
                 param_attr = param_name
-            if not hasattr(params_obj, param_attr):
-                raise Exception(f'Could not find attribute "{param_attr}"'
-                                ' in parameter object.')
+            # if not hasattr(params_obj, param_attr):
+            #     raise Exception(f'Could not find attribute "{param_attr}"'
+            #                     ' in parameter object.')
             setattr(params_obj, param_attr, params_vector[i_param])
         # loop through the scenarios, simulate them, and calculate metrics
         metrics = {}
@@ -240,6 +240,11 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         self.optional_assumptions = copy.copy(optional_assumptions)
         self.params = copy.copy(default_params)
         self.params_k = copy.deepcopy(default_params_k)
+        # make sure the value function gains are correct for the free speeds
+        sc_scenario_helper.set_val_gains_for_free_speed(
+            self.params_k[CtrlType.SPEED], AGENT_FREE_SPEEDS[i_PED_AGENT])
+        sc_scenario_helper.set_val_gains_for_free_speed(
+            self.params_k[CtrlType.ACCELERATION], AGENT_FREE_SPEEDS[i_VEH_AGENT])
         # parse the optional assumptions and get the list of free parameter
         # names for this fit, and build the corresponding list of parameter 
         # value arrays
@@ -304,18 +309,12 @@ if __name__ == "__main__":
     OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 
                                                             oVA=True,
                                                             oVAa=False,
-                                                            oBEo=True,
-                                                            oBEv=True, 
-                                                            oAI=True)
+                                                            oBEo=False,
+                                                            oBEv=False, 
+                                                            oAI=False)
     
     DEFAULT_PARAMS, DEFAULT_PARAMS_K = sc_scenario.get_default_params(
-        oVA=OPTIONAL_ASSUMPTIONS[OptionalAssumption.oVA])
-    # set k_g and k_dv to get correct free speeds
-    sc_scenario_helper.set_val_gains_for_free_speed(
-        DEFAULT_PARAMS_K[CtrlType.SPEED], AGENT_FREE_SPEEDS[i_PED_AGENT])
-    sc_scenario_helper.set_val_gains_for_free_speed(
-        DEFAULT_PARAMS_K[CtrlType.ACCELERATION], AGENT_FREE_SPEEDS[i_VEH_AGENT])
-    
+        oVA=OPTIONAL_ASSUMPTIONS[OptionalAssumption.oVA])    
     
     test_fit = SCPaperDeterministicOneSidedFitting('test', OPTIONAL_ASSUMPTIONS, 
                                            DEFAULT_PARAMS, DEFAULT_PARAMS_K, 
