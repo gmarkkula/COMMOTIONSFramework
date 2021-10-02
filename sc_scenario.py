@@ -81,14 +81,12 @@ i_PASS2ND = 2
 # default parameters
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
-DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
 DEFAULT_PARAMS.beta_V = 60 # scaling of value evidence in behaviour belief activation
 DEFAULT_PARAMS.T_O1 = 0.05 # "sampling" time constant for behaviour observation (s)
 DEFAULT_PARAMS.T_Of = 0.5 # "forgetting" time constant for behaviour observation (s)
 DEFAULT_PARAMS.sigma_O = 0.1 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
-DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th_rel = 0.1 # action decision threshold when doing evidence accumulation, in multiples of V_free
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
@@ -540,7 +538,7 @@ class SCAgent(commotions.AgentWithGoal):
                     # update accumulative estimates of the value-based activations
                     self.states.beh_activ_V_given_actions[
                         i_beh, :, i_time_step] = self.noisy_lp_filter(
-                            self.params.Tprime, self.params.sigma_Vprime,
+                            self.params.T, self.params.sigma_V,
                             self.states.beh_activ_V_given_actions[
                                 i_beh, :, i_time_step-1],
                             self.states.mom_beh_activ_V_given_actions[
@@ -975,12 +973,12 @@ class SCAgent(commotions.AgentWithGoal):
             # no evidence accumulation, implemented by value accumulation 
             # reaching input value in one time step...
             self.params.T = self.simulation.settings.time_step 
-            self.params.Tprime = self.simulation.settings.time_step 
+            #self.params.Tprime = self.simulation.settings.time_step 
             # ... and decision threshold at zero
             self.params.DeltaV_th = 0
         if not self.assumptions[OptionalAssumption.oAN]:
             self.params.sigma_V = 0
-            self.params.sigma_Vprime = 0
+            #self.params.sigma_Vprime = 0
         if not self.assumptions[OptionalAssumption.oBEo]:
             self.params.beta_O = 0
         if not self.assumptions[OptionalAssumption.oBEv]:
