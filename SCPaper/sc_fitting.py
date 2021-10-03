@@ -279,7 +279,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         if optional_assumptions[OptionalAssumption.oBEv]:
             consider_adding_free_param('beta_V')
         # observation-based behaviour estimation
-        if optional_assumptions[OptionalAssumption.oBEv]:
+        if optional_assumptions[OptionalAssumption.oBEo]:
             consider_adding_free_param('beta_O')
             consider_adding_free_param('T_O1')
             consider_adding_free_param('T_Of')

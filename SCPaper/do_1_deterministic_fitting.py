@@ -5,18 +5,23 @@ Created on Sat Oct  2 06:14:22 2021
 @author: tragma
 """
 
+import sys
+sys.path.append('C:\\GITHUB\\COMMOTIONSFramework\\')
+
 import math
 import numpy as np
 import commotions
 import sc_scenario
 from sc_scenario_helper import CtrlType
 import sc_fitting
+import multiprocessing as mp
 
 
 # set constants
 
 # - models 
-MODELS_TO_RUN = ('oVAoEA',)
+BASE_MODEL = 'oVAoEA'
+MODELS_TO_RUN = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
 
 
 # - model parameter constants
@@ -42,8 +47,18 @@ PARAM_ARRAYS['T_Of'] = (0.5, 1, 2, math.inf)
 PARAM_ARRAYS['sigma_O'] = (0.02, 0.1, 0.5, 2.5)
 
 
-for model_str in MODELS_TO_RUN:
-    assumptions = sc_scenario.get_assumptions_dict_from_string(model_str)
+
+
+def run_fit(model_str):
+    full_model_str = BASE_MODEL + model_str
+    assumptions = sc_scenario.get_assumptions_dict_from_string(full_model_str)
     this_fit = sc_fitting.SCPaperDeterministicOneSidedFitting(
-        model_str, assumptions, DEFAULT_PARAMS, DEFAULT_PARAMS_K,
+        full_model_str, assumptions, DEFAULT_PARAMS, DEFAULT_PARAMS_K,
         PARAM_ARRAYS, verbosity=2)
+    
+
+if __name__ == "__main__":
+    pool = mp.Pool(mp.cpu_count()-1)
+    pool.map(run_fit, MODELS_TO_RUN)
+    input('Done! Press [Enter] to exit...')
+    
