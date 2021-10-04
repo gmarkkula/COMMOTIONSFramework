@@ -27,9 +27,11 @@ print(det_fit_files)
 
 
 # loop through the deterministic fitting results files
+det_fits = {}
 for det_fit_file in det_fit_files:
     print()
     det_fit = parameter_search.load(det_fit_file, verbose=True)
+    det_fits[det_fit.name] = det_fit
     n_parameterisations = det_fit.results.metrics_matrix.shape[0]
     print(f'Analysing model {det_fit.name},'
           f' {n_parameterisations} parameterisations...')
@@ -67,7 +69,14 @@ for det_fit_file in det_fit_files:
     n_ped_hesitate_const = np.count_nonzero(ped_hesitate_const)
     print(f'\tPedestrian hesitation in constant-speed scenario:'
           f' Found {n_ped_hesitate_const}'
-          f' ({100 * n_ped_hesitate_const / n_parameterisations:.1f} %) parameterisations.')  
+          f' ({100 * n_ped_hesitate_const / n_parameterisations:.1f} %) parameterisations.') 
+    ped_max_speed_after = det_fit.get_metric_results(
+        'ActPedLeading_ped_max_speed_after')
+    ped_fast_crossing = ped_1st & (ped_max_speed_after > PED_FREE_SPEED)
+    n_ped_fast_crossing = np.count_nonzero(ped_fast_crossing)
+    print(f'\tPedestrian crossing fast in front of constant-speed vehicle:'
+          f' Found {n_ped_fast_crossing}'
+          f' ({100 * n_ped_fast_crossing / n_parameterisations:.1f} %) parameterisations.') 
     
     # - "ActPedPrioEncounter": pedestrian decelerating, then crossing before 
     # -                        vehicle has come to a full stop 
@@ -88,8 +97,8 @@ for det_fit_file in det_fit_files:
     
     # - all criteria
     all_criteria_matrix = np.array((veh_assert_prio, veh_short_stop, 
-                                    ped_hesitate_const, ped_hesitate_dec,
-                                    ped_start_bef_veh_stop))
+                                    ped_hesitate_const, ped_fast_crossing,
+                                    ped_hesitate_dec, ped_start_bef_veh_stop))
     all_criteria = np.all(all_criteria_matrix, axis=0)
     n_all_criteria = np.count_nonzero(all_criteria)
     print(f'\tAll criteria: Found {n_all_criteria}'
