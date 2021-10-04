@@ -16,6 +16,9 @@ import sc_fitting
 SURPLUS_DEC_THRESH = 3 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 1 # m/s^2
+CRITERIA = ('veh_assert_prio', 'veh_short_stop', 
+            'ped_hesitate_const', 'ped_fast_crossing',
+            'ped_hesitate_dec', 'ped_start_bef_veh_stop')
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 
@@ -108,3 +111,22 @@ for det_fit_file in det_fit_files:
     n_met_max_criteria = np.count_nonzero(n_criteria_met == n_max_criteria_met)
     print(f'\tMax no of criteria met was {n_max_criteria_met},'
           f' for {n_met_max_criteria} parameterisations.')
+    
+    # pick a maximally sucessful parameterisations, and provide simulation plots
+    i_parameterisation = np.nonzero(n_criteria_met == n_max_criteria_met)[0][0]
+    params_array = det_fit.results.params_matrix[i_parameterisation, :]
+    params_dict = det_fit.get_params_dict(params_array)
+    crit_dict = {crit : all_criteria_matrix[i_crit, i_parameterisation] 
+                 for i_crit, crit in enumerate(CRITERIA)}
+    print('\tLooking at successful parameterisation:')
+    print(f'\t\t{params_dict}')
+    print(f'\t\t{crit_dict}')
+    det_fit.set_params(params_array)
+    for scenario in sc_fitting.DET1S_SCENARIOS.values():
+        print(f'\n\n\t\t\tScenario "{scenario.name}"')
+        sc_simulation = det_fit.simulate_scenario(scenario)
+        sc_simulation.do_plots(kinem_states=True)
+        
+    
+    
+    
