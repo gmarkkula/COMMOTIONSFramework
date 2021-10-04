@@ -9,7 +9,7 @@ import numpy as np
 import datetime
 import pickle
 
-STATUS_REP_HEADER_LEN = 25
+STATUS_REP_HEADER_LEN = 35
 
 class ParameterSearchResults:
     def __init__(self, n_params, n_metrics, n_parameterisations, 
@@ -225,6 +225,26 @@ class ParameterSearch:
                     param_arrays[self.param_names[i_param]][i_param_val_pos]
         # search the matrix of parameterisations
         self.search_list(params_matrix)
+        
+    
+    def get_metric_results(self, metric_name):
+        """
+        Return an array with the results for a metric.
+
+        Parameters
+        ----------
+        metric_name : string
+            The name of the metric for which to get results.
+
+        Returns
+        -------
+        numpy array
+            A view of the 1D numpy array for the metric, from 
+            self.results.metrics_matrix.
+
+        """
+        return self.results.metrics_matrix[
+            :, self.metric_names.index(metric_name)]
         
     
     def save(self, file_name):

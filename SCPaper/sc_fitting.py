@@ -85,7 +85,8 @@ DET1S_SIMULATIONS.append(SCPaperScenario('ActPedPrioEncounter',
 #                                          ped_start_standing=True,
 #                                          veh_yielding=True))
 DET1S_METRICS_PER_SIM = ['ped_entered', 'veh_entered', 'ped_1st', 'veh_1st', 
-                         'ped_min_speed_before', 'veh_mean_speed_before',
+                         'ped_min_speed_before', 
+                         'veh_min_speed_before', 'veh_mean_speed_before',
                          'veh_max_surplus_dec_before', 'veh_speed_at_ped_start']
 DET1S_METRIC_NAMES = []
 for sim in DET1S_SIMULATIONS:
@@ -180,7 +181,11 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             ped_min_speed_before_ca = np.min(
                 ped_agent.trajectory.long_speed[:ped_entry_sample])
             store_metric('ped_min_speed_before', ped_min_speed_before_ca)
-            # - max veh speed before conflict area
+            # - min veh speed before conflict area
+            veh_min_speed_before_ca = np.min(
+                veh_agent.trajectory.long_speed[:veh_entry_sample])
+            store_metric('veh_min_speed_before', veh_min_speed_before_ca)
+            # - mean veh speed before conflict area
             veh_mean_speed_before_ca = np.mean(
                 veh_agent.trajectory.long_speed[:veh_entry_sample])
             store_metric('veh_mean_speed_before', veh_mean_speed_before_ca)

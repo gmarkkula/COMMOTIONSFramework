@@ -20,7 +20,7 @@ import multiprocessing as mp
 # set constants
 
 # - models 
-BASE_MODEL = 'oVAoEA'
+BASE_MODEL = 'oVA'
 MODELS_TO_RUN = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
 
 
@@ -29,7 +29,7 @@ MODELS_TO_RUN = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.beta_O = 1 
 DEFAULT_PARAMS.T_O1 = 0.05 
-DEFAULT_PARAMS.DeltaV_th_rel = 0.001 
+#DEFAULT_PARAMS.DeltaV_th_rel = 0.001 
 DEFAULT_PARAMS.DeltaT = 0.4 
 DEFAULT_PARAMS.V_0_rel = 4 
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) 
