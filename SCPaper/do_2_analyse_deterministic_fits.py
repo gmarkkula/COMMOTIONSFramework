@@ -12,6 +12,10 @@ import numpy as np
 import parameter_search
 import sc_fitting
 
+# constants
+SURPLUS_DEC_THRESH = 3 # m/s^2
+HESITATION_SPEED_FRACT = 0.8
+VEH_SPEED_AT_PED_START_THRESH = 1 # m/s^2
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 
@@ -48,7 +52,7 @@ for det_fit_file in det_fit_files:
     # - "ActVehPrioPed": vehicle short-stopping
     veh_max_surplus_dec_before = det_fit.get_metric_results(
         'ActVehStatPedPrio_veh_max_surplus_dec_before')
-    veh_short_stop = veh_max_surplus_dec_before > 3
+    veh_short_stop = veh_max_surplus_dec_before > SURPLUS_DEC_THRESH
     n_veh_short_stop = np.count_nonzero(veh_short_stop)
     print(f'\tVehicle short-stopping: Found {n_veh_short_stop}'
           f' ({100 * n_veh_short_stop / n_parameterisations:.1f} %) parameterisations.') 
@@ -58,7 +62,8 @@ for det_fit_file in det_fit_files:
     ped_1st = det_fit.get_metric_results('ActPedLeading_ped_1st') == 1
     ped_min_speed_before = det_fit.get_metric_results(
         'ActPedLeading_ped_min_speed_before')
-    ped_hesitate_const = (ped_1st & (ped_min_speed_before < 0.8 * PED_FREE_SPEED))
+    ped_hesitate_const = (ped_1st & (ped_min_speed_before 
+                                     < HESITATION_SPEED_FRACT * PED_FREE_SPEED))
     n_ped_hesitate_const = np.count_nonzero(ped_hesitate_const)
     print(f'\tPedestrian hesitation in constant-speed scenario:'
           f' Found {n_ped_hesitate_const}'
@@ -68,16 +73,16 @@ for det_fit_file in det_fit_files:
     # -                        vehicle has come to a full stop 
     ped_min_speed_before = det_fit.get_metric_results(
         'ActPedPrioEncounter_ped_min_speed_before')
-    ped_hesitate_dec = ped_min_speed_before < 0.8 * PED_FREE_SPEED
+    ped_hesitate_dec = ped_min_speed_before < HESITATION_SPEED_FRACT * PED_FREE_SPEED
     n_ped_hesitate_dec = np.count_nonzero(ped_hesitate_dec)
     print(f'\tPedestrian hesitation in deceleration scenario:'
           f' Found {n_ped_hesitate_dec}'
           f' ({100 * n_ped_hesitate_dec / n_parameterisations:.1f} %) parameterisations.') 
     veh_speed_at_ped_start = det_fit.get_metric_results(
         'ActPedPrioEncounter_veh_speed_at_ped_start')
-    ped_start_bef_veh_stop = veh_speed_at_ped_start > 1
+    ped_start_bef_veh_stop = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
     n_ped_start_bef_veh_stop = np.count_nonzero(ped_start_bef_veh_stop)
-    print(f'\tPedestrian starting before decelerating vehicle at full stop:'
+    print(f'\tPedestrian starting before vehicle at full stop:'
           f' Found {n_ped_start_bef_veh_stop}'
           f' ({100 * n_ped_start_bef_veh_stop / n_parameterisations:.1f} %) parameterisations.') 
     
