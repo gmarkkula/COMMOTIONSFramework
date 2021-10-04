@@ -62,47 +62,52 @@ class SCPaperScenario:
                 -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
         
     
-DET1S_SIMULATIONS = []
-DET1S_SIMULATIONS.append(SCPaperScenario('ActVehStatPed', 
-                                          initial_ttcas=(math.nan, 4),  
-                                          ped_start_standing=True, 
-                                          ped_const_speed=True))
-DET1S_SIMULATIONS.append(SCPaperScenario('ActVehStatPedPrio', 
-                                         initial_ttcas=(math.nan, 4),  
-                                         ped_prio = True,
-                                         ped_start_standing=True, 
-                                         ped_const_speed=True))
-DET1S_SIMULATIONS.append(SCPaperScenario('ActPedLeading', 
-                                         initial_ttcas=(3, 7), 
-                                         veh_const_speed=True))
-DET1S_SIMULATIONS.append(SCPaperScenario('ActPedPrioEncounter', 
-                                         initial_ttcas=(3, 3), 
-                                         ped_prio=True,
-                                         veh_yielding=True))
-# DET1S_SIMULATIONS.append(SCPaperScenario('pGAd', 
-#                                          initial_ttcas=(math.nan, 2.3), 
-#                                          ped_prio=True,
-#                                          ped_start_standing=True,
-#                                          veh_yielding=True))
-DET1S_METRICS_PER_SIM = ['ped_entered', 'veh_entered', 'ped_1st', 'veh_1st', 
-                         'ped_min_speed_before', 
+DET1S_SCENARIOS = {}
+DET1S_SCENARIOS['ActVehStatPed'] = SCPaperScenario('ActVehStatPed', 
+                                                   initial_ttcas=(math.nan, 4),  
+                                                   ped_start_standing=True, 
+                                                   ped_const_speed=True)
+DET1S_SCENARIOS['ActVehStatPedPrio'] = SCPaperScenario('ActVehStatPedPrio', 
+                                                       initial_ttcas=(math.nan, 4),  
+                                                       ped_prio = True,
+                                                       ped_start_standing=True, 
+                                                       ped_const_speed=True)
+DET1S_SCENARIOS['ActPedLeading'] = SCPaperScenario('ActPedLeading', 
+                                                   initial_ttcas=(3, 7), 
+                                                   veh_const_speed=True)
+DET1S_SCENARIOS['ActPedPrioEncounter'] = SCPaperScenario('ActPedPrioEncounter', 
+                                                         initial_ttcas=(3, 3), 
+                                                         ped_prio=True,
+                                                         veh_yielding=True)
+DET1S_METRICS_PER_SCEN = ['ped_entered', 'veh_entered', 'ped_1st', 'veh_1st', 
+                         'ped_min_speed_before', 'ped_max_speed_after', 
                          'veh_min_speed_before', 'veh_mean_speed_before',
                          'veh_max_surplus_dec_before', 'veh_speed_at_ped_start']
 DET1S_METRIC_NAMES = []
-for sim in DET1S_SIMULATIONS:
-    for metric_name in DET1S_METRICS_PER_SIM:
-        DET1S_METRIC_NAMES.append(sim.name + '_' + metric_name)
+for scenario in DET1S_SCENARIOS.values():
+    for metric_name in DET1S_METRICS_PER_SCEN:
+        DET1S_METRIC_NAMES.append(scenario.name + '_' + metric_name)
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
 
 
 class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
     
-    def get_metrics_for_params(self, params_vector):
-        
-        self.verbosity_push()
-        self.report('Running simulations for parameterisation'
-                    f' {self.get_params_dict(params_vector)}...')
-        
+    def set_params(self, params_vector):
+        """
+        Set self.params and self.params_k to reflect a given model 
+        parameterisation.
+
+        Parameters
+        ----------
+        params_vector : 1D numpy array
+            The vector of free parameter values, same order as in 
+            self.param_names.
+
+        Returns
+        -------
+        None.
+
+        """    
         # loop through the provided free parameter values and assign them
         # to the correct attributes of the local parameter objects
         for i_param, param_name in enumerate(self.param_names):
@@ -118,38 +123,73 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             #     raise Exception(f'Could not find attribute "{param_attr}"'
             #                     ' in parameter object.')
             setattr(params_obj, param_attr, params_vector[i_param])
+    
+    
+    def simulate_scenario(self, scenario):
+        """
+        Run a given scenario for the model parameterisation currently
+        specified by self.params and self.params_k.
+
+        Parameters
+        ----------
+        scenario : SCPaperScenario
+            The scenario to be simulated.
+
+        Returns
+        -------
+        The resulting sc_scenario.SCSimulation object.
+
+        """        
+        
+        # prepare the simulation
+        # - initial position
+        initial_pos = np.array([[0, -scenario.initial_cp_distances[i_PED_AGENT]],
+                               [scenario.initial_cp_distances[i_VEH_AGENT], 0]])
+        # - pedestrian priority?
+        if scenario.ped_prio:
+            self.params.V_ny_rel = V_NY_REL
+        else:
+            self.params.V_ny_rel = 0
+        # - set up the SCSimulation object
+        sc_simulation = sc_scenario.SCSimulation(
+            AGENT_CTRL_TYPES, AGENT_GOALS, initial_pos, 
+            initial_speeds=scenario.initial_speeds, 
+            const_accs=scenario.const_accs,
+            start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
+            optional_assumptions=self.optional_assumptions, 
+            params=self.params, params_k=self.params_k,
+            agent_names=AGENT_NAMES)
+        
+        # run the simulation
+        sc_simulation.run()
+        
+        # return the simulation object
+        return sc_simulation
+        
+    
+    def get_metrics_for_params(self, params_vector):
+        
+        self.verbosity_push()
+        self.report('Running simulations for parameterisation'
+                    f' {self.get_params_dict(params_vector)}...')
+        
+        # set the model parameters as specified
+        self.set_params(params_vector)
+        
         # loop through the scenarios, simulate them, and calculate metrics
         metrics = {}
-        for i_sim, sim in enumerate(DET1S_SIMULATIONS):
+        for scenario in DET1S_SCENARIOS.values():
             
             self.verbosity_push()
-            self.report(f'Simulating scenario "{sim.name}"...')
+            self.report(f'Simulating scenario "{scenario.name}"...')
             
-            # prepare the simulation
-            # - initial position
-            initial_pos = np.array([[0, -sim.initial_cp_distances[i_PED_AGENT]],
-                                   [sim.initial_cp_distances[i_VEH_AGENT], 0]])
-            # - pedestrian priority?
-            if sim.ped_prio:
-                self.params.V_ny_rel = V_NY_REL
-            else:
-                self.params.V_ny_rel = 0
-            # - set up the SCSimulation object
-            sc_simulation = sc_scenario.SCSimulation(
-                AGENT_CTRL_TYPES, AGENT_GOALS, initial_pos, 
-                initial_speeds=sim.initial_speeds, const_accs=sim.const_accs,
-                start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
-                optional_assumptions=self.optional_assumptions, 
-                params=self.params, params_k=self.params_k,
-                agent_names=AGENT_NAMES)
-            
-            # run the simulation
-            sc_simulation.run()
+            # run this scenario with the specified parameterisation
+            sc_simulation = self.simulate_scenario(scenario)
             
             # calculate metric(s) for this scenario
             self.verbosity_push() 
             def store_metric(metric_name, value):
-                full_metric_name = sim.name + '_' + metric_name
+                full_metric_name = scenario.name + '_' + metric_name
                 metrics[full_metric_name] = value
                 self.report(f'Metric {full_metric_name} = {metrics[full_metric_name]}')
             # - basic prep and entry into conflict area metrics
@@ -181,6 +221,13 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             ped_min_speed_before_ca = np.min(
                 ped_agent.trajectory.long_speed[:ped_entry_sample])
             store_metric('ped_min_speed_before', ped_min_speed_before_ca)
+            # - max ped speed after entering the conflict area
+            if ped_entered_ca:
+                ped_max_speed_after_entry = np.max(
+                    ped_agent.trajectory.long_speed[ped_entry_sample:])
+            else:
+                ped_max_speed_after_entry = math.nan
+            store_metric('ped_max_speed_after', ped_max_speed_after_entry)
             # - min veh speed before conflict area
             veh_min_speed_before_ca = np.min(
                 veh_agent.trajectory.long_speed[:veh_entry_sample])
