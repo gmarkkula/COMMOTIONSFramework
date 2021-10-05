@@ -42,7 +42,7 @@ PARAM_ARRAYS = {}
 PARAM_ARRAYS['T_P'] = (0.4, 0.8)
 PARAM_ARRAYS['T_delta'] = (15, 30, 60)
 PARAM_ARRAYS['T'] = (0.2, 0.4, 0.6, 0.8)
-PARAM_ARRAYS['beta_V'] = (15, 30, 60, 120)
+PARAM_ARRAYS['beta_V'] = (5, 15, 45, 135)
 PARAM_ARRAYS['T_Of'] = (0.5, 1, 2, math.inf)
 PARAM_ARRAYS['sigma_O'] = (0.02, 0.1, 0.5, 2.5)
 

@@ -13,6 +13,8 @@ import parameter_search
 import sc_fitting
 
 # constants
+DO_PLOTS = False
+MODELS_TO_ANALYSE = 'all' #('oVAoBEo',)
 SURPLUS_DEC_THRESH = 3 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 1 # m/s^2
@@ -34,6 +36,9 @@ det_fits = {}
 for det_fit_file in det_fit_files:
     print()
     det_fit = parameter_search.load(det_fit_file, verbose=True)
+    if not(MODELS_TO_ANALYSE == 'all') and not (det_fit.name in MODELS_TO_ANALYSE):
+        print(f'Skipping model {det_fit.name}.')
+        continue
     det_fits[det_fit.name] = det_fit
     n_parameterisations = det_fit.results.metrics_matrix.shape[0]
     print(f'Analysing model {det_fit.name},'
@@ -46,9 +51,9 @@ for det_fit_file in det_fit_files:
     veh_min_speed_before = det_fit.get_metric_results(
         'ActVehStatPed_veh_min_speed_before')
     veh_never_slowing = veh_min_speed_before >= VEH_FREE_SPEED
-    veh_mean_speed_before = det_fit.get_metric_results(
-        'ActVehStatPed_veh_mean_speed_before')
-    veh_on_av_faster = veh_mean_speed_before > VEH_FREE_SPEED
+    veh_mean_speed_early_before = det_fit.get_metric_results(
+        'ActVehStatPed_veh_mean_speed_early_before')
+    veh_on_av_faster = veh_mean_speed_early_before > 1.05 * VEH_FREE_SPEED
     veh_assert_prio = veh_1st & veh_never_slowing & veh_on_av_faster
     n_veh_assert_prio = np.count_nonzero(veh_assert_prio)
     print(f'\tVehicle asserting priority: Found {n_veh_assert_prio}'
@@ -113,19 +118,22 @@ for det_fit_file in det_fit_files:
           f' for {n_met_max_criteria} parameterisations.')
     
     # pick a maximally sucessful parameterisations, and provide simulation plots
-    i_parameterisation = np.nonzero(n_criteria_met == n_max_criteria_met)[0][0]
-    params_array = det_fit.results.params_matrix[i_parameterisation, :]
-    params_dict = det_fit.get_params_dict(params_array)
-    crit_dict = {crit : all_criteria_matrix[i_crit, i_parameterisation] 
-                 for i_crit, crit in enumerate(CRITERIA)}
-    print('\tLooking at successful parameterisation:')
-    print(f'\t\t{params_dict}')
-    print(f'\t\t{crit_dict}')
-    det_fit.set_params(params_array)
-    for scenario in sc_fitting.DET1S_SCENARIOS.values():
-        print(f'\n\n\t\t\tScenario "{scenario.name}"')
-        sc_simulation = det_fit.simulate_scenario(scenario)
-        sc_simulation.do_plots(kinem_states=True)
+    if DO_PLOTS:
+        i_parameterisation = np.nonzero(n_criteria_met == n_max_criteria_met)[0][0]
+        params_array = det_fit.results.params_matrix[i_parameterisation, :]
+        params_dict = det_fit.get_params_dict(params_array)
+        crit_dict = {crit : all_criteria_matrix[i_crit, i_parameterisation] 
+                     for i_crit, crit in enumerate(CRITERIA)}
+        print('\tLooking at successful parameterisation:')
+        print(f'\t\t{params_dict}')
+        print(f'\t\t{crit_dict}')
+        det_fit.set_params(params_array)
+        for scenario in sc_fitting.DET1S_SCENARIOS.values():
+            print(f'\n\n\t\t\tScenario "{scenario.name}"')
+            sc_simulation = det_fit.simulate_scenario(scenario)
+            be_plots = 'oBE' in det_fit.name
+            sc_simulation.do_plots(kinem_states=True, 
+                                   beh_probs=be_plots, beh_activs=be_plots)
         
     
     

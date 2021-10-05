@@ -369,7 +369,7 @@ if __name__ == "__main__":
     OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 
                                                             oVA=True,
                                                             oVAa=False,
-                                                            oBEo=True,
+                                                            oBEo=False,
                                                             oBEv=False, 
                                                             oAI=False)
     
