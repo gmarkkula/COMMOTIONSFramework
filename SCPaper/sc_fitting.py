@@ -81,7 +81,7 @@ DET1S_SCENARIOS['ActPedPrioEncounter'] = SCPaperScenario('ActPedPrioEncounter',
                                                          veh_yielding=True)
 DET1S_METRICS_PER_SCEN = ['ped_entered', 'veh_entered', 'ped_1st', 'veh_1st', 
                          'ped_min_speed_before', 'ped_max_speed_after', 
-                         'veh_min_speed_before', 'veh_mean_speed_before',
+                         'veh_min_speed_before', 'veh_mean_speed_early_before',
                          'veh_max_surplus_dec_before', 'veh_speed_at_ped_start']
 DET1S_METRIC_NAMES = []
 for scenario in DET1S_SCENARIOS.values():
@@ -233,9 +233,10 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
                 veh_agent.trajectory.long_speed[:veh_entry_sample])
             store_metric('veh_min_speed_before', veh_min_speed_before_ca)
             # - mean veh speed before conflict area
-            veh_mean_speed_before_ca = np.mean(
-                veh_agent.trajectory.long_speed[:veh_entry_sample])
-            store_metric('veh_mean_speed_before', veh_mean_speed_before_ca)
+            veh_mean_speed_early_before_ca = np.mean(
+                veh_agent.trajectory.long_speed[:math.ceil(veh_entry_sample/2)])
+            store_metric('veh_mean_speed_early_before', 
+                         veh_mean_speed_early_before_ca)
             # - max veh dec in multiples of the deceleration needed to stop
             # - just before conflict area
             # -- get the required deceleration to stop just at the conflict
@@ -252,15 +253,22 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             store_metric('veh_max_surplus_dec_before', veh_max_surplus_dec_before)
             # - veh speed at first sample where pedestrian increases speed
             # - before entering conflict area
-            ped_speed_diff_before_ca = np.diff(ped_agent.trajectory.long_speed[
-                :ped_entry_sample])
-            pos_ped_speed_diff_samples = np.nonzero(
-                ped_speed_diff_before_ca > 0)[0]
-            if len(pos_ped_speed_diff_samples) > 0:
-                veh_speed_at_ped_start = veh_agent.trajectory.long_speed[
-                    pos_ped_speed_diff_samples[0]+1]
-            else:
-                veh_speed_at_ped_start = math.nan
+            veh_speed_at_ped_start = math.nan
+            if ped_entered_ca:
+                # first find the last speed decrease before conflict area entry
+                ped_speed_diff_before_ca = np.diff(ped_agent.trajectory.long_speed[
+                    :ped_entry_sample])
+                dec_samples = np.nonzero(ped_speed_diff_before_ca < 0)[0]
+                # any speed decreases at all?
+                if len(dec_samples) > 0:
+                    last_dec_sample = dec_samples[-1]
+                    acc_samples_after_last_dec = np.nonzero(
+                        (np.arange(ped_entry_sample-1) > last_dec_sample)
+                        & (ped_speed_diff_before_ca > 0))[0]
+                    # were there any speed increases after the last speed decrease?
+                    if len(acc_samples_after_last_dec) > 0:
+                        veh_speed_at_ped_start = veh_agent.trajectory.long_speed[
+                            acc_samples_after_last_dec[0]+1]
             store_metric('veh_speed_at_ped_start', veh_speed_at_ped_start)
             
             # plot simulation results?
@@ -361,7 +369,7 @@ if __name__ == "__main__":
     OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 
                                                             oVA=True,
                                                             oVAa=False,
-                                                            oBEo=False,
+                                                            oBEo=True,
                                                             oBEv=False, 
                                                             oAI=False)
     
