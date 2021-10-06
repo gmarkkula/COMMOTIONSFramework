@@ -4,16 +4,23 @@ Created on Sun Oct  3 19:37:11 2021
 
 @author: tragma
 """
+# assuming this file is in a subfolder to the COMMOTIONS framework root, so 
+# add parent directory to Python path
+import os 
 import sys
-sys.path.append('C:\\GITHUB\\COMMOTIONSFramework\\')
+THIS_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR, __ = os.path.split(THIS_FILE_DIR)
+if not PARENT_DIR in sys.path:
+    sys.path.append(PARENT_DIR)
 
+# other imports
 import glob
 import numpy as np
 import parameter_search
 import sc_fitting
 
 # constants
-DO_PLOTS = False
+DO_PLOTS = True
 MODELS_TO_ANALYSE = 'all' #('oVAoBEo',)
 SURPLUS_DEC_THRESH = 3 # m/s^2
 HESITATION_SPEED_FRACT = 0.8

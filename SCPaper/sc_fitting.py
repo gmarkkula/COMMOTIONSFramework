@@ -4,7 +4,7 @@ Created on Tue Sep 21 10:47:55 2021
 
 @author: tragma
 """
-
+import os
 import math
 import copy
 import keyboard
@@ -15,9 +15,9 @@ from sc_scenario import CtrlType, OptionalAssumption
 import sc_scenario
 import sc_scenario_helper
 
-
-
-FIT_RESULTS_FOLDER = 'results/'
+# expecting a results subfolder in the folder where this file is located
+SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
+FIT_RESULTS_FOLDER = SCPAPER_PATH + 'results/'
 
 # scenario basics
 PED_NAME = 'P'
