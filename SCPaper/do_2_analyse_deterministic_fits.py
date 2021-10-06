@@ -140,7 +140,7 @@ for det_fit_file in det_fit_files:
             sc_simulation = det_fit.simulate_scenario(scenario)
             be_plots = 'oBE' in det_fit.name
             sc_simulation.do_plots(kinem_states=True, 
-                                   beh_probs=be_plots, beh_activs=be_plots)
+                                   beh_probs=be_plots)
         
     
     
