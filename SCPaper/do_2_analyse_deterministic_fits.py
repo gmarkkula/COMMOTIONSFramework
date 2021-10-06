@@ -21,12 +21,13 @@ import sc_fitting
 
 # constants
 DO_PLOTS = True
-MODELS_TO_ANALYSE = 'all' #('oVAoBEo',)
-SURPLUS_DEC_THRESH = 3 # m/s^2
+MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
+SPEEDUP_FRACT = 1.01
+SURPLUS_DEC_THRESH = 2 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
-VEH_SPEED_AT_PED_START_THRESH = 1 # m/s^2
+VEH_SPEED_AT_PED_START_THRESH = 0.1 # m/s
 CRITERIA = ('veh_assert_prio', 'veh_short_stop', 
-            'ped_hesitate_const', 'ped_fast_crossing',
+            #'ped_hesitate_const', 'ped_fast_crossing',
             'ped_hesitate_dec', 'ped_start_bef_veh_stop')
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
@@ -35,6 +36,7 @@ VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 # find pickle files from deterministic fitting
 det_fit_files = glob.glob(sc_fitting.FIT_RESULTS_FOLDER + 
                             (sc_fitting.DET_FIT_FILE_NAME_FMT % '*'))
+det_fit_files.sort()
 print(det_fit_files)
 
 
@@ -60,7 +62,7 @@ for det_fit_file in det_fit_files:
     veh_never_slowing = veh_min_speed_before >= VEH_FREE_SPEED
     veh_mean_speed_early_before = det_fit.get_metric_results(
         'ActVehStatPed_veh_mean_speed_early_before')
-    veh_on_av_faster = veh_mean_speed_early_before > 1.05 * VEH_FREE_SPEED
+    veh_on_av_faster = veh_mean_speed_early_before > SPEEDUP_FRACT * VEH_FREE_SPEED
     veh_assert_prio = veh_1st & veh_never_slowing & veh_on_av_faster
     n_veh_assert_prio = np.count_nonzero(veh_assert_prio)
     print(f'\tVehicle asserting priority: Found {n_veh_assert_prio}'
@@ -74,24 +76,26 @@ for det_fit_file in det_fit_files:
     print(f'\tVehicle short-stopping: Found {n_veh_short_stop}'
           f' ({100 * n_veh_short_stop / n_parameterisations:.1f} %) parameterisations.') 
     
-    # - "ActPedLeading": pedestrian decelerating, then crossing before vehicle 
-    # -                  at higher than free speed
-    ped_1st = det_fit.get_metric_results('ActPedLeading_ped_1st') == 1
-    ped_min_speed_before = det_fit.get_metric_results(
-        'ActPedLeading_ped_min_speed_before')
-    ped_hesitate_const = (ped_1st & (ped_min_speed_before 
-                                     < HESITATION_SPEED_FRACT * PED_FREE_SPEED))
-    n_ped_hesitate_const = np.count_nonzero(ped_hesitate_const)
-    print(f'\tPedestrian hesitation in constant-speed scenario:'
-          f' Found {n_ped_hesitate_const}'
-          f' ({100 * n_ped_hesitate_const / n_parameterisations:.1f} %) parameterisations.') 
-    ped_max_speed_after = det_fit.get_metric_results(
-        'ActPedLeading_ped_max_speed_after')
-    ped_fast_crossing = ped_1st & (ped_max_speed_after > PED_FREE_SPEED)
-    n_ped_fast_crossing = np.count_nonzero(ped_fast_crossing)
-    print(f'\tPedestrian crossing fast in front of constant-speed vehicle:'
-          f' Found {n_ped_fast_crossing}'
-          f' ({100 * n_ped_fast_crossing / n_parameterisations:.1f} %) parameterisations.') 
+# =============================================================================
+#     # - "ActPedLeading": pedestrian decelerating, then crossing before vehicle 
+#     # -                  at higher than free speed
+#     ped_1st = det_fit.get_metric_results('ActPedLeading_ped_1st') == 1
+#     ped_min_speed_before = det_fit.get_metric_results(
+#         'ActPedLeading_ped_min_speed_before')
+#     ped_hesitate_const = (ped_1st & (ped_min_speed_before 
+#                                      < HESITATION_SPEED_FRACT * PED_FREE_SPEED))
+#     n_ped_hesitate_const = np.count_nonzero(ped_hesitate_const)
+#     print(f'\tPedestrian hesitation in constant-speed scenario:'
+#           f' Found {n_ped_hesitate_const}'
+#           f' ({100 * n_ped_hesitate_const / n_parameterisations:.1f} %) parameterisations.') 
+#     ped_max_speed_after = det_fit.get_metric_results(
+#         'ActPedLeading_ped_max_speed_after')
+#     ped_fast_crossing = ped_1st & (ped_max_speed_after > PED_FREE_SPEED)
+#     n_ped_fast_crossing = np.count_nonzero(ped_fast_crossing)
+#     print(f'\tPedestrian crossing fast in front of constant-speed vehicle:'
+#           f' Found {n_ped_fast_crossing}'
+#           f' ({100 * n_ped_fast_crossing / n_parameterisations:.1f} %) parameterisations.') 
+# =============================================================================
     
     # - "ActPedPrioEncounter": pedestrian decelerating, then crossing before 
     # -                        vehicle has come to a full stop 
@@ -112,7 +116,7 @@ for det_fit_file in det_fit_files:
     
     # - all criteria
     all_criteria_matrix = np.array((veh_assert_prio, veh_short_stop, 
-                                    ped_hesitate_const, ped_fast_crossing,
+                                    #ped_hesitate_const, ped_fast_crossing,
                                     ped_hesitate_dec, ped_start_bef_veh_stop))
     all_criteria = np.all(all_criteria_matrix, axis=0)
     n_all_criteria = np.count_nonzero(all_criteria)
@@ -123,6 +127,9 @@ for det_fit_file in det_fit_files:
     n_met_max_criteria = np.count_nonzero(n_criteria_met == n_max_criteria_met)
     print(f'\tMax no of criteria met was {n_max_criteria_met},'
           f' for {n_met_max_criteria} parameterisations.')
+    # store these analysis results as object attributes
+    det_fit.all_criteria_matrix = all_criteria_matrix
+    det_fit.n_criteria_met = n_criteria_met
     
     # pick a maximally sucessful parameterisations, and provide simulation plots
     if DO_PLOTS:
@@ -131,7 +138,8 @@ for det_fit_file in det_fit_files:
         params_dict = det_fit.get_params_dict(params_array)
         crit_dict = {crit : all_criteria_matrix[i_crit, i_parameterisation] 
                      for i_crit, crit in enumerate(CRITERIA)}
-        print('\tLooking at successful parameterisation:')
+        print('\tLooking at one of the parameterisations meeting'
+              f' {n_max_criteria_met} criteria:')
         print(f'\t\t{params_dict}')
         print(f'\t\t{crit_dict}')
         det_fit.set_params(params_array)

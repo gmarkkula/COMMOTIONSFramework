@@ -64,7 +64,7 @@ class SCPaperScenario:
     
 DET1S_SCENARIOS = {}
 DET1S_SCENARIOS['ActVehStatPed'] = SCPaperScenario('ActVehStatPed', 
-                                                   initial_ttcas=(math.nan, 4),  
+                                                   initial_ttcas=(math.nan, 2),  
                                                    ped_start_standing=True, 
                                                    ped_const_speed=True)
 DET1S_SCENARIOS['ActVehStatPedPrio'] = SCPaperScenario('ActVehStatPedPrio', 

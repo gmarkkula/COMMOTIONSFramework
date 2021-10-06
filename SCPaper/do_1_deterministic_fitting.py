@@ -27,13 +27,14 @@ import multiprocessing as mp
 # set constants
 
 # - models 
-BASE_MODEL = 'oVA'
+BASE_MODEL = 'oVAa'
 MODELS_TO_RUN = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
 
 
 # - model parameter constants
 # -- fixed parameter values
 DEFAULT_PARAMS = commotions.Parameters()
+DEFAULT_PARAMS.T_P = 0.4
 DEFAULT_PARAMS.beta_O = 1 
 DEFAULT_PARAMS.T_O1 = 0.05 
 #DEFAULT_PARAMS.DeltaV_th_rel = 0.001 
@@ -46,7 +47,7 @@ for ctrl_type in CtrlType:
     DEFAULT_PARAMS_K[ctrl_type]._da = 0.5
 # -- free parameter values
 PARAM_ARRAYS = {}
-PARAM_ARRAYS['T_P'] = (0.4, 0.8)
+#PARAM_ARRAYS['T_P'] = (0.4, 0.8)
 PARAM_ARRAYS['T_delta'] = (15, 30, 60)
 PARAM_ARRAYS['T'] = (0.2, 0.4, 0.6, 0.8)
 PARAM_ARRAYS['beta_V'] = (5, 15, 45, 135)
