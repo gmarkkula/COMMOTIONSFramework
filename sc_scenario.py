@@ -160,8 +160,11 @@ class SCAgent(commotions.AgentWithGoal):
         oth_params = copy.copy(self.params)
         oth_params.k = copy.copy(self.params.k_all[self.other_agent.ctrl_type])
         oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
+        oth_V_free = self.other_agent.V_free
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
-                                      params = oth_params, v_free = oth_v_free)
+                                      params = oth_params, 
+                                      v_free = oth_v_free,
+                                      V_free = oth_V_free)
         # allocate vectors for storing internal states
         n_time_steps = self.simulation.settings.n_time_steps
         self.states = States()
@@ -659,7 +662,7 @@ class SCAgent(commotions.AgentWithGoal):
         
         # get constant value for remainder of trip after action and possible
         # interaction, i.e., V_free
-        post_value = self.V_free
+        post_value = ego_image.V_free
         
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
@@ -793,8 +796,8 @@ class SCAgent(commotions.AgentWithGoal):
         return access_order_values
 
 
-    def get_value_of_state_for_agent(self, own_state, own_goal, oth_state, \
-        ctrl_type, k):
+    def get_value_of_state_for_agent(self, own_image, own_state, own_goal, 
+                                     oth_state, ctrl_type, k):
 
         heading_vector = np.array([math.cos(own_state.yaw_angle), \
             math.sin(own_state.yaw_angle)])
@@ -816,6 +819,14 @@ class SCAgent(commotions.AgentWithGoal):
             goal_distance = np.linalg.norm(vector_to_goal)
             req_acc_to_goal = -(own_state.long_speed ** 2 / (2 * goal_distance))
             value += -k._sg * req_acc_to_goal ** 2
+            # priority cost for vehicle of passing first
+            if own_image.params.V_ny != 0:
+                (__, acc_for_2nd) = sc_scenario_helper.get_access_order_accs(
+                    own_image, own_state, oth_state, SHARED_PARAMS.d_C,
+                    consider_oth_acc = False)
+                if own_state.long_acc > acc_for_2nd:
+                    value += (own_image.params.V_ny 
+                              * (2 - own_state.long_acc / acc_for_2nd))
 
 
         # cost for being on collision course with the other agent
@@ -833,6 +844,7 @@ class SCAgent(commotions.AgentWithGoal):
             elif self.ctrl_type is CtrlType.ACCELERATION:
                 value += -k._sc * (own_state.long_speed \
                     / (2 * time_to_agent_collision)) ** 2  
+        
                     
         # squash the value with a sigmoid
         value = self.squash_value(value)
@@ -844,8 +856,9 @@ class SCAgent(commotions.AgentWithGoal):
         # cost for making a speed change, if any
         value = -self.params.k._e * self.params.ctrl_deltas[i_action] ** 2
         # add value of the state
-        value += self.get_value_of_state_for_agent(\
-            my_state, self.goal, oth_state, self.ctrl_type, self.params.k)
+        value += self.get_value_of_state_for_agent(
+            self.self_image, my_state, self.goal, oth_state, self.ctrl_type, 
+            self.params.k)
         return value
 
 
@@ -856,7 +869,7 @@ class SCAgent(commotions.AgentWithGoal):
         value = 0
         # add value of the state
         value += self.get_value_of_state_for_agent(
-                oth_state, self.other_agent.goal, my_state, 
+                self.oth_image, oth_state, self.other_agent.goal, my_state, 
                 self.other_agent.ctrl_type, self.oth_image.params.k) 
         return value
 
@@ -1022,7 +1035,8 @@ class SCAgent(commotions.AgentWithGoal):
         # store a (correct) representation of oneself
         self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
                                        params = self.params, 
-                                       v_free = self.v_free)
+                                       v_free = self.v_free,
+                                       V_free = self.V_free)
 
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
@@ -1416,7 +1430,7 @@ if __name__ == "__main__":
         CONST_ACCS = (None, None)
     
     # set parameters and optional assumptions
-    AFF_VAL_FCN = False
+    AFF_VAL_FCN = True
     (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
     #params.T_delta = 30
     #params.V_ny_rel = -1.1

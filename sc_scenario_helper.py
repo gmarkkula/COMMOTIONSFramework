@@ -27,7 +27,7 @@ AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
                                                 ['acc', 'T_acc', 'T_dw'])
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
-                                      ['ctrl_type', 'params', 'v_free'])
+                                      ['ctrl_type', 'params', 'v_free', 'V_free'])
 
 
 
