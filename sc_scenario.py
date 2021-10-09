@@ -115,17 +115,17 @@ DEFAULT_PARAMS_K_VA[CtrlType.ACCELERATION]._da = 0.5 # gives sensible-looking ac
 # default gains for original, non-affordance-based value function
 DEFAULT_PARAMS_K_NVA = {}
 DEFAULT_PARAMS_K_NVA[CtrlType.SPEED] = commotions.Parameters()
-DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._g = 1 
-DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._dv = 0.3
+sc_scenario_helper.set_val_gains_for_free_speed(
+    DEFAULT_PARAMS_K_NVA[CtrlType.SPEED], FREE_SPEED_SPEED_CTRL)
 DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._c = 1   
-DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._e = 0.1   
+DEFAULT_PARAMS_K_NVA[CtrlType.SPEED]._e = 0   
 DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION] = commotions.Parameters()
-DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._g = 1 
-DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._dv = 0.05
+sc_scenario_helper.set_val_gains_for_free_speed(
+    DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION], FREE_SPEED_ACC_CTRL)
 DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._da = 0.01
 DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._sc = 1    
-DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._sg = 0.25 
-DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._e = 0.1    
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._sg = 0
+DEFAULT_PARAMS_K_NVA[CtrlType.ACCELERATION]._e = 0   
     
 def get_default_params(oVA):
     params = copy.copy(DEFAULT_PARAMS)
@@ -821,7 +821,8 @@ class SCAgent(commotions.AgentWithGoal):
         # cost for being on collision course with the other agent
         time_to_agent_collision = \
             sc_scenario_helper.get_time_to_sc_agent_collision(own_state, 
-                                                              oth_state)
+                                                              oth_state,
+                                                              consider_acc=False)
         
         if time_to_agent_collision == 0:
             time_to_agent_collision = TTC_FOR_COLLISION
@@ -1394,6 +1395,7 @@ if __name__ == "__main__":
     GOALS = np.array([[0, 5], [-50, 0]])
     SCE_BASELINE = 0 # "baseline" kinematics
     SCE_KEIODECEL = 1 # a deceleration scenario from the Keio study
+    SCE_STARTUP = 2 # a scenario with both agents starting from zero speed, at non-interaction distance
     SCENARIO = SCE_BASELINE
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
@@ -1408,9 +1410,13 @@ if __name__ == "__main__":
         # increase option for the pedestrian
         CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
         DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
+    elif SCENARIO == SCE_STARTUP:
+        INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
+        SPEEDS = np.array((0, 0))
+        CONST_ACCS = (None, None)
     
     # set parameters and optional assumptions
-    AFF_VAL_FCN = True
+    AFF_VAL_FCN = False
     (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
     #params.T_delta = 30
     #params.V_ny_rel = -1.1
