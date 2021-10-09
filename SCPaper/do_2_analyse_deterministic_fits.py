@@ -20,8 +20,9 @@ import parameter_search
 import sc_fitting
 
 # constants
-DO_PLOTS = False
+DO_PLOTS = True
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
+ASSUMPTIONS_TO_NOT_ANALYSE = 'oVA'
 SPEEDUP_FRACT = 1.01
 SURPLUS_DEC_THRESH = 2 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
@@ -45,7 +46,8 @@ det_fits = {}
 for det_fit_file in det_fit_files:
     print()
     det_fit = parameter_search.load(det_fit_file, verbose=True)
-    if not(MODELS_TO_ANALYSE == 'all') and not (det_fit.name in MODELS_TO_ANALYSE):
+    if ((not(MODELS_TO_ANALYSE == 'all') and not (det_fit.name in MODELS_TO_ANALYSE))
+        or ASSUMPTIONS_TO_NOT_ANALYSE in det_fit.name):
         print(f'Skipping model {det_fit.name}.')
         continue
     det_fits[det_fit.name] = det_fit

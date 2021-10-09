@@ -111,18 +111,18 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         # loop through the provided free parameter values and assign them
         # to the correct attributes of the local parameter objects
         for i_param, param_name in enumerate(self.param_names):
+            param_value = params_vector[i_param]
             if param_name[0:2] == 'k_':
-                # value function gain parameter
-                params_obj = self.params_k
+                # value function gain parameter - set across both control types
+                # (redundant, but doesn't matter)
                 param_attr = param_name[1:]
+                for ctrl_type in CtrlType:
+                    setattr(self.params_k[ctrl_type], param_attr, param_value)
             else:
                 # other parameter
                 params_obj = self.params
                 param_attr = param_name
-            # if not hasattr(params_obj, param_attr):
-            #     raise Exception(f'Could not find attribute "{param_attr}"'
-            #                     ' in parameter object.')
-            setattr(params_obj, param_attr, params_vector[i_param])
+                setattr(self.params, param_name, param_value)
     
     
     def simulate_scenario(self, scenario):
@@ -365,9 +365,10 @@ if __name__ == "__main__":
     
     PARAM_ARRAYS = {}
     PARAM_ARRAYS['T_P'] = (0.5, 1)
+    PARAM_ARRAYS['k_c'] = (0.2, 2)
     
     OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 
-                                                            oVA=True,
+                                                            oVA=False,
                                                             oVAa=False,
                                                             oBEo=False,
                                                             oBEv=False, 
