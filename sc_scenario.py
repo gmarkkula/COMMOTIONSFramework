@@ -164,7 +164,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
                                       params = oth_params, 
                                       v_free = oth_v_free,
-                                      V_free = oth_V_free)
+                                      V_free = oth_V_free,
+                                      eff_width = self.other_agent.eff_width)
         # allocate vectors for storing internal states
         n_time_steps = self.simulation.settings.n_time_steps
         self.states = States()
@@ -946,8 +947,8 @@ class SCAgent(commotions.AgentWithGoal):
 
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
                  optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, const_acc = None, 
-                 plot_color = 'k', snapshot_times = None):
+                 params = None, params_k = None, eff_width = None,
+                 const_acc = None, plot_color = 'k', snapshot_times = None):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -1010,6 +1011,9 @@ class SCAgent(commotions.AgentWithGoal):
         # get and store the number of actions, and the "non-action" action
         self.n_actions = len(self.params.ctrl_deltas)
         self.i_no_action = np.argwhere(self.params.ctrl_deltas == 0)[0][0]
+        
+        # store own "effective width"
+        self.eff_width = eff_width
 
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
@@ -1036,7 +1040,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
                                        params = self.params, 
                                        v_free = self.v_free,
-                                       V_free = self.V_free)
+                                       V_free = self.V_free,
+                                       eff_width = self.eff_width)
 
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
@@ -1059,9 +1064,9 @@ class SCSimulation(commotions.Simulation):
                  initial_speeds = np.array((0, 0)), 
                  start_time = 0, end_time = 10, time_step = 0.1, 
                  optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, const_accs = (None, None),
-                 agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
-                 snapshot_times = (None, None)):
+                 params = None, params_k = None, eff_widths = (None, None), 
+                 const_accs = (None, None), agent_names = ('A', 'B'), 
+                 plot_colors = ('c', 'm'), snapshot_times = (None, None)):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -1075,7 +1080,8 @@ class SCSimulation(commotions.Simulation):
                     goal_pos = goal_positions[i_agent, :], 
                     initial_state = initial_state, 
                     optional_assumptions = optional_assumptions, 
-                    params = params, params_k = params_k, 
+                    params = params, params_k = params_k,
+                    eff_width = eff_widths[i_agent],
                     const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
