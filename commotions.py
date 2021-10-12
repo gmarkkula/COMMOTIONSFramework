@@ -315,16 +315,18 @@ class SimulationState:
 
 
 class Simulation:
+    
+    def after_simulation(self):
+        """
+        Called at the end of the run() method. Can be overridden by descendant 
+        classes to do any post-simulation processing.
+
+        """
+        pass
 
     def add_agent(self, agent):
         self.agents.append(agent)
         return len(self.agents)-1
-
-    # def get_other_agents(self, calling_agent):
-    #     other_agents = []
-    #     for agent in self.agents:
-    #         if agent is not calling_agent:
-    #             other_agents.append(agent)
     
     def plot_trajectories(self):
         for agent in self.agents:
@@ -347,6 +349,8 @@ class Simulation:
                 agent.prepare_for_action_update()
             for agent in self.agents:
                 agent.do_action_update()
+                
+        self.after_simulation()
 
     
     def __init__(self, start_time, end_time, time_step):
