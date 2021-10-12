@@ -21,15 +21,20 @@
     * ~~Update the `oBEo` and `oBEv` implementations to align with the latest formulations from the 2021-09-10 diary notes.~~    
     * ~~Make sure both types of agents stop as they should if the other agent is static in the middle of their path.~~ (verified for the 2021-09-16 commit, not documented anywhere) 
     * ~~Go through the various targeted phenomena and try to see if my rough expectations for whether the model will be able to achieve them seem to hold.~~ (verified to a reasonable level, except for `oPN`)
-* Implement code for model fitting
+* ~~Implement code for model fitting~~
     * ~~Generic parameter search class~~
         * ~~Basic list and grid searching~~
         * ~~Results saving~~
-    * Classes for SCPaper specific parameter searching
-        * Need to add support for fixing Tprime = T and similar stuff
-* Implement `oPN`.
+    * ~~Classes for SCPaper specific parameter searching~~
+        * ~~Need to add support for fixing Tprime = T and similar stuff~~
+* Model expansion/fitting, in some order (see 2021-10-07 diary notes for explanation of some of the planned new assumptions):
+    * Implement and test `oVAl` to see how it changes the deterministic fits.
+    * Run with `oEA`, to get parameterisations that might be possible to carry over straight to probabilistic fitting.
+    * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
+    * Push into noisy territory, testing both `oAN` and `oSN*` to fit crossing onset distributions.
+    * Circle back to the "pedestrian hesitation and speed-up" phenomenon, and see if `oPF` still seems needed in order to account for it.
 * Optional stuff
-    * Parallelisation in `parameter_search.py`? Couldn't get it to work due to [this problem](https://stackoverflow.com/questions/41385708/multiprocessing-example-giving-attributeerror), but maybe [Ray](https://towardsdatascience.com/modern-parallel-and-distributed-python-a-quick-tutorial-on-ray-99f8d70369b8) could be an option?
+    * ~~Parallelisation in `parameter_search.py`?~~ 
     * Add support for agent width and length.
 
 
