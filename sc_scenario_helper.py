@@ -27,12 +27,21 @@ AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
                                                 ['acc', 'T_acc', 'T_dw'])
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
-                                      ['ctrl_type', 'params', 'v_free'])
+                                      ['ctrl_type', 'params', 'v_free', 'V_free'])
 
 
 
 def get_agent_free_speed(k):
     return k._g / (2 * k._dv)
+
+def set_val_gains_for_free_speed(k, v_free):
+    """ Set properties _g and _dv of k to yield the free speed v_free, and 
+        a normalised value at free speed equal to 1. 
+        (See handwritten notes from 2021-01-16.)
+
+    """
+    k._g = 2 / v_free
+    k._dv = 1 / v_free ** 2
 
 
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
@@ -87,7 +96,7 @@ def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop
 def get_time_to_dist_with_acc(state, target_dist):
     # already past the target distance?
     if target_dist <= 0:
-        return 0
+        return -math.inf
     # standing still?
     if state.long_speed == 0 and state.long_acc <= 0:
         return math.inf
@@ -127,7 +136,10 @@ def get_entry_exit_times(state, coll_dist, consider_acc = True):
     """
     # is the agent moving?
     if state.long_speed == 0:
-        return (math.inf, math.inf)
+        if abs(state.signed_CP_dist) < coll_dist:
+            return (-math.inf, math.inf)
+        else:
+            return (math.inf, math.inf)
     else:
         # get the time to reach the entry/exit edge of the conflict space
         if consider_acc:
@@ -153,7 +165,7 @@ def add_entry_exit_times_to_state(state, coll_dist):
      ) = get_entry_exit_times(state, coll_dist, consider_acc = False)
     (state.cs_entry_time[CtrlType.ACCELERATION], 
      state.cs_exit_time[CtrlType.ACCELERATION]
-     ) = get_entry_exit_times(state, coll_dist)
+     ) = get_entry_exit_times(state, coll_dist, consider_acc = True)
     return state
       
 
@@ -387,32 +399,39 @@ def get_access_order_accs(ego_image, ego_state, oth_state, coll_dist,
             implications[AccessOrder.EGOSECOND].acc)
  
 
-def get_time_to_sc_agent_collision(state1, state2):
+def get_time_to_sc_agent_collision(state1, state2, consider_acc=False):
     """ Return the time left until the two agents with states state1 and state2
-        (used attributes CS_entry/exit_time) are within the conflict space at
-        the same time, or math.inf if this is not projected to happen, or zero
-        if it is already happening.   
+        are within the conflict space at the same time, or math.inf if this is 
+        not projected to happen, or zero if it is already happening. This uses
+        the properties cs_entry/exit_time of state1/2, specifically 
+        cs_entry/exit_time[CtrlType.SPEED] if consider_acc is False, otherwise
+        cs_entry/exit_time[CtrlType.ACCELERATION] is used.
     """
+    # consider acceleration?
+    if consider_acc:
+        ctrl_type = CtrlType.ACCELERATION
+    else:
+        ctrl_type = CtrlType.SPEED
     # has at least one of the agents already left the CS?
-    if state1.CS_exit_time < 0 or state2.CS_exit_time < 0:
+    if state1.cs_exit_time[ctrl_type] < 0 or state2.cs_exit_time[ctrl_type] < 0:
         # yes - so no collision projected
         return math.inf
     # no, so both agents' exits are in future - are both agents' entries in past?
-    if state1.CS_entry_time < 0 and state2.CS_entry_time < 0:
+    if state1.cs_entry_time[ctrl_type] < 0 and state2.cs_entry_time[ctrl_type] < 0:
         # yes - so collision is ongoing
         return 0
     # no collision yet, so check who enters first
-    if state1.CS_entry_time <= state2.CS_entry_time:
+    if state1.cs_entry_time[ctrl_type] <= state2.cs_entry_time[ctrl_type]:
         # agent 1 entering CS first, is it staying long enough for agent 2 to enter
-        if state1.CS_exit_time >= state2.CS_entry_time:
+        if state1.cs_exit_time[ctrl_type] >= state2.cs_entry_time[ctrl_type]:
             # collision occurs when agent 2 enters CS - we know this is positive
             # (in future) since at least one of the entry times is positive and
             # agent 2's entry time is the larger one
-            return state2.CS_entry_time
+            return state2.cs_entry_time[ctrl_type]
     else:
         # agent 2 entering first, so same logic as above but reversed
-        if state2.CS_exit_time >= state1.CS_entry_time:
-            return state1.CS_entry_time
+        if state2.cs_exit_time[ctrl_type] >= state1.cs_entry_time[ctrl_type]:
+            return state1.cs_entry_time[ctrl_type]
     # no future overlap in CS occupancy detected - i.e., no collision projected
     return math.inf
 
@@ -443,7 +462,7 @@ if __name__ == "__main__":
     plt.close('all')
     
     TEST_ACCESS_ORDER_ACCS = True
-    TEST_TTCS = False
+    TEST_TTCS = True
 
 # =============================================================================
 #   Testing get_access_order_accs()
@@ -628,20 +647,33 @@ if __name__ == "__main__":
             # get agent 1 distances and speeds for this scenario
             (ag_ds[0,:], ag_vs[0,:]) = get_ds_and_vs(AG1_D0S[i_test], AG1_V0S[i_test], 
                                              AG1_ACCS[i_test])
-                        
-            # get TTCs
-            ttcs = np.full(N_TIME_STEPS, math.nan)
-            for i, time in enumerate(TIME_STAMPS):
-                
-                for i_agent in range(2):
-                    ag_state[i_agent].signed_CP_dist = ag_ds[i_agent, i]
-                    ag_state[i_agent].long_speed = ag_vs[i_agent, i]
-                    ag_state[i_agent] = add_entry_exit_times_to_state(
-                            ag_state[i_agent], COLL_DIST)
-                        
-                ttcs[i] = get_time_to_sc_agent_collision(ag_state[0], ag_state[1])
-                
-            # plotting
+            
+            # get and plot TTCs, both without and with consideration of accelerations
+            for consider_acc in (True, False):
+                ttcs = np.full(N_TIME_STEPS, math.nan)
+                for i, time in enumerate(TIME_STAMPS):
+                    
+                    for i_agent in range(2):
+                        ag_state[i_agent].signed_CP_dist = ag_ds[i_agent, i]
+                        ag_state[i_agent].long_speed = ag_vs[i_agent, i]
+                        if i_agent == 0:
+                            ag_state[i_agent].long_acc = AG1_ACCS[i_test]
+                        else:
+                            ag_state[i_agent].long_acc = 0
+                        ag_state[i_agent] = add_entry_exit_times_to_state(
+                                ag_state[i_agent], COLL_DIST)
+                            
+                    ttcs[i] = get_time_to_sc_agent_collision(ag_state[0], ag_state[1], 
+                                                             consider_acc)
+                if consider_acc:
+                    lw = 4
+                    color = 'lightgreen'
+                else:
+                    lw = 1
+                    color = 'k'
+                axs[2].plot(TIME_STAMPS, ttcs, '-', color=color, lw=lw)
+            
+            # do the rest of the plotting
             for i_agent in range(2):
                 axs[0].plot(TIME_STAMPS, ag_vs[i_agent,:], 
                             color = AG_COLORS[i_agent])
@@ -657,13 +689,12 @@ if __name__ == "__main__":
                             color = AG_COLORS[i_agent], alpha = 0.3,
                             edgecolor = None)
                 axs[1].plot(TIME_STAMPS, ag_ds[i_agent,:], 
-                            color = AG_COLORS[i_agent])
+                                color = AG_COLORS[i_agent])
             axs[0].set_ylabel('v (m)')
             axs[1].axhline(COLL_DIST, color='r', linestyle='--', lw=0.5)
             axs[1].axhline(-COLL_DIST, color='r', linestyle='--', lw=0.5)
             axs[1].set_ylabel('d (m)')
             axs[1].set_ylim(np.array((-1, 1)) * COLL_DIST * 3)
-            axs[2].plot(TIME_STAMPS, ttcs, 'k-')
             axs[2].set_ylabel('TTC (s)')
             (coll_margins, coll_idxs) = \
                 get_sc_agent_collision_margins(ag_ds[0,:], ag_ds[1,:], COLL_DIST) 
