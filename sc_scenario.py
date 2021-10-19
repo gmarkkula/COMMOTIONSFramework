@@ -93,6 +93,8 @@ DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th_rel = 0.001 # action decision threshold when doing evidence accumulation, in multiples of squashed V_free
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
+DEFAULT_PARAMS.T_s = 0.5 # safety margin (post encroachment) time (s)
+DEFAULT_PARAMS.D_s = 0.5 # safety margin distance (m)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.V_0_rel = 4 # scale of value squashing function, in multiples of V_free
 DEFAULT_PARAMS.V_ny_rel = 0 # value function term for non-yielding, in multiples of V_free
@@ -140,7 +142,7 @@ def get_default_params(oVA):
 
 
 SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.d_C = 2 # collision distance
+SHARED_PARAMS.d_C = 1.5 # collision distance
 
 TTC_FOR_COLLISION = 0.1
 MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are considered zero
@@ -1464,21 +1466,27 @@ if __name__ == "__main__":
     GOALS = np.array([[0, 5], [-50, 0]])
     SCE_BASELINE = 0 # "baseline" kinematics
     SCE_KEIODECEL = 1 # a deceleration scenario from the Keio study
-    SCE_STARTUP = 2 # a scenario with both agents starting from zero speed, at non-interaction distance
+    SCE_PEDATSPEEDDECEL = 2 # a deceleration scenario where the pedestrian is initially walking
+    SCE_STARTUP = 3 # a scenario with both agents starting from zero speed, at non-interaction distance
     SCENARIO = SCE_BASELINE
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
         CONST_ACCS = (None, None)
-        
     elif SCENARIO == SCE_KEIODECEL:
-        INITIAL_POSITIONS = np.array([[0,-2.5], [13.9*2.29, 0]])
+        INITIAL_POSITIONS = np.array([[0,-SHARED_PARAMS.d_C-0.5], 
+                                      [13.9*2.29, 0]])
         SPEEDS = np.array((0, 13.9))
         stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C
         # fix car behaviour to yielding, and simplify to only a single speed
         # increase option for the pedestrian
         CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
         DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
+    elif SCENARIO == SCE_PEDATSPEEDDECEL:
+        INITIAL_POSITIONS = np.array([[0,-6], [30, 0]])
+        SPEEDS = np.array((1.5, 10))
+        stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C - 0.5
+        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
     elif SCENARIO == SCE_STARTUP:
         INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
         SPEEDS = np.array((0, 0))
@@ -1491,9 +1499,9 @@ if __name__ == "__main__":
     #params.V_ny_rel = -1.1
     #params.T_P = 1
     #params.T_O1 = 0.05
-    #params.T_Of = 0.5
-    #params.sigma_O = 0.04
-    #params.thetaDot_1 = 10
+    #params.T_Of = math.inf
+    #params.sigma_O = 0.05
+    #params.thetaDot_1 = 0.2
     #params.beta_V = 60
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,

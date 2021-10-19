@@ -321,8 +321,9 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         ego_dist_to_exit = ego_state.signed_CP_dist + coll_dist
         accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
             get_acc_to_be_at_dist_at_time(
-                ego_state.long_speed, ego_dist_to_exit, 
-                oth_state.cs_entry_time[oth_pred], consider_stop=True)
+                ego_state.long_speed, ego_dist_to_exit + ego_image.params.D_s, 
+                oth_state.cs_entry_time[oth_pred] - ego_image.params.T_s, 
+                consider_stop=True)
         # if the acceleration to free speed is higher than the acceleration
         # needed to exit just as the other agent enters, there is no need to
         # assume that the agent will move slower than its free speed
@@ -360,12 +361,12 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
             oth_exit_time = oth_state.cs_exit_time[oth_pred]
             accs[AccessOrder.EGOSECOND], T_accs[AccessOrder.EGOSECOND] = \
                 get_acc_to_be_at_dist_at_time(
-                    ego_state.long_speed, ego_dist_to_entry,
-                    oth_exit_time, consider_stop=True)
+                    ego_state.long_speed, ego_dist_to_entry - ego_image.params.D_s,
+                    oth_exit_time + ego_image.params.T_s, consider_stop=True)
             if math.isinf(oth_exit_time):
                 T_dws[AccessOrder.EGOSECOND] = math.inf
             else:
-                T_dws[AccessOrder.EGOSECOND] = (oth_exit_time
+                T_dws[AccessOrder.EGOSECOND] = max(0, oth_exit_time
                                                 - T_accs[AccessOrder.EGOSECOND])
             # if the acceleration to free speed is lower than the acceleration
             # needed to enter just as the other agent exits, there is no need to
