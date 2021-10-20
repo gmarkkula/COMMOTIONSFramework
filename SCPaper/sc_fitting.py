@@ -29,7 +29,7 @@ AGENT_CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION)
 AGENT_FREE_SPEEDS = np.array([1.3, 50 / 3.6]) # m/s 
 AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
 COLLISION_MARGIN = 0.5 # m
-TIME_STEP = 0.02 # s
+TIME_STEP = 0.1 # s
 END_TIME = 8 # s
 V_NY_REL = -1.5
 
