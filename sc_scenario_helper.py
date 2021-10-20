@@ -27,7 +27,8 @@ AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
                                                 ['acc', 'T_acc', 'T_dw'])
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
-                                      ['ctrl_type', 'params', 'v_free', 'V_free'])
+                                      ['ctrl_type', 'params', 'v_free', 
+                                       'V_free', 'eff_width'])
 
 
 
@@ -320,8 +321,9 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         ego_dist_to_exit = ego_state.signed_CP_dist + coll_dist
         accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
             get_acc_to_be_at_dist_at_time(
-                ego_state.long_speed, ego_dist_to_exit, 
-                oth_state.cs_entry_time[oth_pred], consider_stop=True)
+                ego_state.long_speed, ego_dist_to_exit + ego_image.params.D_s, 
+                oth_state.cs_entry_time[oth_pred] - ego_image.params.T_s, 
+                consider_stop=True)
         # if the acceleration to free speed is higher than the acceleration
         # needed to exit just as the other agent enters, there is no need to
         # assume that the agent will move slower than its free speed
@@ -359,12 +361,12 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
             oth_exit_time = oth_state.cs_exit_time[oth_pred]
             accs[AccessOrder.EGOSECOND], T_accs[AccessOrder.EGOSECOND] = \
                 get_acc_to_be_at_dist_at_time(
-                    ego_state.long_speed, ego_dist_to_entry,
-                    oth_exit_time, consider_stop=True)
+                    ego_state.long_speed, ego_dist_to_entry - ego_image.params.D_s,
+                    oth_exit_time + ego_image.params.T_s, consider_stop=True)
             if math.isinf(oth_exit_time):
                 T_dws[AccessOrder.EGOSECOND] = math.inf
             else:
-                T_dws[AccessOrder.EGOSECOND] = (oth_exit_time
+                T_dws[AccessOrder.EGOSECOND] = max(0, oth_exit_time
                                                 - T_accs[AccessOrder.EGOSECOND])
             # if the acceleration to free speed is lower than the acceleration
             # needed to enter just as the other agent exits, there is no need to
@@ -450,6 +452,34 @@ def get_sc_agent_collision_margins(ag1_ds, ag2_ds, coll_dist):
                          + np.maximum(ag2_margins_to_CS, 0))
     collision_idxs = np.nonzero(np.logical_and(ag1_in_CS, ag2_in_CS))[0]
     return (collision_margins, collision_idxs)
+
+
+def get_agent_optical_size(ego_state, oth_state, oth_image):
+    """
+    Return the optical size, in radians, of the agent described by
+    oth_state and oth_image, as seen by an agent with state ego_state.
+
+    """
+    dist = math.sqrt(ego_state.signed_CP_dist ** 2 
+                     + oth_state.signed_CP_dist ** 2)
+    theta = 2 * math.atan(oth_image.eff_width / (2 * dist))
+    return theta
+
+
+def get_agent_optical_exp(ego_state, oth_state, oth_image):
+    """
+    Return the visual looming, in rad/s, of the agent described by
+    oth_state and oth_image, as seen by an agent with state ego_state.
+
+    """
+    # see handwritten notes dated 2021-10-12
+    dist = math.sqrt(ego_state.signed_CP_dist ** 2 
+                     + oth_state.signed_CP_dist ** 2)
+    thetaDot = -((oth_image.eff_width / dist)
+                 * (ego_state.signed_CP_dist * (-ego_state.long_speed)
+                    + oth_state.signed_CP_dist * (-oth_state.long_speed))
+                 / (dist ** 2 + oth_image.eff_width ** 2 / 4))
+    return thetaDot
         
 
 # "unit tests"
@@ -462,7 +492,7 @@ if __name__ == "__main__":
     plt.close('all')
     
     TEST_ACCESS_ORDER_ACCS = True
-    TEST_TTCS = True
+    TEST_TTCS_AND_LOOMING = True
 
 # =============================================================================
 #   Testing get_access_order_accs()
@@ -553,7 +583,8 @@ if __name__ == "__main__":
             ego_ctrl_type = EGO_CTRL_TYPES[i_test]
             ego_image = SCAgentImage(ego_ctrl_type, 
                                      EGO_PARAMS[ego_ctrl_type], 
-                                     EGO_V_FREE[ego_ctrl_type])
+                                     v_free = EGO_V_FREE[ego_ctrl_type],
+                                     V_free = None, eff_width = None)
             ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
             oth_state = commotions.KinematicState(long_speed = OTH_VS[i_test])
             oth_state.long_acc = OTH_AS[i_test]
@@ -600,20 +631,24 @@ if __name__ == "__main__":
     
     
 # =============================================================================
-#   Testing get_time_to_sc_agent_collision()
+#   Testing get_time_to_sc_agent_collision() and get_agent_optical_exp()
 # =============================================================================
             
-    if TEST_TTCS:
+    if TEST_TTCS_AND_LOOMING:
         
         # defining the scenarios
-        TESTS = ('Colliding', 'Not colliding', 'Stopping')
+        TESTS = ('Ped const - Colliding', 
+                 'Ped const - Not colliding', 'Ped const - Stopping', 
+                 'Ped stat - Passing', 'Ped stat - Stopping')
         N_TESTS = len(TESTS)
         COLL_DIST = 2
-        AG2_V0 = 1
-        AG2_D0 = 4
-        AG1_V0S = (10, 10, 10)
-        AG1_D0S = (40, (4+COLL_DIST)*10+COLL_DIST+0.1, 40)
-        AG1_ACCS = (0, 0, -10**2/(2*(40-COLL_DIST)))
+        AG_EFF_WIDTH = [1.8, 0.8] # car, pedestrian
+        AG1_V0S = (10, 10, 10, 10, 10)
+        AG1_D0S = (40, (4+COLL_DIST)*10+COLL_DIST+0.1, 40, 40, 40)
+        STOP_ACC = -10**2/(2*(40-COLL_DIST))
+        AG1_ACCS = (0, 0, STOP_ACC, 0, STOP_ACC)
+        AG2_V0S = (1, 1, 1, 0, 0)
+        AG2_D0S = (4, 4, 4, 2.5, 2.5)
         AG_COLORS = ('c', 'm')
         END_TIME = 10 # s
         TIME_STEP = 0.005 # s
@@ -627,32 +662,39 @@ if __name__ == "__main__":
             ds = d0 - np.cumsum(TIME_STEP * vs)
             return (ds, vs)
         
-        # vectors for agent distances and speeds (same across all scenarios for
-        # agent 2)
+        # vectors for agent distances and speeds
         ag_ds = np.full((2, N_TIME_STEPS), math.nan)
         ag_vs = np.full((2, N_TIME_STEPS), math.nan)
-        (ag_ds[1,:], ag_vs[1,:]) = get_ds_and_vs(AG2_D0, AG2_V0, 0)
         
-        # agent state objects
+        # agent image and state objects
+        ag_image = []
         ag_state = [] 
-        ag_state.append(commotions.KinematicState())
-        ag_state.append(commotions.KinematicState())
+        for i in range(2):
+            ag_image.append(SCAgentImage(None, None, None, None, AG_EFF_WIDTH[i]))
+            ag_state.append(commotions.KinematicState())
 
         # loop throgh scenarios
         for i_test, test_name in enumerate(TESTS):
             
-            fig = plt.figure(test_name)
-            axs = fig.subplots(nrows = 4, sharex = True)
+            fig = plt.figure(test_name, figsize = (8, 9))
+            axs = fig.subplots(nrows = 6, sharex = True)
             
-            # get agent 1 distances and speeds for this scenario
-            (ag_ds[0,:], ag_vs[0,:]) = get_ds_and_vs(AG1_D0S[i_test], AG1_V0S[i_test], 
-                                             AG1_ACCS[i_test])
+            # get agent distances and speeds for this scenario
+            (ag_ds[0,:], ag_vs[0,:]) = get_ds_and_vs(AG1_D0S[i_test], 
+                                                     AG1_V0S[i_test], 
+                                                     AG1_ACCS[i_test])
+            (ag_ds[1,:], ag_vs[1,:]) = get_ds_and_vs(AG2_D0S[i_test], 
+                                                     AG2_V0S[i_test], 0)
             
             # get and plot TTCs, both without and with consideration of accelerations
             for consider_acc in (True, False):
                 ttcs = np.full(N_TIME_STEPS, math.nan)
+                thetas = np.full((2, N_TIME_STEPS), math.nan)
+                thetaDots = np.full((2, N_TIME_STEPS), math.nan)
+                thetaDotsNum = np.full((2, N_TIME_STEPS), math.nan)
                 for i, time in enumerate(TIME_STAMPS):
                     
+                    # loop through agents and set their current states
                     for i_agent in range(2):
                         ag_state[i_agent].signed_CP_dist = ag_ds[i_agent, i]
                         ag_state[i_agent].long_speed = ag_vs[i_agent, i]
@@ -662,9 +704,25 @@ if __name__ == "__main__":
                             ag_state[i_agent].long_acc = 0
                         ag_state[i_agent] = add_entry_exit_times_to_state(
                                 ag_state[i_agent], COLL_DIST)
-                            
+                     
+                    # loop through agent and get theoretical optical size and
+                    # expansion
+                    for i_agent in range(2):
+                        thetas[i_agent, i] = get_agent_optical_size(
+                            ag_state[i_agent], ag_state[1-i_agent], ag_image[1-i_agent])
+                        thetaDots[i_agent, i] = get_agent_optical_exp(
+                            ag_state[i_agent], ag_state[1-i_agent], ag_image[1-i_agent])
+                        if i == 0:
+                            thetaDotsNum[i_agent, i] = math.nan
+                        else:
+                            thetaDotsNum[i_agent, i] = (
+                                (thetas[i_agent, i] - thetas[i_agent, i-1])
+                                / TIME_STEP)
+                    
+                    # get TTC
                     ttcs[i] = get_time_to_sc_agent_collision(ag_state[0], ag_state[1], 
                                                              consider_acc)
+                    
                 if consider_acc:
                     lw = 4
                     color = 'lightgreen'
@@ -690,6 +748,13 @@ if __name__ == "__main__":
                             edgecolor = None)
                 axs[1].plot(TIME_STAMPS, ag_ds[i_agent,:], 
                                 color = AG_COLORS[i_agent])
+                axs[4].plot(TIME_STAMPS, thetas[i_agent,:], 
+                            color = AG_COLORS[i_agent], lw = 1)
+                axs[5].plot(TIME_STAMPS, thetaDotsNum[i_agent,:], 
+                            color = AG_COLORS[i_agent], lw = 4, 
+                            alpha = 0.3)
+                axs[5].plot(TIME_STAMPS, thetaDots[i_agent,:], 
+                            color = AG_COLORS[i_agent], lw = 1)
             axs[0].set_ylabel('v (m)')
             axs[1].axhline(COLL_DIST, color='r', linestyle='--', lw=0.5)
             axs[1].axhline(-COLL_DIST, color='r', linestyle='--', lw=0.5)
@@ -701,8 +766,11 @@ if __name__ == "__main__":
             axs[3].plot(TIME_STAMPS, coll_margins, 'k-')
             axs[3].plot(TIME_STAMPS[coll_idxs], coll_margins[coll_idxs], 'r.')
             axs[3].set_ylabel('$d_{margin}$ (m)')
-            axs[3].set_xlabel('t (s)')
             axs[3].set_ylim(np.array((-.1, 1)) * COLL_DIST * 3)
+            axs[4].set_ylabel(r'$\theta$ (rad)')
+            axs[5].set_ylim(np.array((-0.2, 0.2)))
+            axs[5].set_ylabel(r'$\dot{\theta}$ (rad/s)')
+            axs[5].set_xlabel('t (s)')
             
 
         

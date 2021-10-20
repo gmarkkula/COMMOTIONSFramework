@@ -22,6 +22,7 @@ from sc_scenario_helper import (CtrlType, AccessOrder, N_ACCESS_ORDERS,
 class OptionalAssumption(Enum):
     oVA = 'oVA'
     oVAa = 'oVAa'
+    oVAl = 'oVAl'
     oEA = 'oEA'
     oAN = 'oAN'
     oBEo = 'oBEo'
@@ -92,9 +93,13 @@ DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th_rel = 0.001 # action decision threshold when doing evidence accumulation, in multiples of squashed V_free
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
+DEFAULT_PARAMS.T_s = 0.5 # safety margin (post encroachment) time (s)
+DEFAULT_PARAMS.D_s = 0.5 # safety margin distance (m)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.V_0_rel = 4 # scale of value squashing function, in multiples of V_free
 DEFAULT_PARAMS.V_ny_rel = 0 # value function term for non-yielding, in multiples of V_free
+DEFAULT_PARAMS.thetaDot_0 = 0.001 # rad/s; minimum value for looming to be aversive
+DEFAULT_PARAMS.thetaDot_1 = 0.1 # rad/s; looming at which the magnitude of the negative looming utility equals V_free
 DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) # available speed/acc change actions, magnitudes in m/s or m/s^2 dep on agent type
 
 # default gains for affordance-based value function
@@ -137,7 +142,7 @@ def get_default_params(oVA):
 
 
 SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.d_C = 2 # collision distance
+SHARED_PARAMS.d_C = 1.5 # collision distance
 
 TTC_FOR_COLLISION = 0.1
 MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are considered zero
@@ -164,7 +169,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
                                       params = oth_params, 
                                       v_free = oth_v_free,
-                                      V_free = oth_V_free)
+                                      V_free = oth_V_free,
+                                      eff_width = self.other_agent.eff_width)
         # allocate vectors for storing internal states
         n_time_steps = self.simulation.settings.n_time_steps
         self.states = States()
@@ -205,6 +211,7 @@ class SCAgent(commotions.AgentWithGoal):
         # - other states
         self.states.time_left_to_CA_entry = math.nan * np.ones(n_time_steps)
         self.states.time_left_to_CA_exit = math.nan * np.ones(n_time_steps)
+        self.states.thetaDot = math.nan * np.ones(n_time_steps)
         # set initial values for states that depend on the previous time step
         self.states.est_action_vals[:, -1] = 0
         self.states.beh_activ_V_given_actions[:, :, -1] = 0
@@ -332,6 +339,12 @@ class SCAgent(commotions.AgentWithGoal):
         else:
             self.states.time_left_to_CA_exit[i_time_step] = \
                 i_time_steps_exited[0] * time_step
+                
+        if not self.oth_image.eff_width is None:
+            # calculate and store looming state information - not used except for
+            # visualisation
+            self.states.thetaDot[i_time_step] = sc_scenario_helper.get_agent_optical_exp(
+                self.curr_state, self.other_agent.curr_state, self.oth_image)
 
         # calculate the accelerations needed for the different behaviors of the 
         # other agent, as of the current time 
@@ -353,8 +366,8 @@ class SCAgent(commotions.AgentWithGoal):
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
         # - is the constant behaviour valid for this time step?
-        if ((not self.assumptions[OptionalAssumption.oVAa]) 
-            and (self.assumptions[DerivedAssumption.dBE] and
+        if (#(not self.assumptions[OptionalAssumption.oVAa]) and
+            (self.assumptions[DerivedAssumption.dBE] and
             (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND]))):
             # no the constant behaviour is not valid, because we are not
             # doing acceleration-aware affordance-based value estimation, and
@@ -375,16 +388,16 @@ class SCAgent(commotions.AgentWithGoal):
             pred_oth_states.append(self.get_predicted_other_state(i_beh))
             
         # are we doing a value function snapshot at this time step? 
-        if self.doing_snapshots and (time_stamp in self.snapshot_times):
-            self.do_snapshot_now = True
-            # set up the figure
-            fig_name = 'Snapshot for %s at t = %.2f s' % (self.name, time_stamp)
-            fig = plt.figure(num=fig_name, figsize=(15, 10))
-            fig.clf()
-            axs = fig.subplots(nrows=N_BEHAVIORS, ncols=self.n_actions,
-                                    sharex=True, sharey=True)
-        else:
-            self.do_snapshot_now = False
+        self.do_snapshot_now = False
+        if self.doing_snapshots:
+            if np.amin(np.abs(np.array(self.snapshot_times) - time_stamp)) < 0.00001:
+                self.do_snapshot_now = True
+                # set up the figure
+                fig_name = 'Snapshot for %s at t = %.2f s' % (self.name, time_stamp)
+                fig = plt.figure(num=fig_name, figsize=(15, 10))
+                fig.clf()
+                axs = fig.subplots(nrows=N_BEHAVIORS, ncols=self.n_actions,
+                                        sharex=True, sharey=True)
             
         # now loop over all combinations of own actions and other's behaviors, 
         # and get values from both agents' perspectives
@@ -637,9 +650,10 @@ class SCAgent(commotions.AgentWithGoal):
     def squash_value(self, input_values):
         return np.tanh(input_values / self.params.V_0)
 
-    def get_access_order_values_for_agent_v02(self, ego_image, ego_curr_state,
-                                         ego_pred_state, oth_pred_state,
-                                         snapshot_color, snapshot_loc):
+    def get_access_order_values_for_agent_v02(self, ego_image, 
+                                              ego_curr_state, ego_pred_state, 
+                                              oth_image, oth_pred_state,
+                                              snapshot_color, snapshot_loc):
         
         # skipping goal stopping for now - I think the sensible way of adding
         # it back in later is to include an independent term for it, valuating
@@ -659,6 +673,21 @@ class SCAgent(commotions.AgentWithGoal):
         action_value = sc_scenario_helper.get_value_of_const_jerk_interval(
                 v0 = ego_curr_state.long_speed, a0 = action_acc0, j = action_jerk, 
                 T = ego_image.params.DeltaT, k = ego_image.params.k)
+        
+        # get value of any looming experienced at the predicted moment
+        looming_value = 0
+        if self.assumptions[OptionalAssumption.oVAl]:
+            ttc = sc_scenario_helper.get_time_to_sc_agent_collision(
+                        ego_pred_state, oth_pred_state, consider_acc=False)
+            if ttc > 0 and ttc < math.inf:
+                # on a collision course, get looming and calculate value
+                thetaDot = sc_scenario_helper.get_agent_optical_exp(
+                    ego_pred_state, oth_pred_state, oth_image)
+                if thetaDot > ego_image.params.thetaDot_0:
+                    looming_value = (-ego_image.V_free
+                                     * (thetaDot - ego_image.params.thetaDot_0)
+                                     / (ego_image.params.thetaDot_1 
+                                        - ego_image.params.thetaDot_0))                    
         
         # get constant value for remainder of trip after action and possible
         # interaction, i.e., V_free
@@ -686,8 +715,9 @@ class SCAgent(commotions.AgentWithGoal):
                 # access order not valid from this state
                 value = -math.inf
             else:
-                # valuation of the action/prediction time interval
-                value = action_value
+                # valuation of the action/prediction time interval, and any
+                # looming experienced after the prediction interval
+                value = action_value + looming_value
                 # get the duration of the interval where the access order is 
                 # achieved (the get_value_... helper function can't handle 
                 # infinite times so cap at an hour...)
@@ -743,10 +773,10 @@ class SCAgent(commotions.AgentWithGoal):
                                       implications[access_order].T_acc,
                                       implications[access_order].T_dw) + '\n'
                                      + 'V = %.2f' % value + '\n'
-                                     +'(%.1f, %.1f, %.1f, %.1f, %.1f)' % 
-                                     (action_value, ach_access_value,
-                                      inh_access_value, regain_value,
-                                      final_value) + '\n')
+                                     +'(%.1f, %.1f, %.1f, %.1f, %.1f, %.1f)' % 
+                                     (action_value, looming_value, 
+                                      ach_access_value, inh_access_value, 
+                                      regain_value, final_value) + '\n')
             # squash the value with a sigmoid
             value = self.squash_value(value)
             # store the value of this access order in the output numpy array
@@ -779,6 +809,7 @@ class SCAgent(commotions.AgentWithGoal):
                 ego_image = self.self_image, 
                 ego_curr_state = self.curr_state, 
                 ego_pred_state = my_pred_state, 
+                oth_image = self.oth_image,
                 oth_pred_state = oth_pred_state,
                 snapshot_color = self.plot_color,
                 snapshot_loc = 'topleft')
@@ -790,6 +821,7 @@ class SCAgent(commotions.AgentWithGoal):
                 ego_image = self.oth_image, 
                 ego_curr_state = self.other_agent.curr_state, 
                 ego_pred_state = oth_pred_state,
+                oth_image = self.self_image,
                 oth_pred_state = my_pred_state,
                 snapshot_color = self.other_agent.plot_color,
                 snapshot_loc = 'bottomright')
@@ -946,8 +978,8 @@ class SCAgent(commotions.AgentWithGoal):
 
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
                  optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, const_acc = None, 
-                 plot_color = 'k', snapshot_times = None):
+                 params = None, params_k = None, eff_width = None,
+                 const_acc = None, plot_color = 'k', snapshot_times = None):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -985,6 +1017,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.params.k = copy.copy(self.params.k_all[self.ctrl_type])
 
         # parse the optional assumptions
+        if self.assumptions[OptionalAssumption.oVAl]:
+            # looming aversion, so ensure an effective width has been specified
+            if eff_width is None:
+                raise Exception('Optional assumption oVAl enabled, so'
+                                ' need to provide an effective agent width.')
         if not self.assumptions[OptionalAssumption.oEA]:
             # no evidence accumulation, implemented by value accumulation 
             # reaching input value in one time step...
@@ -1004,12 +1041,15 @@ class SCAgent(commotions.AgentWithGoal):
             or self.assumptions[OptionalAssumption.oBEv]
         if not self.assumptions[OptionalAssumption.oVA]:
             if self.assumptions[OptionalAssumption.oVAa]:
-                warnings.warn('Cannot have oVAa without oVA, so disabling oVA.')
+                warnings.warn('Cannot have oVAa without oVA, so disabling oVAa.')
                 self.assumptions[OptionalAssumption.oVAa] = False
                 
         # get and store the number of actions, and the "non-action" action
         self.n_actions = len(self.params.ctrl_deltas)
         self.i_no_action = np.argwhere(self.params.ctrl_deltas == 0)[0][0]
+        
+        # store own "effective width"
+        self.eff_width = eff_width
 
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
@@ -1036,7 +1076,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
                                        params = self.params, 
                                        v_free = self.v_free,
-                                       V_free = self.V_free)
+                                       V_free = self.V_free,
+                                       eff_width = self.eff_width)
 
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
@@ -1059,9 +1100,9 @@ class SCSimulation(commotions.Simulation):
                  initial_speeds = np.array((0, 0)), 
                  start_time = 0, end_time = 10, time_step = 0.1, 
                  optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, const_accs = (None, None),
-                 agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
-                 snapshot_times = (None, None)):
+                 params = None, params_k = None, eff_widths = (None, None), 
+                 const_accs = (None, None), agent_names = ('A', 'B'), 
+                 plot_colors = ('c', 'm'), snapshot_times = (None, None)):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -1075,7 +1116,8 @@ class SCSimulation(commotions.Simulation):
                     goal_pos = goal_positions[i_agent, :], 
                     initial_state = initial_state, 
                     optional_assumptions = optional_assumptions, 
-                    params = params, params_k = params_k, 
+                    params = params, params_k = params_k,
+                    eff_width = eff_widths[i_agent],
                     const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
@@ -1106,7 +1148,7 @@ class SCSimulation(commotions.Simulation):
                  action_val_ests = False, surplus_action_vals = False, 
                  beh_activs = False, beh_accs = False, beh_probs = False, 
                  sensory_prob_dens = False, kinem_states = False, 
-                 times_to_ca = False):
+                 times_to_ca = False, looming = False):
 
 
         if self.agents[0].assumptions[DerivedAssumption.dBE]:
@@ -1129,7 +1171,7 @@ class SCSimulation(commotions.Simulation):
             plt.figure('Action values given behaviours', figsize = (10.0, 10.0))
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
                     plt.subplot(agent.n_actions, N_AGENTS, \
                                 i_action * N_AGENTS +  i_agent + 1)
                     plt.ylim(-1.1, 1.1)
@@ -1149,7 +1191,7 @@ class SCSimulation(commotions.Simulation):
             plt.figure('Action probabilities', figsize = (10.0, 10.0))
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
                     plt.subplot(agent.n_actions, N_AGENTS, \
                                 i_action * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, 
@@ -1165,7 +1207,7 @@ class SCSimulation(commotions.Simulation):
             plt.figure('Action value estimates', figsize = (10.0, 10.0))
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
                     plt.subplot(agent.n_actions, N_AGENTS, 
                                 i_action * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, 
@@ -1185,7 +1227,7 @@ class SCSimulation(commotions.Simulation):
             plt.figure('Surplus action value estimates', figsize = (6, 5))
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
                     plt.subplot(agent.n_actions, N_AGENTS, 
                                 i_action * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, 
@@ -1215,7 +1257,7 @@ class SCSimulation(commotions.Simulation):
                     if i_beh == n_plot_behaviors-1:
                         plt.legend(('$\\beta_O A_{O,b}$',))
                     # value contribution and total activation - both per action
-                    for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                    for i_action, deltav in enumerate(agent.params.ctrl_deltas):
                         plt.subplot(agent.n_actions+1, n_plot_behaviors, 
                                     (i_action+1) * n_plot_behaviors + i_beh + 1)
                         plt.plot(self.time_stamps, 
@@ -1257,7 +1299,7 @@ class SCSimulation(commotions.Simulation):
             plt.figure('Behaviour probabilities', figsize = [8, 7])
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
-                for i_action, deltav in enumerate(DEFAULT_PARAMS.ctrl_deltas):
+                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
                     plt.subplot(agent.n_actions, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
                     for i_beh in range(n_plot_behaviors):
                         # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
@@ -1390,6 +1432,20 @@ class SCSimulation(commotions.Simulation):
                     plt.ylabel('Time left (s)')
                 else:
                     plt.legend(('To CA entry', 'To CA exit'))
+                  
+                    
+        if looming:
+            plt.figure('Visual looming')
+            plt.clf()
+            legend_strs = []
+            for i_agent, agent in enumerate(self.agents):
+                plt.plot(self.time_stamps, agent.states.thetaDot, 
+                         color=agent.plot_color)
+                legend_strs.append(f'Seen by {agent.name}')
+            plt.legend(legend_strs)
+            plt.xlabel('Time (s)')
+            plt.ylabel(r'$\dot{\theta}$ (rad/s)')
+
 
         plt.show()
 
@@ -1404,26 +1460,33 @@ if __name__ == "__main__":
     # scenario basics
     NAMES = ('P', 'V')
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
+    EFF_WIDTHS = (0.8, 1.8)
     
     # scenario
     GOALS = np.array([[0, 5], [-50, 0]])
     SCE_BASELINE = 0 # "baseline" kinematics
     SCE_KEIODECEL = 1 # a deceleration scenario from the Keio study
-    SCE_STARTUP = 2 # a scenario with both agents starting from zero speed, at non-interaction distance
+    SCE_PEDATSPEEDDECEL = 2 # a deceleration scenario where the pedestrian is initially walking
+    SCE_STARTUP = 3 # a scenario with both agents starting from zero speed, at non-interaction distance
     SCENARIO = SCE_BASELINE
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
         CONST_ACCS = (None, None)
-        
     elif SCENARIO == SCE_KEIODECEL:
-        INITIAL_POSITIONS = np.array([[0,-2.5], [13.9*2.29, 0]])
+        INITIAL_POSITIONS = np.array([[0,-SHARED_PARAMS.d_C-0.5], 
+                                      [13.9*2.29, 0]])
         SPEEDS = np.array((0, 13.9))
         stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C
         # fix car behaviour to yielding, and simplify to only a single speed
         # increase option for the pedestrian
         CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
         DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
+    elif SCENARIO == SCE_PEDATSPEEDDECEL:
+        INITIAL_POSITIONS = np.array([[0,-6], [30, 0]])
+        SPEEDS = np.array((1.5, 10))
+        stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C - 0.5
+        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
     elif SCENARIO == SCE_STARTUP:
         INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
         SPEEDS = np.array((0, 0))
@@ -1436,12 +1499,14 @@ if __name__ == "__main__":
     #params.V_ny_rel = -1.1
     #params.T_P = 1
     #params.T_O1 = 0.05
-    #params.T_Of = 0.5
-    #params.sigma_O = 0.1
+    #params.T_Of = math.inf
+    #params.sigma_O = 0.05
+    #params.thetaDot_1 = 0.2
     #params.beta_V = 60
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
+                                                oVAl = False,
                                                 oBEo = False,
                                                 oBEv = False, 
                                                 oAI = False,
@@ -1453,7 +1518,7 @@ if __name__ == "__main__":
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
-            const_accs = CONST_ACCS, agent_names = NAMES, 
+            eff_widths = EFF_WIDTHS, const_accs = CONST_ACCS, agent_names = NAMES, 
             params = params, snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
     tic = time.perf_counter()
     sc_simulation.run()
@@ -1464,7 +1529,7 @@ if __name__ == "__main__":
     sc_simulation.do_plots(
             trajs = True, action_val_ests = True, surplus_action_vals = True, 
             kinem_states = True, beh_accs = True, beh_probs = True, action_vals = True, 
-            sensory_prob_dens = False, beh_activs = True)
+            sensory_prob_dens = False, beh_activs = True, looming = True)
     if sc_simulation.first_passer is None:
         print('Neither agent entered the conflict area.')
     else:

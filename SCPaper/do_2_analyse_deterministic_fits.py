@@ -20,9 +20,9 @@ import parameter_search
 import sc_fitting
 
 # constants
-DO_PLOTS = False
+DO_PLOTS = True
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
-ASSUMPTIONS_TO_NOT_ANALYSE = 'oVA'
+ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
 SURPLUS_DEC_THRESH = 2 # m/s^2
 HESITATION_SPEED_FRACT = 0.8

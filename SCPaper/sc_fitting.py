@@ -125,7 +125,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
                 setattr(self.params, param_name, param_value)
     
     
-    def simulate_scenario(self, scenario):
+    def simulate_scenario(self, scenario, snapshots=(None, None)):
         """
         Run a given scenario for the model parameterisation currently
         specified by self.params and self.params_k.
@@ -158,7 +158,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
             optional_assumptions=self.optional_assumptions, 
             params=self.params, params_k=self.params_k,
-            agent_names=AGENT_NAMES)
+            agent_names=AGENT_NAMES, snapshot_times=snapshots)
         
         # run the simulation
         sc_simulation.run()

@@ -94,9 +94,22 @@ The value function $V_X[\tilde{\mathbf{x}}(k) | \mathscr{C}]$ is the estimated v
 
 If $\mathscr{C}$ contains an outcome $\Omega \in \{ \Omega_{1st}, \Omega_{2nd} \}$ (passing the conflict space first or second), then the value function is calculated as follows:
 
-1. Estimating the predicted world state $\tilde{\mathbf{x}}'$ a time $T_\mathrm{P}$ into the future, given the current state $\tilde{\mathbf{x}}(k)$ and $\mathscr{C}$, some combination of an action $a$ initiated at time $k$ by the ego agent A, a behaviour $b$ exhibited by the other agent B from $k$ onward, and a behaviour $c$ exhibited by the ego agent A from time $k + T_\mathrm{P}/\Delta t$ onward (not 100% sure about this last one - isn't really implemented yet).
+1. Estimating the predicted world state $\tilde{\mathbf{x}}'$ a time $T_\mathrm{P}$ into the future, given the current state $\tilde{\mathbf{x}}(k)$ and $\mathscr{C}$, and some combination of 
+    * An action $a$ initiated at time $k$ by the ego agent A
+    * A behaviour $b$ exhibited by the other agent B from $k$ onward
+    * A behaviour $c$ exhibited by the ego agent A from time $k + T_\mathrm{P}/\Delta t$ onward (not 100% sure about this last one - isn't really implemented yet).
 2. Calculating the acceleration needed for agent $X$ to achieve outcome $\Omega$, given the position and speed of agent $X$ in $\tilde{\mathbf{x}}'$, and the position, speed, and possibly acceleration of agent $\lnot X$ in $\tilde{\mathbf{x}}'$. Acceleration is considered if `oVAa` is enabled.
 3. Calculating the value of the resulting future trajectory of $X$, as described in `COMMOTIONSFramework` diary entry 2021-05-19b (maybe to be described here also later).
+4. If `oVAl` is enabled and the agents are on a collision course at $k + T_\mathrm{P}/\Delta t$, also adding a negative looming aversion value:
+
+$$
+V_{\dot{\theta}} = 
+    \begin{cases}
+        - V_\mathrm{free} \frac{  \dot{\theta} - \dot{\theta}_0 }{  \dot{\theta}_1 - \dot{\theta}_0 } & \text{if } \dot{\theta} > \dot{\theta}_0 \\
+        0 & \text{otherwise}
+    \end{cases}
+$$
+where $V_\mathrm{free}$ is the value of being at one's free speed without any interaction, $\dot{\theta}_0$ is the looming value above which looming starts to be aversive, and $\dot{\theta}_1$ is the looming value at which the magnitude of the negative looming value equals $V_\mathrm{free}$.
 
 If $X = A$ and $\mathscr{C}$ does *not* contain an outcome $\Omega$, then the value estimate is simply the maximum value of the two possible outcomes:
 $$
@@ -111,6 +124,7 @@ $$
 
 As mentioned above, the value function is affected by the following optional assumption:
 * `oVAa`, acceleration-aware (affordance-based) value estimation.
+* `oVAl`, looming aversion.
 
 ### Estimating probabilities of the other agent's possible behaviours
 
