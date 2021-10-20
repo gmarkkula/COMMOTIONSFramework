@@ -57,7 +57,7 @@ DEFAULT_PARAMS.T_O1 = 0.05
 #DEFAULT_PARAMS.DeltaV_th_rel = 0.001 
 DEFAULT_PARAMS.DeltaT = 0.5 
 DEFAULT_PARAMS.V_0_rel = 4 
-DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) 
+DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]) 
 # -- free parameter values
 PARAM_ARRAYS = {}
 PARAM_ARRAYS['T'] = (0.2, 0.4, 0.6, 0.8)
