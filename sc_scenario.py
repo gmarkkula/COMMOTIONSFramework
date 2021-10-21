@@ -1099,15 +1099,9 @@ class SCAgent(commotions.AgentWithGoal):
         
         # get and store V_free, the "free" value for the agent of just
         # proceeding at the free speed, without any interaction
-        if self.assumptions[OptionalAssumption.oVA]:
-            # the time-discounted future total value of the rest of the journey
-            self.V_free = ( (self.params.T_delta / math.log(2)) * 
-                          sc_scenario_helper.get_const_value_rate(
-                                  v=self.v_free, a=0, k=self.params.k) )
-        else:
-            # just the snapshot value of being at the free speed
-            self.V_free = (self.params.k._g * self.v_free 
-                           - self.params.k._dv * self.v_free ** 2)
+        self.V_free = sc_scenario_helper.get_agent_free_value(
+            self.params, get_total_future_val =
+            self.assumptions[OptionalAssumption.oVA])
         
         # get derived parameters 
         self.params.V_0 = self.V_free * self.params.V_0_rel

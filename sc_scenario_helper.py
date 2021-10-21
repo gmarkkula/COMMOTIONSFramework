@@ -34,7 +34,7 @@ i_WAIT = AnticipationPhase.WAIT.value
 i_REGAIN_SPD = AnticipationPhase.REGAIN_SPD.value
 i_CONTINUE = AnticipationPhase.CONTINUE.value
 N_ANTICIPATION_PHASES = len(AnticipationPhase)
-ANTICIPATION_TIME_STEP = 0.2
+ANTICIPATION_TIME_STEP = 0.1
 ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
@@ -66,6 +66,7 @@ SCAgentImage = collections.namedtuple('SCAgentImage',
 def get_agent_free_speed(k):
     return k._g / (2 * k._dv)
 
+
 def set_val_gains_for_free_speed(k, v_free):
     """ Set properties _g and _dv of k to yield the free speed v_free, and 
         a normalised value at free speed equal to 1. 
@@ -74,6 +75,22 @@ def set_val_gains_for_free_speed(k, v_free):
     """
     k._g = 2 / v_free
     k._dv = 1 / v_free ** 2
+  
+    
+def get_agent_free_value(params, get_total_future_val):
+    """ Return the value V_free for an agent with parameters params of being
+        at its free speed. Either just the snapshot value rate fit 
+        get_total_future_val is False, otherwise the total time-discounted
+        future value of the rest of a long journey at the free speed.
+    """
+    v_free = get_agent_free_speed(params.k)
+    value_rate = get_const_value_rate(v=v_free, a=0, k=params.k) 
+    if get_total_future_val:
+        # the time-discounted future total value of the rest of the journey
+        return (params.T_delta / math.log(2)) * value_rate
+    else:
+        # just the snapshot value of being at the free speed
+        return value_rate
 
 
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
@@ -231,12 +248,14 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
     
 
 def set_phase_acceleration(accelerations, idx_phase_starts, i_phase, phase_acc):
+    # Helper function for get_access_order_values().
     accelerations[idx_phase_starts[i_phase]:idx_phase_starts[i_phase+1]] = phase_acc
 
 
 def get_access_order_values(ego_image, oth_image, 
                             v0, action_acc0, action_jerk, 
                             access_ord_impls, return_details = False):
+    # TODO add documentation here.
     
     access_ord_values = {}
     for access_ord in AccessOrder:
@@ -452,7 +471,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         T_acc_free = agent_time_to_v_free
         
     # has the ego agent already exited the conflict space?
-    if ego_state.signed_CP_dist <= -coll_dist:
+    if ego_state.signed_CP_dist <= -coll_dist - ego_image.params.D_s:
         # yes - so no interaction left to do - return just the acceleration 
         # to free speed for both outcomes
         implications = {}
@@ -477,7 +496,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     
     # get acceleration needed to pass first
     # - other agent already entered conflict space?
-    if oth_state.signed_CP_dist <= coll_dist:
+    if oth_state.signed_CP_dist <= coll_dist + ego_image.params.D_s:
         # yes, so not possible for ego agent to pass first
         if return_nans:
             accs[AccessOrder.EGOFIRST] = math.nan
@@ -507,7 +526,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         
     # get acceleration needed to pass second
     # - has the other agent already exited the conflict space?
-    if oth_state.signed_CP_dist <= -coll_dist:
+    if oth_state.signed_CP_dist <= -coll_dist - ego_image.params.D_s:
         # yes, so just accelerate to free speed
         accs[AccessOrder.EGOSECOND] = ego_free_acc
         T_accs[AccessOrder.EGOSECOND] = T_acc_free
@@ -515,7 +534,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     else:
         # no, the other agent hasn't already exited the conflict space
         # has the ego agent already entered conflict space?
-        if ego_state.signed_CP_dist <= coll_dist:
+        if ego_state.signed_CP_dist <= coll_dist + ego_image.params.D_s:
             # yes, so passing in second is no longer an option
             if return_nans:
                 accs[AccessOrder.EGOSECOND] = math.nan
@@ -664,14 +683,14 @@ if __name__ == "__main__":
     
     plt.close('all')
     
-    TEST_ACCESS_ORDER_ACCS = True
+    TEST_ACCESS_ORDERS = True
     TEST_TTCS_AND_LOOMING = True
 
 # =============================================================================
-#   Testing get_access_order_accs()
+#   Testing get_access_order_implications() and ..._values()
 # =============================================================================
     
-    if TEST_ACCESS_ORDER_ACCS:
+    if TEST_ACCESS_ORDERS:
     
         # defining the tests
         TESTS = ('Stationary ped., moving veh.', 'Moving ped., moving veh.',
@@ -722,12 +741,13 @@ if __name__ == "__main__":
         for ctrl_type in CtrlType:
             EGO_PARAMS[ctrl_type] = commotions.Parameters() 
             EGO_PARAMS[ctrl_type].DeltaT = EGO_ACTION_DUR
+            EGO_PARAMS[ctrl_type].T_delta = 30
             EGO_PARAMS[ctrl_type].T_s = 0.5
             EGO_PARAMS[ctrl_type].D_s = 0.5
-        EGO_PARAMS[CtrlType.ACCELERATION].k = commotions.Parameters()
-        EGO_PARAMS[CtrlType.ACCELERATION].k._g = 1 
-        EGO_PARAMS[CtrlType.ACCELERATION].k._dv = 0.05
-        EGO_PARAMS[CtrlType.ACCELERATION].k._da = 0.01
+            EGO_PARAMS[ctrl_type].k = commotions.Parameters()
+            set_val_gains_for_free_speed(EGO_PARAMS[ctrl_type].k, 
+                                         EGO_V_FREE[ctrl_type])
+            EGO_PARAMS[ctrl_type].k._da = 0.5
         OTH_D = {}
         OTH_D[CtrlType.SPEED] = 40
         OTH_D[CtrlType.ACCELERATION] = 6
@@ -755,10 +775,12 @@ if __name__ == "__main__":
             
             # get test settings
             ego_ctrl_type = EGO_CTRL_TYPES[i_test]
+            V_free = get_agent_free_value(EGO_PARAMS[ego_ctrl_type],
+                                          get_total_future_val=True)
             ego_image = SCAgentImage(ego_ctrl_type, 
                                      EGO_PARAMS[ego_ctrl_type], 
                                      v_free = EGO_V_FREE[ego_ctrl_type],
-                                     V_free = None, eff_width = None)
+                                     V_free = V_free, eff_width = None)
             ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
             oth_state = commotions.KinematicState(long_speed = OTH_VS[i_test])
             oth_state.long_acc = OTH_AS[i_test]
@@ -772,36 +794,55 @@ if __name__ == "__main__":
             oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
                 
             # get figure window for test results
-            fig = plt.figure(test_name, figsize = (10, 5))
-            axs = fig.subplots(1, 3)
+            fig = plt.figure(test_name, figsize = (15, 10))
+            axs = fig.subplots(2, 3)
+            axs[1, 0].set_visible(False)
             
             # plot other agent's path
-            axs[0].plot(TIME_STAMPS, oth_distances, 'k-')
-            plot_conflict_window(axs[0], oth_state)
-            axs[0].set_xlabel('Time (s)')
-            axs[0].set_ylabel('$d_{oth}$ (m)')
-            axs[0].set_title("Other agent")
+            axs[0, 0].plot(TIME_STAMPS, oth_distances, 'k-')
+            plot_conflict_window(axs[0, 0], oth_state)
+            axs[0, 0].set_xlabel('Time (s)')
+            axs[0, 0].set_ylabel('$d_{oth}$ (m)')
+            axs[0, 0].set_title("Other agent")
             
             # prepare subplots for passing first/second plots
-            axs[1].set_xlabel('Time (s)')
-            axs[1].set_ylabel('$d_{ego}$ (m)')
-            axs[1].set_title('Ego agent passing first')
-            plot_conflict_window(axs[1], oth_state)
-            axs[2].set_xlabel('Time (s)')
-            axs[2].set_ylabel('$d_{ego}$ (m)')
-            axs[2].set_title('Ego agent passing second')
-            plot_conflict_window(axs[2], oth_state)
+            axs[0, 1].set_ylabel('$d_{ego}$ (m)')
+            axs[0, 1].set_title('Ego agent passing first')
+            axs[1, 1].set_xlabel('Time (s)')
+            axs[1, 1].set_ylabel('Predicted acc. (blue; m/s^2) and speed (grey; m/s)')
+            plot_conflict_window(axs[0, 1], oth_state)
+            axs[0, 2].set_ylabel('$d_{ego}$ (m)')
+            axs[0, 2].set_title('Ego agent passing second')
+            axs[1, 2].set_xlabel('Time (s)')
+            axs[1, 2].set_ylabel('Predicted acc. (blue; m/s^2) and speed (grey; m/s)')
+            plot_conflict_window(axs[0, 2], oth_state)
                 
             # loop through initial distances
             for ego_d in ego_ds:
                 ego_state.signed_CP_dist = ego_d
-                (acc_1st, acc_2nd) = get_access_order_accs(
-                        ego_image, ego_state, oth_state, COLL_DIST)
-                plot_pred_ds(axs[1], ego_state, acc_1st)
-                plot_pred_ds(axs[2], ego_state, acc_2nd)
+                access_ord_impls = get_access_order_implications(
+                    ego_image, ego_state, oth_state, COLL_DIST)
+                plot_pred_ds(axs[0, 1], ego_state, 
+                             access_ord_impls[AccessOrder.EGOFIRST].acc)
+                plot_pred_ds(axs[0, 2], ego_state,
+                             access_ord_impls[AccessOrder.EGOSECOND].acc)
+                access_ord_vals = get_access_order_values(
+                    ego_image, oth_image=None, v0=ego_state.long_speed, 
+                    action_acc0=0, action_jerk=0, 
+                    access_ord_impls=access_ord_impls, return_details=True)
+                for i, access_ord in enumerate(AccessOrder):
+                    deets = access_ord_vals[access_ord].details
+                    if not (deets is None):
+                        axs[1, i+1].plot(deets.time_stamps, deets.speeds, 
+                                         color='gray', alpha=0.5)
+                        axs[1, i+1].plot(deets.time_stamps, deets.accelerations, 
+                                         color='blue', alpha=0.5)
+                
+            
                 
             plt.tight_layout()
             plt.show()
+            
     
     
 # =============================================================================
