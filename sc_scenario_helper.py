@@ -22,9 +22,40 @@ i_EGOFIRST = AccessOrder.EGOFIRST.value
 i_EGOSECOND = AccessOrder.EGOSECOND.value
 N_ACCESS_ORDERS = len(AccessOrder)
 
+class AnticipationPhase(Enum):
+    ACTION = 0
+    ACH_ACCESS = 1
+    WAIT = 2
+    REGAIN_SPD = 3
+    CONTINUE = 4
+i_ACTION = AnticipationPhase.ACTION.value
+i_ACH_ACCESS = AnticipationPhase.ACH_ACCESS.value
+i_WAIT = AnticipationPhase.WAIT.value
+i_REGAIN_SPD = AnticipationPhase.REGAIN_SPD.value
+i_CONTINUE = AnticipationPhase.CONTINUE.value
+N_ANTICIPATION_PHASES = len(AnticipationPhase)
+ANTICIPATION_TIME_STEP = 0.2
+ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
                                                 ['acc', 'T_acc', 'T_dw'])
+
+#ANTICIPATION_PHASES = ('action', 'ach_access', 'wait', 'regain_spd', 'continue')
+#N_ANTICIPATION_PHASES = len(ANTICIPATION_PHASES)
+
+AccessOrderValue = collections.namedtuple('AccessOrderValue',
+                                          ['value', 'details'])
+
+AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
+                                                 ['time_stamps', 
+                                                  'speeds',
+                                                  'accelerations',
+                                                  'idx_phase_starts',
+                                                  'kinematics_values',
+                                                  'looming_values',
+                                                  'discount_factors',
+                                                  'phase_kinem_values',
+                                                  'phase_looming_values'])
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
                                       ['ctrl_type', 'params', 'v_free', 
@@ -198,6 +229,148 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
         - (k._dv * j / 4) * (a0 + j * T / 5) * T**3 )
     return T * av_value_rate
     
+
+def set_phase_acceleration(accelerations, idx_phase_starts, i_phase, phase_acc):
+    accelerations[idx_phase_starts[i_phase]:idx_phase_starts[i_phase+1]] = phase_acc
+
+
+def get_access_order_values(ego_image, oth_image, 
+                            v0, action_acc0, action_jerk, 
+                            access_ord_impls, return_details = False):
+    
+    access_ord_values = {}
+    for access_ord in AccessOrder:
+        
+        if np.isnan(access_ord_impls[access_ord].acc):
+            # access order not valid from this state
+            access_ord_values[access_ord] = AccessOrderValue(
+            value = -math.inf, details = None)
+            continue
+        
+        # get the duration of the anticipation phases 
+        # (except the final "continue" phase)
+        phase_durations = np.full(N_ANTICIPATION_PHASES-1, math.nan)
+        phase_durations[i_ACTION] = ego_image.params.DeltaT
+        phase_durations[i_ACH_ACCESS] = access_ord_impls[access_ord].T_acc
+        phase_durations[i_WAIT] = access_ord_impls[access_ord].T_dw
+        if ego_image.ctrl_type is CtrlType.SPEED:
+            phase_durations[i_REGAIN_SPD] = ego_image.params.DeltaT
+        else:
+            phase_durations[i_REGAIN_SPD] = ACC_CTRL_REGAIN_SPD_TIME
+        cont_phase_start_time = np.sum(phase_durations)
+            
+        # # are any of the phase durations of infinite length?
+        # inf_duration_phases = np.nonzero(np.isinf(phase_durations))[0]
+        # if len(inf_duration_phases) > 0:
+        #     i_final_integr_phase = inf_duration_phases[0] - 1
+        # else:
+        #     i_final_integr_phase = i_REGAIN_SPD
+            
+        # get various vectors concerning time stamps and phase starts
+        phase_start_times = np.concatenate((np.array((0.,)), np.cumsum(phase_durations)))
+        distant_phases = np.nonzero(
+            phase_start_times > ANTICIPATION_LIMIT * ego_image.params.T_delta)[0]
+        if len(distant_phases) > 0:
+            i_final_integr_phase = distant_phases[0] - 2
+        else:
+            i_final_integr_phase = i_REGAIN_SPD
+        idx_phase_starts = np.floor(
+            phase_start_times[:i_final_integr_phase+2] / ANTICIPATION_TIME_STEP).astype(int)
+        integr_end_time = phase_start_times[i_final_integr_phase + 1]
+        time_stamps = np.arange(0, integr_end_time, ANTICIPATION_TIME_STEP)
+        n_time_steps = len(time_stamps)
+        
+        # get vector of accelerations up until just before the "continue" phase
+        accelerations = np.zeros(n_time_steps)
+        # - action phase
+        if action_jerk == 0:
+            action_acc = action_acc0
+        else:
+            action_acc = action_acc0 + action_jerk * time_stamps[
+                :idx_phase_starts[i_ACTION+1]]
+        set_phase_acceleration(accelerations, idx_phase_starts, 
+                               i_ACTION, action_acc)
+        # - achieving access order phase
+        if i_final_integr_phase >= i_ACH_ACCESS:
+            set_phase_acceleration(accelerations, idx_phase_starts, 
+                                   i_ACH_ACCESS, access_ord_impls[access_ord].acc)
+            # - waiting phase
+            if i_final_integr_phase >= i_WAIT:
+                if phase_durations[i_WAIT] > 0:
+                    set_phase_acceleration(accelerations, idx_phase_starts, 
+                                           i_WAIT, 0)
+                    vprime = 0
+                else:
+                    vprime = v0 + np.sum(accelerations[:idx_phase_starts[i_WAIT]] 
+                                         * ANTICIPATION_TIME_STEP)
+                    #assert(abs(vprime) < 1)
+                # - regain free speed phase
+                if i_final_integr_phase >= i_REGAIN_SPD:
+                    regain_spd_acc = ((ego_image.v_free - vprime) 
+                                      / phase_durations[i_REGAIN_SPD])
+                    set_phase_acceleration(accelerations, idx_phase_starts, 
+                                           i_REGAIN_SPD, regain_spd_acc)
+        
+        # integrate to get corresponding vector of speeds
+        speeds = v0 + np.cumsum(accelerations * ANTICIPATION_TIME_STEP)
+        if i_final_integr_phase >= i_REGAIN_SPD and phase_durations[i_WAIT] > 0:
+            # make sure to adjust so that the speed while waiting is exactly zero
+            vprime_actual = speeds[idx_phase_starts[i_WAIT]]
+            speeds[idx_phase_starts[i_WAIT]:] -= vprime_actual
+        
+        # get the kinematics value contributions
+        kinematics_values = ((ego_image.params.k._g * speeds
+                              - ego_image.params.k._dv * speeds ** 2
+                              - ego_image.params.k._da * accelerations ** 2)
+                             * ANTICIPATION_TIME_STEP)
+        post_value_raw = ego_image.V_free
+        
+        # get the looming value contributions
+        looming_values = np.zeros(n_time_steps)
+        
+        # apply time discounting and get the total value
+        discount_factors = get_delay_discount(time_stamps, 
+                                              ego_image.params.T_delta)
+        discounted_values = (kinematics_values 
+                             + looming_values) * discount_factors
+        post_value_discounted = (get_delay_discount(cont_phase_start_time, 
+                                                   ego_image.params.T_delta)
+                                 * post_value_raw)
+        total_value = np.sum(discounted_values) + post_value_discounted
+        
+        # should we be returning detailed information?
+        if return_details:
+            # get the contribution 
+            phase_kinem_values = np.zeros(N_ANTICIPATION_PHASES)
+            phase_looming_values = np.zeros(N_ANTICIPATION_PHASES)
+            for i_phase in range(i_final_integr_phase+1):
+                phase_idxs = np.arange(idx_phase_starts[i_phase],
+                                      idx_phase_starts[i_phase+1])
+                phase_kinem_values[i_phase] = np.sum(kinematics_values[phase_idxs] 
+                                                     * discount_factors[phase_idxs])
+                phase_looming_values[i_phase] = np.sum(looming_values[phase_idxs] 
+                                                       * discount_factors[phase_idxs])
+            phase_kinem_values[i_CONTINUE] = post_value_discounted
+            details = AccessOrderValueDetails(
+                time_stamps = time_stamps,
+                speeds = speeds,
+                accelerations = accelerations,
+                idx_phase_starts = idx_phase_starts,
+                kinematics_values = kinematics_values,
+                looming_values = looming_values,
+                discount_factors = discount_factors,
+                phase_kinem_values = phase_kinem_values,
+                phase_looming_values = phase_looming_values)
+        else:
+            details = None
+            
+        # create the named tuple object for this access order
+        access_ord_values[access_ord] = AccessOrderValue(
+            value = total_value, details = details)
+        
+    # return the results
+    return access_ord_values
+
 
 def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
                                   consider_oth_acc = True, return_nans = True):
@@ -546,10 +719,11 @@ if __name__ == "__main__":
         EGO_V_FREE[CtrlType.ACCELERATION] = 10
         EGO_ACTION_DUR = 0.5
         EGO_PARAMS = {}
-        EGO_PARAMS[CtrlType.SPEED] = commotions.Parameters() 
-        EGO_PARAMS[CtrlType.SPEED].DeltaT = EGO_ACTION_DUR
-        EGO_PARAMS[CtrlType.ACCELERATION] = commotions.Parameters()
-        EGO_PARAMS[CtrlType.ACCELERATION].DeltaT = EGO_ACTION_DUR
+        for ctrl_type in CtrlType:
+            EGO_PARAMS[ctrl_type] = commotions.Parameters() 
+            EGO_PARAMS[ctrl_type].DeltaT = EGO_ACTION_DUR
+            EGO_PARAMS[ctrl_type].T_s = 0.5
+            EGO_PARAMS[ctrl_type].D_s = 0.5
         EGO_PARAMS[CtrlType.ACCELERATION].k = commotions.Parameters()
         EGO_PARAMS[CtrlType.ACCELERATION].k._g = 1 
         EGO_PARAMS[CtrlType.ACCELERATION].k._dv = 0.05

@@ -16,7 +16,7 @@ from sc_scenario_helper import (CtrlType, AccessOrder, N_ACCESS_ORDERS,
                                 get_sc_agent_collision_margins, 
                                 get_delay_discount)
 
-#matplotlib.use('qt4agg')
+NEW_AFF_VAL_CALCS = True
 
 
 class OptionalAssumption(Enum):
@@ -674,113 +674,151 @@ class SCAgent(commotions.AgentWithGoal):
                 v0 = ego_curr_state.long_speed, a0 = action_acc0, j = action_jerk, 
                 T = ego_image.params.DeltaT, k = ego_image.params.k)
         
-        # get value of any looming experienced at the predicted moment
-        looming_value = 0
-        if self.assumptions[OptionalAssumption.oVAl]:
-            ttc = sc_scenario_helper.get_time_to_sc_agent_collision(
-                        ego_pred_state, oth_pred_state, consider_acc=False)
-            if ttc > 0 and ttc < math.inf:
-                # on a collision course, get looming and calculate value
-                thetaDot = sc_scenario_helper.get_agent_optical_exp(
-                    ego_pred_state, oth_pred_state, oth_image)
-                if thetaDot > ego_image.params.thetaDot_0:
-                    looming_value = (-ego_image.V_free
-                                     * (thetaDot - ego_image.params.thetaDot_0)
-                                     / (ego_image.params.thetaDot_1 
-                                        - ego_image.params.thetaDot_0))                    
-        
-        # get constant value for remainder of trip after action and possible
-        # interaction, i.e., V_free
-        post_value = ego_image.V_free
-        
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
         implications = sc_scenario_helper.get_access_order_implications(
                 ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C,
                 consider_oth_acc=self.assumptions[OptionalAssumption.oVAa])
         
-        # get the estimated time needed for the agent to regain free speed, 
-        # if not already at it
-        if ego_image.ctrl_type is CtrlType.SPEED:
-            agent_time_to_v_free = ego_image.params.DeltaT
-        else:
-            agent_time_to_v_free = sc_scenario_helper.ACC_CTRL_REGAIN_SPD_TIME
-        
-        # loop over the access orders and get value for each
-        if self.do_snapshot_now:
-            snapshot_str = ''
+        # get values for the respective access orders
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
-        for access_order in AccessOrder:
-            if np.isnan(implications[access_order].acc):
-                # access order not valid from this state
-                value = -math.inf
+        if NEW_AFF_VAL_CALCS:
+            
+            # call helper function to get dict with unsquashed access order 
+            # values (and any details needed for snapshots)
+            access_ord_values_dict = sc_scenario_helper.get_access_order_values(
+                ego_image, oth_image, v0 = ego_curr_state.long_speed, 
+                action_acc0 = action_acc0, action_jerk = action_jerk, 
+                access_ord_impls = implications, 
+                return_details = self.do_snapshot_now)
+            
+            # do value squashing and store in output array
+            for access_order in AccessOrder:
+                value = self.squash_value(access_ord_values_dict[access_order].value)
+                access_order_values[access_order.value] = value
+            
+            # doing a snapshot?
+            if self.do_snapshot_now:
+                snapshot_str = ''
+                for access_order in AccessOrder:
+                    snapshot_str += ('(%.1f m/s^2, %.1f s, %.1f s)' %
+                                    (implications[access_order].acc,
+                                     implications[access_order].T_acc,
+                                     implications[access_order].T_dw) + '\n'
+                                    + 'V = %.2f' % access_ord_values_dict[access_order].value 
+                                    + '\n')
+                    if not (access_ord_values_dict[access_order].details is None):
+                        snapshot_str += '('
+                        phase_kinem_values = access_ord_values_dict[
+                            access_order].details.phase_kinem_values
+                        for i_phase, kinem_value in enumerate(phase_kinem_values):
+                            snapshot_str += f'{kinem_value:.1f}'
+                            if i_phase < len(phase_kinem_values) - 1:
+                                snapshot_str +=', '
+                        snapshot_str += ')\n'
+                                
+        else:
+            
+            # get value of any looming experienced at the predicted moment
+            looming_value = 0
+            if self.assumptions[OptionalAssumption.oVAl]:
+                ttc = sc_scenario_helper.get_time_to_sc_agent_collision(
+                            ego_pred_state, oth_pred_state, consider_acc=False)
+                if ttc > 0 and ttc < math.inf:
+                    # on a collision course, get looming and calculate value
+                    thetaDot = sc_scenario_helper.get_agent_optical_exp(
+                        ego_pred_state, oth_pred_state, oth_image)
+                    if thetaDot > ego_image.params.thetaDot_0:
+                        looming_value = (-ego_image.V_free
+                                         * (thetaDot - ego_image.params.thetaDot_0)
+                                         / (ego_image.params.thetaDot_1 
+                                            - ego_image.params.thetaDot_0))  
+            
+            # get constant value for remainder of trip after action and possible
+            # interaction, i.e., V_free
+            post_value = ego_image.V_free
+            
+            # get the estimated time needed for the agent to regain free speed, 
+            # if not already at it
+            if ego_image.ctrl_type is CtrlType.SPEED:
+                agent_time_to_v_free = ego_image.params.DeltaT
             else:
-                # valuation of the action/prediction time interval, and any
-                # looming experienced after the prediction interval
-                value = action_value + looming_value
-                # get the duration of the interval where the access order is 
-                # achieved (the get_value_... helper function can't handle 
-                # infinite times so cap at an hour...)
-                T_omega = min(3600, implications[access_order].T_acc)
-                # valuation of the manoeuvre needed to achieve the access order
-                ach_access_value = (
-                        get_delay_discount(ego_image.params.DeltaT, 
+                agent_time_to_v_free = sc_scenario_helper.ACC_CTRL_REGAIN_SPD_TIME
+            
+            # loop over the access orders and get value for each
+            if self.do_snapshot_now:
+                snapshot_str = ''
+            for access_order in AccessOrder:
+                if np.isnan(implications[access_order].acc):
+                    # access order not valid from this state
+                    value = -math.inf
+                else:
+                    # valuation of the action/prediction time interval, and any
+                    # looming experienced after the prediction interval
+                    value = action_value + looming_value
+                    # get the duration of the interval where the access order is 
+                    # achieved (the get_value_... helper function can't handle 
+                    # infinite times so cap at an hour...)
+                    T_omega = min(3600, implications[access_order].T_acc)
+                    # valuation of the manoeuvre needed to achieve the access order
+                    ach_access_value = (
+                            get_delay_discount(ego_image.params.DeltaT, 
+                                               ego_image.params.T_delta) 
+                            * sc_scenario_helper.get_value_of_const_jerk_interval(
+                            ego_pred_state.long_speed, implications[access_order].acc, 
+                            j = 0, T = T_omega, 
+                            k = ego_image.params.k) )
+                    value += ach_access_value
+                    # inherent value of this access order
+                    if (ego_image.ctrl_type is CtrlType.ACCELERATION 
+                        and access_order is AccessOrder.EGOFIRST):
+                        inh_access_value = ego_image.params.V_ny
+                    else:
+                        inh_access_value = 0
+                    value += inh_access_value
+                    # valuation of the step of regaining the free speed after the
+                    # access order has been achieved (may be a zero duration
+                    # step if the access order was achieved by an acceleration to
+                    # the free speed)
+                    # - get the delay before the regaining can happen, including
+                    #   any waiting time
+                    delay_bef_reg_free = (ego_image.params.DeltaT
+                                        + T_omega 
+                                        + implications[access_order].T_dw)
+                    # - get the speed after having achieved the access order
+                    vprime = (ego_pred_state.long_speed 
+                              + T_omega * implications[access_order].acc)
+                    # - get the acceleration that will be applied to regain free speed
+                    accprime = -(vprime - ego_image.v_free) / agent_time_to_v_free
+                    # - calculate the value contribution
+                    regain_value = (
+                        get_delay_discount(delay_bef_reg_free,
                                            ego_image.params.T_delta) 
                         * sc_scenario_helper.get_value_of_const_jerk_interval(
-                        ego_pred_state.long_speed, implications[access_order].acc, 
-                        j = 0, T = T_omega, 
-                        k = ego_image.params.k) )
-                value += ach_access_value
-                # inherent value of this access order
-                if (ego_image.ctrl_type is CtrlType.ACCELERATION 
-                    and access_order is AccessOrder.EGOFIRST):
-                    inh_access_value = ego_image.params.V_ny
-                else:
-                    inh_access_value = 0
-                value += inh_access_value
-                # valuation of the step of regaining the free speed after the
-                # access order has been achieved (may be a zero duration
-                # step if the access order was achieved by an acceleration to
-                # the free speed)
-                # - get the delay before the regaining can happen, including
-                #   any waiting time
-                delay_bef_reg_free = (ego_image.params.DeltaT
-                                    + T_omega 
-                                    + implications[access_order].T_dw)
-                # - get the speed after having achieved the access order
-                vprime = (ego_pred_state.long_speed 
-                          + T_omega * implications[access_order].acc)
-                # - get the acceleration that will be applied to regain free speed
-                accprime = -(vprime - ego_image.v_free) / agent_time_to_v_free
-                # - calculate the value contribution
-                regain_value = (
-                    get_delay_discount(delay_bef_reg_free,
-                                       ego_image.params.T_delta) 
-                    * sc_scenario_helper.get_value_of_const_jerk_interval(
-                        vprime, accprime, j = 0, T = agent_time_to_v_free, 
-                        k = ego_image.params.k) )
-                value += regain_value
-                # valuation of the remainder of the journey, factoring in the
-                # delays associated with this access order
-                total_delay = delay_bef_reg_free + agent_time_to_v_free
-                final_value = get_delay_discount(
-                        total_delay, ego_image.params.T_delta) * post_value
-                value += final_value
-                # snapshot info
-                if self.do_snapshot_now:
-                    snapshot_str += ('(%.1f m/s^2, %.1f s, %.1f s)' %
-                                     (implications[access_order].acc,
-                                      implications[access_order].T_acc,
-                                      implications[access_order].T_dw) + '\n'
-                                     + 'V = %.2f' % value + '\n'
-                                     +'(%.1f, %.1f, %.1f, %.1f, %.1f, %.1f)' % 
-                                     (action_value, looming_value, 
-                                      ach_access_value, inh_access_value, 
-                                      regain_value, final_value) + '\n')
-            # squash the value with a sigmoid
-            value = self.squash_value(value)
-            # store the value of this access order in the output numpy array
-            access_order_values[access_order.value] = value
+                            vprime, accprime, j = 0, T = agent_time_to_v_free, 
+                            k = ego_image.params.k) )
+                    value += regain_value
+                    # valuation of the remainder of the journey, factoring in the
+                    # delays associated with this access order
+                    total_delay = delay_bef_reg_free + agent_time_to_v_free
+                    final_value = get_delay_discount(
+                            total_delay, ego_image.params.T_delta) * post_value
+                    value += final_value
+                    # snapshot info
+                    if self.do_snapshot_now:
+                        snapshot_str += ('(%.1f m/s^2, %.1f s, %.1f s)' %
+                                         (implications[access_order].acc,
+                                          implications[access_order].T_acc,
+                                          implications[access_order].T_dw) + '\n'
+                                         + 'V = %.2f' % value + '\n'
+                                         +'(%.1f, %.1f, %.1f, %.1f, %.1f, %.1f)' % 
+                                         (action_value, looming_value, 
+                                          ach_access_value, inh_access_value, 
+                                          regain_value, final_value) + '\n')
+                # squash the value with a sigmoid
+                value = self.squash_value(value)
+                # store the value of this access order in the output numpy array
+                access_order_values[access_order.value] = value
             
         # snapshot info
         if self.do_snapshot_now:
@@ -1015,6 +1053,11 @@ class SCAgent(commotions.AgentWithGoal):
             self.params.k_all = copy.deepcopy(params_k)
         # get value function gains for own ctrl type, for quick access
         self.params.k = copy.copy(self.params.k_all[self.ctrl_type])
+        
+        # this implementation requires action time equals prediction time
+        if self.params.DeltaT != self.params.T_P:
+            raise Exception('The SCAgent implementation requires that action'
+                            ' time DeltaT and prediction time T_P are equal.')
 
         # parse the optional assumptions
         if self.assumptions[OptionalAssumption.oVAl]:
@@ -1503,6 +1546,8 @@ if __name__ == "__main__":
     #params.sigma_O = 0.05
     #params.thetaDot_1 = 0.2
     #params.beta_V = 60
+    #params.T_s = 0
+    #params.D_s = 0
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
