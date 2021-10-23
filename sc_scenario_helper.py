@@ -55,7 +55,8 @@ AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
                                                   'looming_values',
                                                   'discount_factors',
                                                   'phase_kinem_values',
-                                                  'phase_looming_values'])
+                                                  'phase_looming_values',
+                                                  'inh_access_value'])
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
                                       ['ctrl_type', 'params', 'v_free', 
@@ -82,8 +83,11 @@ def get_agent_free_value(params, get_total_future_val):
         at its free speed. Either just the snapshot value rate fit 
         get_total_future_val is False, otherwise the total time-discounted
         future value of the rest of a long journey at the free speed.
+        If params.k doesn't have a _da attribute, one is added, = 0.
     """
     v_free = get_agent_free_speed(params.k)
+    if not hasattr(params.k, '_da'):
+        params.k._da = 0
     value_rate = get_const_value_rate(v=v_free, a=0, k=params.k) 
     if get_total_future_val:
         # the time-discounted future total value of the rest of the journey
@@ -266,6 +270,13 @@ def get_access_order_values(ego_image, oth_image,
             value = -math.inf, details = None)
             continue
         
+        # inherent value of this access order
+        if (ego_image.ctrl_type is CtrlType.ACCELERATION 
+            and access_ord is AccessOrder.EGOFIRST):
+            inh_access_value = ego_image.params.V_ny
+        else:
+            inh_access_value = 0
+        
         # get the duration of the anticipation phases 
         # (except the final "continue" phase)
         phase_durations = np.full(N_ANTICIPATION_PHASES-1, math.nan)
@@ -355,7 +366,8 @@ def get_access_order_values(ego_image, oth_image,
         post_value_discounted = (get_delay_discount(cont_phase_start_time, 
                                                    ego_image.params.T_delta)
                                  * post_value_raw)
-        total_value = np.sum(discounted_values) + post_value_discounted
+        total_value = (inh_access_value + np.sum(discounted_values) 
+                       + post_value_discounted)
         
         # should we be returning detailed information?
         if return_details:
@@ -379,7 +391,8 @@ def get_access_order_values(ego_image, oth_image,
                 looming_values = looming_values,
                 discount_factors = discount_factors,
                 phase_kinem_values = phase_kinem_values,
-                phase_looming_values = phase_looming_values)
+                phase_looming_values = phase_looming_values,
+                inh_access_value = inh_access_value)
         else:
             details = None
             
@@ -495,8 +508,9 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     T_dws[AccessOrder.EGOFIRST] = 0
     
     # get acceleration needed to pass first
-    # - other agent already entered conflict space?
-    if oth_state.signed_CP_dist <= coll_dist + ego_image.params.D_s:
+    # - other agent already entered conflict space? 
+    # (note less than, not less than or equal)
+    if oth_state.signed_CP_dist < coll_dist + ego_image.params.D_s:
         # yes, so not possible for ego agent to pass first
         if return_nans:
             accs[AccessOrder.EGOFIRST] = math.nan
@@ -534,7 +548,8 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     else:
         # no, the other agent hasn't already exited the conflict space
         # has the ego agent already entered conflict space?
-        if ego_state.signed_CP_dist <= coll_dist + ego_image.params.D_s:
+        # (note less than, not less than or equal)
+        if ego_state.signed_CP_dist < coll_dist + ego_image.params.D_s:
             # yes, so passing in second is no longer an option
             if return_nans:
                 accs[AccessOrder.EGOSECOND] = math.nan

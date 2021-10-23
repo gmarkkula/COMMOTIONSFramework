@@ -375,6 +375,11 @@ class SCAgent(commotions.AgentWithGoal):
             # behaviours is valid
             beh_is_valid[i_CONSTANT] = False
             self.states.beh_long_accs[i_CONSTANT, i_time_step] = math.nan
+        # - are the pass 1st/2nd behaviours valid? (are we estimating behs?)
+        elif not self.assumptions[DerivedAssumption.dBE]:
+            for i_beh in (i_PASS1ST, i_PASS2ND):
+                beh_is_valid[i_beh] = False
+                self.states.beh_long_accs[i_beh, i_time_step] = math.nan
          
         # do first loops over all own actions and behaviors of the other
         # agent, and get the predicted states
@@ -712,10 +717,10 @@ class SCAgent(commotions.AgentWithGoal):
                         phase_kinem_values = access_ord_values_dict[
                             access_order].details.phase_kinem_values
                         for i_phase, kinem_value in enumerate(phase_kinem_values):
-                            snapshot_str += f'{kinem_value:.1f}'
-                            if i_phase < len(phase_kinem_values) - 1:
-                                snapshot_str +=', '
-                        snapshot_str += ')\n'
+                            snapshot_str += f'{kinem_value:.1f}, '
+                        inh_access_value = access_ord_values_dict[
+                            access_order].details.inh_access_value
+                        snapshot_str += f'{inh_access_value:.1f})\n'
                                 
         else:
             
@@ -1504,8 +1509,9 @@ if __name__ == "__main__":
     SCE_BASELINE = 0 # "baseline" kinematics
     SCE_KEIODECEL = 1 # a deceleration scenario from the Keio study
     SCE_PEDATSPEEDDECEL = 2 # a deceleration scenario where the pedestrian is initially walking
-    SCE_STARTUP = 3 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_BASELINE
+    SCE_PEDSTAT = 3 # pedestrian stationary at kerb
+    SCE_STARTUP = 4 # a scenario with both agents starting from zero speed, at non-interaction distance
+    SCENARIO = SCE_PEDSTAT
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
@@ -1524,6 +1530,10 @@ if __name__ == "__main__":
         SPEEDS = np.array((1.5, 10))
         stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C - 0.5
         CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
+    elif SCENARIO == SCE_PEDSTAT:
+        INITIAL_POSITIONS = np.array([[0,-SHARED_PARAMS.d_C - 0.5], [40, 0]])
+        SPEEDS = np.array((0, 10))
+        CONST_ACCS = (0, None)
     elif SCENARIO == SCE_STARTUP:
         INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
         SPEEDS = np.array((0, 0))
@@ -1533,7 +1543,7 @@ if __name__ == "__main__":
     AFF_VAL_FCN = True
     (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
     #params.T_delta = 30
-    #params.V_ny_rel = -1.1
+    #params.V_ny_rel = -1.5
     #params.T_P = 1
     #params.T_O1 = 0.05
     #params.T_Of = math.inf
