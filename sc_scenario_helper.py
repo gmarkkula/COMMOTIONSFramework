@@ -1,6 +1,7 @@
 import warnings
 import collections
 import math
+import copy
 from enum import Enum
 import numpy as np
 
@@ -34,7 +35,7 @@ i_WAIT = AnticipationPhase.WAIT.value
 i_REGAIN_SPD = AnticipationPhase.REGAIN_SPD.value
 i_CONTINUE = AnticipationPhase.CONTINUE.value
 N_ANTICIPATION_PHASES = len(AnticipationPhase)
-ANTICIPATION_TIME_STEP = 0.1
+ANTICIPATION_TIME_STEP = 0.05
 ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
@@ -48,6 +49,7 @@ AccessOrderValue = collections.namedtuple('AccessOrderValue',
 
 AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
                                                  ['time_stamps', 
+                                                  'cp_dists',
                                                   'speeds',
                                                   'accelerations',
                                                   'idx_phase_starts',
@@ -256,9 +258,11 @@ def set_phase_acceleration(accelerations, idx_phase_starts, i_phase, phase_acc):
     accelerations[idx_phase_starts[i_phase]:idx_phase_starts[i_phase+1]] = phase_acc
 
 
-def get_access_order_values(ego_image, oth_image, 
-                            v0, action_acc0, action_jerk, 
-                            access_ord_impls, return_details = False):
+def get_access_order_values(
+        ego_image, ego_curr_state, action_acc0, action_jerk, 
+        oth_image, oth_curr_state, beh_acc,
+        access_ord_impls, 
+        consider_looming = False, return_details = False):
     # TODO add documentation here.
     
     access_ord_values = {}
@@ -331,8 +335,9 @@ def get_access_order_values(ego_image, oth_image,
                                            i_WAIT, 0)
                     vprime = 0
                 else:
-                    vprime = v0 + np.sum(accelerations[:idx_phase_starts[i_WAIT]] 
-                                         * ANTICIPATION_TIME_STEP)
+                    vprime = ego_curr_state.long_speed + np.sum(
+                        accelerations[:idx_phase_starts[i_WAIT]] 
+                        * ANTICIPATION_TIME_STEP)
                     #assert(abs(vprime) < 1)
                 # - regain free speed phase
                 if i_final_integr_phase >= i_REGAIN_SPD:
@@ -342,7 +347,8 @@ def get_access_order_values(ego_image, oth_image,
                                            i_REGAIN_SPD, regain_spd_acc)
         
         # integrate to get corresponding vector of speeds
-        speeds = v0 + np.cumsum(accelerations * ANTICIPATION_TIME_STEP)
+        speeds = ego_curr_state.long_speed + np.cumsum(
+            accelerations * ANTICIPATION_TIME_STEP)
         if i_final_integr_phase >= i_REGAIN_SPD and phase_durations[i_WAIT] > 0:
             # make sure to adjust so that the speed while waiting is exactly zero
             vprime_actual = speeds[idx_phase_starts[i_WAIT]]
@@ -356,6 +362,10 @@ def get_access_order_values(ego_image, oth_image,
         post_value_raw = ego_image.V_free
         
         # get the looming value contributions
+        # - get the ego conflict point distances
+        cp_dists = ego_curr_state.signed_CP_dist - np.cumsum(
+            speeds * ANTICIPATION_TIME_STEP)
+        # -
         looming_values = np.zeros(n_time_steps)
         
         # apply time discounting and get the total value
@@ -371,7 +381,6 @@ def get_access_order_values(ego_image, oth_image,
         
         # should we be returning detailed information?
         if return_details:
-            # get the contribution 
             phase_kinem_values = np.zeros(N_ANTICIPATION_PHASES)
             phase_looming_values = np.zeros(N_ANTICIPATION_PHASES)
             for i_phase in range(i_final_integr_phase+1):
@@ -384,6 +393,7 @@ def get_access_order_values(ego_image, oth_image,
             phase_kinem_values[i_CONTINUE] = post_value_discounted
             details = AccessOrderValueDetails(
                 time_stamps = time_stamps,
+                cp_dists = cp_dists,
                 speeds = speeds,
                 accelerations = accelerations,
                 idx_phase_starts = idx_phase_starts,
@@ -699,7 +709,7 @@ if __name__ == "__main__":
     plt.close('all')
     
     TEST_ACCESS_ORDERS = True
-    TEST_TTCS_AND_LOOMING = True
+    TEST_TTCS_AND_LOOMING = False
 
 # =============================================================================
 #   Testing get_access_order_implications() and ..._values()
@@ -759,6 +769,7 @@ if __name__ == "__main__":
             EGO_PARAMS[ctrl_type].T_delta = 30
             EGO_PARAMS[ctrl_type].T_s = 0.5
             EGO_PARAMS[ctrl_type].D_s = 0.5
+            EGO_PARAMS[ctrl_type].V_ny = 0
             EGO_PARAMS[ctrl_type].k = commotions.Parameters()
             set_val_gains_for_free_speed(EGO_PARAMS[ctrl_type].k, 
                                          EGO_V_FREE[ctrl_type])
@@ -780,10 +791,6 @@ if __name__ == "__main__":
                        color='r', linestyle='--', lw=0.5)
             ax.axvline(oth_state.cs_exit_time[CtrlType.ACCELERATION], 
                        color='r', linestyle='--', lw=0.5)
-        def plot_pred_ds(ax, ego_state, ego_acc):
-            vs = ego_state.long_speed + ego_acc * TIME_STAMPS
-            ds = ego_state.signed_CP_dist - np.cumsum(vs * TIME_STEP)
-            ax.plot(TIME_STAMPS, ds, 'k-', lw=0.5)
         
         # loop through the test cases
         for i_test, test_name in enumerate(TESTS):
@@ -796,17 +803,26 @@ if __name__ == "__main__":
                                      EGO_PARAMS[ego_ctrl_type], 
                                      v_free = EGO_V_FREE[ego_ctrl_type],
                                      V_free = V_free, eff_width = None)
+            
+            # - prepare objects for current and predicted ego state
             ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
+            ego_pred_state = copy.deepcopy(ego_state)
+            ego_ds = np.linspace(-5, EGO_D_MAX[ego_ctrl_type], 20)
+            # - prepare objects for current and predicted other agent state
             oth_state = commotions.KinematicState(long_speed = OTH_VS[i_test])
             oth_state.long_acc = OTH_AS[i_test]
+            oth_pred_state = copy.deepcopy(oth_state)
             oth_state.signed_CP_dist = OTH_D[ego_ctrl_type]
-            ego_ds = np.linspace(-5, EGO_D_MAX[ego_ctrl_type], 20)
-            
-            # get other agent's movement
+            oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
+            oth_pred_state.signed_CP_dist = (OTH_D[ego_ctrl_type] 
+                                             - OTH_VS[i_test] * EGO_ACTION_DUR
+                                             - OTH_AS[i_test] * EGO_ACTION_DUR ** 2 / 2)
+            oth_pred_state.long_speed = OTH_VS[i_test] + OTH_AS[i_test] * EGO_ACTION_DUR
+            oth_pred_state = add_entry_exit_times_to_state(oth_pred_state, COLL_DIST)
+            # - get other agent's movement
             oth_speeds = oth_state.long_speed + oth_state.long_acc * TIME_STAMPS
             oth_distances = (oth_state.signed_CP_dist 
                              - np.cumsum(oth_speeds * TIME_STEP))
-            oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
                 
             # get figure window for test results
             fig = plt.figure(test_name, figsize = (15, 10))
@@ -835,28 +851,33 @@ if __name__ == "__main__":
             # loop through initial distances
             for ego_d in ego_ds:
                 ego_state.signed_CP_dist = ego_d
+                ego_pred_state.signed_CP_dist = (
+                    ego_d - ego_state.long_speed * EGO_ACTION_DUR)
                 access_ord_impls = get_access_order_implications(
-                    ego_image, ego_state, oth_state, COLL_DIST)
-                plot_pred_ds(axs[0, 1], ego_state, 
-                             access_ord_impls[AccessOrder.EGOFIRST].acc)
-                plot_pred_ds(axs[0, 2], ego_state,
-                             access_ord_impls[AccessOrder.EGOSECOND].acc)
+                    ego_image, ego_pred_state, oth_pred_state, COLL_DIST)
                 access_ord_vals = get_access_order_values(
-                    ego_image, oth_image=None, v0=ego_state.long_speed, 
-                    action_acc0=0, action_jerk=0, 
+                    ego_image, ego_curr_state=ego_state, action_acc0=0, action_jerk=0, 
+                    oth_image=None, oth_curr_state=None, beh_acc=None,
                     access_ord_impls=access_ord_impls, return_details=True)
                 for i, access_ord in enumerate(AccessOrder):
                     deets = access_ord_vals[access_ord].details
                     if not (deets is None):
-                        axs[1, i+1].plot(deets.time_stamps, deets.speeds, 
+                        axs[0, i+1].plot(deets.time_stamps, 
+                                         deets.cp_dists, 
+                                         'k', lw=1, alpha=0.7)
+                        axs[1, i+1].plot(deets.time_stamps, 
+                                         deets.speeds, 
                                          color='gray', alpha=0.5)
-                        axs[1, i+1].plot(deets.time_stamps, deets.accelerations, 
+                        axs[1, i+1].plot(deets.time_stamps, 
+                                         deets.accelerations, 
                                          color='blue', alpha=0.5)
                 
             
                 
             plt.tight_layout()
             plt.show()
+            
+            #break
             
     
     
