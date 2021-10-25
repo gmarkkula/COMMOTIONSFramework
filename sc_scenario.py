@@ -165,10 +165,12 @@ class SCAgent(commotions.AgentWithGoal):
         oth_params = copy.copy(self.params)
         oth_params.k = copy.copy(self.params.k_all[self.other_agent.ctrl_type])
         oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
+        oth_g_free = self.other_agent.g_free
         oth_V_free = self.other_agent.V_free
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
                                       params = oth_params, 
                                       v_free = oth_v_free,
+                                      g_free = oth_g_free,
                                       V_free = oth_V_free,
                                       eff_width = self.other_agent.eff_width)
         # allocate vectors for storing internal states
@@ -259,14 +261,14 @@ class SCAgent(commotions.AgentWithGoal):
                       * np.array((math.cos(state.yaw_angle), 
                                   math.sin(state.yaw_angle))))
         vect_pos = state.pos + speed_vect
-        self.snapshot_ax.plot((state.pos[0], vect_pos[0]),
+        self.snapshot_axs[0].plot((state.pos[0], vect_pos[0]),
                               (state.pos[1], vect_pos[1]), '-',
                               color=plot_color, alpha=alpha_val)
-        self.snapshot_ax.plot(state.pos[0], state.pos[1], 'o', 
+        self.snapshot_axs[0].plot(state.pos[0], state.pos[1], 'o', 
                               color=plot_color, alpha=alpha_val)
         if speed_label:
             text_pos = state.pos + 2 * speed_vect
-            self.snapshot_ax.text(text_pos[0], text_pos[1], 
+            self.snapshot_axs[0].text(text_pos[0], text_pos[1], 
                                   '(%.2f, %.2f)' % (state.long_speed,
                                                     state.long_acc),
                                   color=plot_color, alpha=alpha_val,
@@ -397,12 +399,16 @@ class SCAgent(commotions.AgentWithGoal):
         if self.doing_snapshots:
             if np.amin(np.abs(np.array(self.snapshot_times) - time_stamp)) < 0.00001:
                 self.do_snapshot_now = True
-                # set up the figure
-                fig_name = 'Snapshot for %s at t = %.2f s' % (self.name, time_stamp)
-                fig = plt.figure(num=fig_name, figsize=(15, 10))
-                fig.clf()
-                axs = fig.subplots(nrows=N_BEHAVIORS, ncols=self.n_actions,
-                                        sharex=True, sharey=True)
+                # set up the figures
+                fig_axs = []
+                for snapshot in ('', '(kinematics) ', '(looming) '):
+                    fig_name = 'Snapshot %sfor %s at t = %.2f s' % (
+                        snapshot, self.name, time_stamp)
+                    fig = plt.figure(num=fig_name, figsize=(15, 10))
+                    fig.clf()
+                    fig_axs.append(fig.subplots(nrows=N_BEHAVIORS, 
+                                                ncols=self.n_actions,
+                                                sharex=True, sharey=True))
             
         # now loop over all combinations of own actions and other's behaviors, 
         # and get values from both agents' perspectives
@@ -416,7 +422,9 @@ class SCAgent(commotions.AgentWithGoal):
                         # affordance-based value functions
                         # doing snapshot?
                         if self.do_snapshot_now:
-                            self.snapshot_ax = axs[i_beh, i_action]
+                            self.snapshot_axs = []
+                            for fig_ax in fig_axs:
+                                self.snapshot_axs.append(fig_ax[i_beh, i_action])
                             self.plot_state_snapshot(self.curr_state, 
                                                      self.plot_color, 
                                                      alpha=True)
@@ -655,10 +663,13 @@ class SCAgent(commotions.AgentWithGoal):
     def squash_value(self, input_values):
         return np.tanh(input_values / self.params.V_0)
 
-    def get_access_order_values_for_agent_v02(self, ego_image, 
+    def get_access_order_values_for_agent_v02(self, 
+                                              ego_image, 
                                               ego_curr_state, ego_pred_state, 
-                                              oth_image, oth_pred_state,
-                                              snapshot_color, snapshot_loc):
+                                              oth_image, 
+                                              oth_curr_state, oth_pred_state,
+                                              snapshot_color, snapshot_loc,
+                                              plot_snapshot_deets):
         
         # skipping goal stopping for now - I think the sensible way of adding
         # it back in later is to include an independent term for it, valuating
@@ -667,6 +678,11 @@ class SCAgent(commotions.AgentWithGoal):
        
         # get the effective average acceleration or jerk (depending on agent 
         # type) in the action/prediction interval 
+        # [NB: The below sort of assumes that the ego agent here is =self, which is
+        # only true if the calling function is _for_me_v02(), not _for_other_v02()
+        # - in the latter case the calculation for acceleration-controlling 
+        # agents will not be entirely in line with the assumption of constant
+        # behaviour acceleration during the prediction interval.]
         if ego_image.ctrl_type is CtrlType.SPEED:
             action_acc0 = (ego_pred_state.long_speed 
                           - ego_curr_state.long_speed) / ego_image.params.DeltaT
@@ -675,9 +691,6 @@ class SCAgent(commotions.AgentWithGoal):
             action_acc0 = ego_curr_state.long_acc
             action_jerk = (ego_pred_state.long_acc
                            - ego_curr_state.long_acc) / ego_image.params.DeltaT
-        action_value = sc_scenario_helper.get_value_of_const_jerk_interval(
-                v0 = ego_curr_state.long_speed, a0 = action_acc0, j = action_jerk, 
-                T = ego_image.params.DeltaT, k = ego_image.params.k)
         
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
@@ -689,13 +702,29 @@ class SCAgent(commotions.AgentWithGoal):
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
         if NEW_AFF_VAL_CALCS:
             
+            # get the assumed-constant accelerations of the other agent in the 
+            # action/prediction interval as well as beyond it
+            # - action/prediction interval: the acceleration that achieves the 
+            # - correct speed at t + T_p
+            oth_first_acc = ((oth_pred_state.long_speed 
+                             - oth_curr_state.long_speed) 
+                             / ego_image.params.DeltaT)
+            # - after action/prediction interval - depends on model assumptions
+            if self.assumptions[OptionalAssumption.oVAa]:
+                oth_cont_acc = oth_pred_state.long_acc
+            else:
+                oth_cont_acc = 0
+            
             # call helper function to get dict with unsquashed access order 
             # values (and any details needed for snapshots)
             access_ord_values_dict = sc_scenario_helper.get_access_order_values(
-                ego_image, oth_image, v0 = ego_curr_state.long_speed, 
+                ego_image = ego_image, ego_curr_state = ego_curr_state,  
                 action_acc0 = action_acc0, action_jerk = action_jerk, 
-                access_ord_impls = implications, 
-                return_details = self.do_snapshot_now)
+                oth_image = oth_image, oth_curr_state = oth_curr_state,
+                oth_first_acc = oth_first_acc, oth_cont_acc = oth_cont_acc, 
+                coll_dist = SHARED_PARAMS.d_C, access_ord_impls = implications, 
+                consider_looming = self.assumptions[OptionalAssumption.oVAl],
+                return_details = self.do_snapshot_now)      
             
             # do value squashing and store in output array
             for access_order in AccessOrder:
@@ -712,17 +741,42 @@ class SCAgent(commotions.AgentWithGoal):
                                      implications[access_order].T_dw) + '\n'
                                     + 'V = %.2f' % access_ord_values_dict[access_order].value 
                                     + '\n')
-                    if not (access_ord_values_dict[access_order].details is None):
+                    deets = access_ord_values_dict[access_order].details
+                    if not (deets is None):
                         snapshot_str += '('
-                        phase_kinem_values = access_ord_values_dict[
-                            access_order].details.phase_kinem_values
-                        for i_phase, kinem_value in enumerate(phase_kinem_values):
+                        for i_phase, kinem_value in enumerate(deets.phase_kinem_values):
                             snapshot_str += f'{kinem_value:.1f}, '
-                        inh_access_value = access_ord_values_dict[
-                            access_order].details.inh_access_value
-                        snapshot_str += f'{inh_access_value:.1f})\n'
+                        looming_value = np.sum(deets.phase_looming_values)
+                        snapshot_str += f'{deets.inh_access_value:.1f}, '
+                        snapshot_str += f'{looming_value:.1f})\n'
+                        if plot_snapshot_deets:
+                            if access_order == AccessOrder.EGOFIRST:
+                                color = 'g'
+                            else:
+                                color = 'r'
+                            self.snapshot_axs[1].plot(deets.time_stamps, 
+                                                      deets.speeds,
+                                                      '--', lw=2, color=color, 
+                                                      alpha=0.5)
+                            self.snapshot_axs[1].plot(deets.time_stamps, 
+                                                      deets.cp_dists,
+                                                      '-', lw=2, color=color, 
+                                                      alpha=0.5)
+                            self.snapshot_axs[1].plot(deets.time_stamps, 
+                                                      deets.oth_cp_dists,
+                                                      '--', lw=1, color='gray', 
+                                                      alpha=0.5)
+                            self.snapshot_axs[2].plot(deets.time_stamps,
+                                                      deets.thetaDots,
+                                                      '-', lw=2, color=color, 
+                                                      alpha=0.5)
                                 
         else:
+            
+            # get value of the action itself
+            action_value = sc_scenario_helper.get_value_of_const_jerk_interval(
+                v0 = ego_curr_state.long_speed, a0 = action_acc0, j = action_jerk, 
+                T = ego_image.params.DeltaT, k = ego_image.params.k)
             
             # get value of any looming experienced at the predicted moment
             looming_value = 0
@@ -839,8 +893,8 @@ class SCAgent(commotions.AgentWithGoal):
                 valign = 'bottom'
             else:
                 raise Exception('Unexpected location for snapshot info.')
-            self.snapshot_ax.text(text_x, text_y, snapshot_str, 
-                                  transform=self.snapshot_ax.transAxes,
+            self.snapshot_axs[0].text(text_x, text_y, snapshot_str, 
+                                  transform=self.snapshot_axs[0].transAxes,
                                   ha=halign, va=valign, fontsize=7,
                                   color=snapshot_color)
             
@@ -853,9 +907,11 @@ class SCAgent(commotions.AgentWithGoal):
                 ego_curr_state = self.curr_state, 
                 ego_pred_state = my_pred_state, 
                 oth_image = self.oth_image,
+                oth_curr_state = self.other_agent.curr_state,
                 oth_pred_state = oth_pred_state,
                 snapshot_color = self.plot_color,
-                snapshot_loc = 'topleft')
+                snapshot_loc = 'topleft',
+                plot_snapshot_deets = True)
         return access_order_values
         
     
@@ -865,9 +921,11 @@ class SCAgent(commotions.AgentWithGoal):
                 ego_curr_state = self.other_agent.curr_state, 
                 ego_pred_state = oth_pred_state,
                 oth_image = self.self_image,
+                oth_curr_state = self.curr_state,
                 oth_pred_state = my_pred_state,
                 snapshot_color = self.other_agent.plot_color,
-                snapshot_loc = 'bottomright')
+                snapshot_loc = 'bottomright',
+                plot_snapshot_deets = False)
         return access_order_values
 
 
@@ -1102,11 +1160,15 @@ class SCAgent(commotions.AgentWithGoal):
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
         
-        # get and store V_free, the "free" value for the agent of just
+        # get and store g_free and V_free, the value rate and total future 
+        # value for the agent of just
         # proceeding at the free speed, without any interaction
-        self.V_free = sc_scenario_helper.get_agent_free_value(
-            self.params, get_total_future_val =
-            self.assumptions[OptionalAssumption.oVA])
+        if self.assumptions[OptionalAssumption.oVA]:
+            self.g_free = sc_scenario_helper.get_agent_free_value_rate(self.params)
+            self.V_free = sc_scenario_helper.get_agent_free_value(self.params)
+        else:
+            self.g_free = None # not applicable for non-oVA agent
+            self.V_free = sc_scenario_helper.get_agent_free_value_rate(self.params)
         
         # get derived parameters 
         self.params.V_0 = self.V_free * self.params.V_0_rel
@@ -1118,6 +1180,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
                                        params = self.params, 
                                        v_free = self.v_free,
+                                       g_free = self.g_free,
                                        V_free = self.V_free,
                                        eff_width = self.eff_width)
 
@@ -1511,7 +1574,7 @@ if __name__ == "__main__":
     SCE_PEDATSPEEDDECEL = 2 # a deceleration scenario where the pedestrian is initially walking
     SCE_PEDSTAT = 3 # pedestrian stationary at kerb
     SCE_STARTUP = 4 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_PEDSTAT
+    SCENARIO = SCE_BASELINE
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
@@ -1547,8 +1610,8 @@ if __name__ == "__main__":
     #params.T_P = 1
     #params.T_O1 = 0.05
     #params.T_Of = math.inf
-    #params.sigma_O = 0.05
-    #params.thetaDot_1 = 0.2
+    #params.sigma_O = 0.1
+    #params.thetaDot_1 = 0.23
     #params.beta_V = 60
     #params.T_s = 0
     #params.D_s = 0

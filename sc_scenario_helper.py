@@ -35,7 +35,7 @@ i_WAIT = AnticipationPhase.WAIT.value
 i_REGAIN_SPD = AnticipationPhase.REGAIN_SPD.value
 i_CONTINUE = AnticipationPhase.CONTINUE.value
 N_ANTICIPATION_PHASES = len(AnticipationPhase)
-ANTICIPATION_TIME_STEP = 0.05
+ANTICIPATION_TIME_STEP = 0.1
 ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
@@ -52,6 +52,10 @@ AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
                                                   'cp_dists',
                                                   'speeds',
                                                   'accelerations',
+                                                  'oth_cp_dists',
+                                                  'oth_speeds',
+                                                  'oth_accs',
+                                                  'thetaDots',
                                                   'idx_phase_starts',
                                                   'kinematics_values',
                                                   'looming_values',
@@ -62,7 +66,7 @@ AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
                                       ['ctrl_type', 'params', 'v_free', 
-                                       'V_free', 'eff_width'])
+                                       'g_free', 'V_free', 'eff_width'])
 
 
 
@@ -79,24 +83,25 @@ def set_val_gains_for_free_speed(k, v_free):
     k._g = 2 / v_free
     k._dv = 1 / v_free ** 2
   
-    
-def get_agent_free_value(params, get_total_future_val):
-    """ Return the value V_free for an agent with parameters params of being
-        at its free speed. Either just the snapshot value rate fit 
-        get_total_future_val is False, otherwise the total time-discounted
-        future value of the rest of a long journey at the free speed.
+
+def get_agent_free_value_rate(params):
+    """ Return the value rate gfor an agent with parameters params of being
+        at its free speed.
         If params.k doesn't have a _da attribute, one is added, = 0.
     """
     v_free = get_agent_free_speed(params.k)
     if not hasattr(params.k, '_da'):
         params.k._da = 0
-    value_rate = get_const_value_rate(v=v_free, a=0, k=params.k) 
-    if get_total_future_val:
-        # the time-discounted future total value of the rest of the journey
-        return (params.T_delta / math.log(2)) * value_rate
-    else:
-        # just the snapshot value of being at the free speed
-        return value_rate
+    return get_const_value_rate(v=v_free, a=0, k=params.k) 
+
+    
+def get_agent_free_value(params):
+    """ Return the value for an agent with parameters params of being
+        at its free speed, as in the total time-discounted
+        future value of the rest of a long journey at the free speed.
+        If params.k doesn't have a _da attribute, one is added, = 0.
+    """
+    return (params.T_delta / math.log(2)) * get_agent_free_value_rate(params)
 
 
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
@@ -174,6 +179,17 @@ def get_time_to_dist_with_acc(state, target_dist):
             ) / state.long_acc
     
     
+
+def get_app_entry_exit_time_arrays(cp_dists, speeds, coll_dist):
+    # 
+    app_arr_times = []
+    for side_sign in (-1, 1):
+        side_dists = cp_dists + side_sign * coll_dist
+        side_app_arr_times = side_dists / speeds
+        app_arr_times.append(side_app_arr_times)
+    return app_arr_times[0], app_arr_times[1]
+
+
     
 def get_entry_exit_times(state, coll_dist, consider_acc = True):
     """ Return tuple of times left to entry and exit into conflict zone defined by 
@@ -258,10 +274,23 @@ def set_phase_acceleration(accelerations, idx_phase_starts, i_phase, phase_acc):
     accelerations[idx_phase_starts[i_phase]:idx_phase_starts[i_phase+1]] = phase_acc
 
 
+
+def anticipation_integration(x0, xdots, xdotdots=0):
+    # Helper function for get_access_order_values().
+    xs = np.full(len(xdots), float(x0))
+    if type(xdotdots) == np.ndarray:
+        xs[1:] = x0 + np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP
+                                + xdotdots[:-1] * ANTICIPATION_TIME_STEP ** 2 / 2)
+    else: 
+        xs[1:] = x0 + np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP
+                                + xdotdots * ANTICIPATION_TIME_STEP ** 2 / 2)
+    return xs
+
+
 def get_access_order_values(
         ego_image, ego_curr_state, action_acc0, action_jerk, 
-        oth_image, oth_curr_state, beh_acc,
-        access_ord_impls, 
+        oth_image, oth_curr_state, oth_first_acc, oth_cont_acc,
+        coll_dist, access_ord_impls, 
         consider_looming = False, return_details = False):
     # TODO add documentation here.
     
@@ -292,13 +321,6 @@ def get_access_order_values(
         else:
             phase_durations[i_REGAIN_SPD] = ACC_CTRL_REGAIN_SPD_TIME
         cont_phase_start_time = np.sum(phase_durations)
-            
-        # # are any of the phase durations of infinite length?
-        # inf_duration_phases = np.nonzero(np.isinf(phase_durations))[0]
-        # if len(inf_duration_phases) > 0:
-        #     i_final_integr_phase = inf_duration_phases[0] - 1
-        # else:
-        #     i_final_integr_phase = i_REGAIN_SPD
             
         # get various vectors concerning time stamps and phase starts
         phase_start_times = np.concatenate((np.array((0.,)), np.cumsum(phase_durations)))
@@ -347,8 +369,8 @@ def get_access_order_values(
                                            i_REGAIN_SPD, regain_spd_acc)
         
         # integrate to get corresponding vector of speeds
-        speeds = ego_curr_state.long_speed + np.cumsum(
-            accelerations * ANTICIPATION_TIME_STEP)
+        speeds = anticipation_integration(ego_curr_state.long_speed, 
+                                          accelerations)
         if i_final_integr_phase >= i_REGAIN_SPD and phase_durations[i_WAIT] > 0:
             # make sure to adjust so that the speed while waiting is exactly zero
             vprime_actual = speeds[idx_phase_starts[i_WAIT]]
@@ -362,11 +384,53 @@ def get_access_order_values(
         post_value_raw = ego_image.V_free
         
         # get the looming value contributions
-        # - get the ego conflict point distances
-        cp_dists = ego_curr_state.signed_CP_dist - np.cumsum(
-            speeds * ANTICIPATION_TIME_STEP)
-        # -
-        looming_values = np.zeros(n_time_steps)
+        if consider_looming or return_details:
+            # get anticipated ego conflict point distances
+            cp_dists = anticipation_integration(ego_curr_state.signed_CP_dist, 
+                                                -speeds, -accelerations)
+            # get anticipated speeds and conflict point distances for the other agent
+            oth_accs = np.full(n_time_steps, oth_first_acc)
+            oth_accs[idx_phase_starts[i_ACTION]+1:] = oth_cont_acc
+            oth_speeds = anticipation_integration(oth_curr_state.long_speed,
+                                                  oth_accs)
+            oth_cp_dists = anticipation_integration(oth_curr_state.signed_CP_dist,
+                                                    -oth_speeds, -oth_accs)
+            # get anticipated apparent entry/exit times for both agents
+            app_entry_times, app_exit_times = get_app_entry_exit_time_arrays(
+                cp_dists, speeds, coll_dist)
+            oth_app_entry_times, oth_app_exit_times = get_app_entry_exit_time_arrays(
+                oth_cp_dists, oth_speeds, coll_dist)
+            # get anticipated apparent collision courses
+            # - apparent other collision into ego
+            app_ego_leads = app_entry_times < oth_app_entry_times
+            app_oth_entry_bef_ego_exit = oth_app_entry_times < app_exit_times
+            app_oth_entry_in_future = oth_app_entry_times > 0
+            app_oth_hits_ego = (app_ego_leads & app_oth_entry_bef_ego_exit 
+                                & app_oth_entry_in_future)
+            # - apparent ego collision into other
+            app_oth_leads = app_entry_times > oth_app_entry_times
+            app_ego_entry_bef_oth_exit = app_entry_times < oth_app_exit_times
+            app_ego_entry_in_future = app_entry_times > 0
+            app_ego_hits_oth = (app_oth_leads & app_ego_entry_bef_oth_exit
+                                & app_ego_entry_in_future)
+            # - apparent symmetrical collision
+            app_symmetric_hits = ((app_entry_times == oth_app_entry_times) 
+                                  & app_ego_entry_in_future)
+            # - all anticipated apparent collision courses
+            app_coll_courses = app_oth_hits_ego | app_ego_hits_oth | app_symmetric_hits
+            # get anticipated looming
+            thetaDots = get_agent_optical_exps(cp_dists, speeds, 
+                                               oth_cp_dists, oth_speeds, 
+                                               oth_image.eff_width)
+            # only count anticipated looming when there is an apparent collision course
+            thetaDots[np.logical_not(app_coll_courses)] = 0
+            # get the looming value contributions
+            looming_values = (-ego_image.g_free * ANTICIPATION_TIME_STEP
+                              * np.abs(thetaDots - ego_image.params.thetaDot_0)
+                              / (ego_image.params.thetaDot_1
+                                 - ego_image.params.thetaDot_0))
+        else:
+            looming_values = np.zeros(n_time_steps)
         
         # apply time discounting and get the total value
         discount_factors = get_delay_discount(time_stamps, 
@@ -396,6 +460,10 @@ def get_access_order_values(
                 cp_dists = cp_dists,
                 speeds = speeds,
                 accelerations = accelerations,
+                oth_cp_dists = oth_cp_dists,
+                oth_speeds = oth_speeds,
+                oth_accs = oth_accs,
+                thetaDots = thetaDots,
                 idx_phase_starts = idx_phase_starts,
                 kinematics_values = kinematics_values,
                 looming_values = looming_values,
@@ -683,20 +751,37 @@ def get_agent_optical_size(ego_state, oth_state, oth_image):
     return theta
 
 
-def get_agent_optical_exp(ego_state, oth_state, oth_image):
+def get_agent_optical_exps(ego_cp_dists, ego_speeds,
+                           oth_cp_dists, oth_speeds, oth_eff_width):
     """
-    Return the visual looming, in rad/s, of the agent described by
-    oth_state and oth_image, as seen by an agent with state ego_state.
+    Return the visual looming, in rad/s, of the agent described by numpy arrays
+    (or scalars) oth_cp_dists, oth_speeds oth_eff_widths, as seen by an agent 
+    with states described by ego_cp_dists and ego_speeds.
 
     """
     # see handwritten notes dated 2021-10-12
-    dist = math.sqrt(ego_state.signed_CP_dist ** 2 
-                     + oth_state.signed_CP_dist ** 2)
-    thetaDot = -((oth_image.eff_width / dist)
-                 * (ego_state.signed_CP_dist * (-ego_state.long_speed)
-                    + oth_state.signed_CP_dist * (-oth_state.long_speed))
-                 / (dist ** 2 + oth_image.eff_width ** 2 / 4))
-    return thetaDot
+    dists = np.sqrt(ego_cp_dists ** 2 + oth_cp_dists ** 2)
+    thetaDots = -((oth_eff_width / dists)
+                  * (ego_cp_dists * (-ego_speeds) 
+                     + oth_cp_dists * (-oth_speeds))
+                  / (dists ** 2 + oth_eff_width ** 2 / 4))
+    return thetaDots
+
+
+def get_agent_optical_exp(ego_state, oth_state, oth_image):
+    """ Return the visual looming, in rad/s, of the agent described by
+        oth_state and oth_image, as seen by an agent with state ego_state.
+    """
+    # dist = math.sqrt(ego_state.signed_CP_dist ** 2 
+    #                  + oth_state.signed_CP_dist ** 2)
+    # thetaDot = -((oth_image.eff_width / dist)
+    #              * (ego_state.signed_CP_dist * (-ego_state.long_speed)
+    #                 + oth_state.signed_CP_dist * (-oth_state.long_speed))
+    #              / (dist ** 2 + oth_image.eff_width ** 2 / 4))
+    # return thetaDot
+    return get_agent_optical_exps(ego_state.signed_CP_dist, ego_state.long_speed, 
+                                  oth_state.signed_CP_dist, oth_state.long_speed, 
+                                  oth_image.eff_width)
         
 
 # "unit tests"
@@ -732,6 +817,13 @@ if __name__ == "__main__":
                           CtrlType.SPEED,
                           CtrlType.SPEED,
                           CtrlType.SPEED)
+        OTH_CTRL_TYPES = (CtrlType.ACCELERATION, CtrlType.ACCELERATION,
+                          CtrlType.ACCELERATION,
+                          CtrlType.SPEED, CtrlType.SPEED,
+                          CtrlType.SPEED, CtrlType.SPEED,
+                          CtrlType.ACCELERATION,
+                          CtrlType.ACCELERATION,
+                          CtrlType.ACCELERATION)
         EGO_VS = (0, 1.5, 
                   -1.5,
                   0, 10, 
@@ -770,6 +862,8 @@ if __name__ == "__main__":
             EGO_PARAMS[ctrl_type].T_s = 0.5
             EGO_PARAMS[ctrl_type].D_s = 0.5
             EGO_PARAMS[ctrl_type].V_ny = 0
+            EGO_PARAMS[ctrl_type].thetaDot_0 = 0.001
+            EGO_PARAMS[ctrl_type].thetaDot_1 = 0.1
             EGO_PARAMS[ctrl_type].k = commotions.Parameters()
             set_val_gains_for_free_speed(EGO_PARAMS[ctrl_type].k, 
                                          EGO_V_FREE[ctrl_type])
@@ -777,6 +871,10 @@ if __name__ == "__main__":
         OTH_D = {}
         OTH_D[CtrlType.SPEED] = 40
         OTH_D[CtrlType.ACCELERATION] = 6
+        # constants depending on other agent control type
+        OTH_EFF_WIDTH = {}
+        OTH_EFF_WIDTH[CtrlType.SPEED] = 0.8
+        OTH_EFF_WIDTH[CtrlType.ACCELERATION] = 1.8
         # other constants
         COLL_DIST = 2
         END_TIME = 10 # s
@@ -797,12 +895,16 @@ if __name__ == "__main__":
             
             # get test settings
             ego_ctrl_type = EGO_CTRL_TYPES[i_test]
+            oth_ctrl_type = OTH_CTRL_TYPES[i_test]
             V_free = get_agent_free_value(EGO_PARAMS[ego_ctrl_type],
                                           get_total_future_val=True)
             ego_image = SCAgentImage(ego_ctrl_type, 
                                      EGO_PARAMS[ego_ctrl_type], 
                                      v_free = EGO_V_FREE[ego_ctrl_type],
                                      V_free = V_free, eff_width = None)
+            oth_image = SCAgentImage(oth_ctrl_type, params = None, 
+                                     v_free = None, V_free = None, 
+                                     eff_width = OTH_EFF_WIDTH[oth_ctrl_type])
             
             # - prepare objects for current and predicted ego state
             ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
@@ -826,26 +928,27 @@ if __name__ == "__main__":
                 
             # get figure window for test results
             fig = plt.figure(test_name, figsize = (15, 10))
-            axs = fig.subplots(2, 3)
-            axs[1, 0].set_visible(False)
+            axs = fig.subplots(3, 3)
             
             # plot other agent's path
-            axs[0, 0].plot(TIME_STAMPS, oth_distances, 'k-')
+            axs[0, 0].plot(TIME_STAMPS, oth_distances, 'k-', alpha=0.3, lw=3)
             plot_conflict_window(axs[0, 0], oth_state)
-            axs[0, 0].set_xlabel('Time (s)')
             axs[0, 0].set_ylabel('$d_{oth}$ (m)')
             axs[0, 0].set_title("Other agent")
+            axs[1, 0].set_ylabel('$a_{oth}$ (blue; m/s^2) and $v_{oth}$ (grey; m/s)')
+            axs[1, 0].set_xlabel('Time (s)')
+            axs[2, 0].set_visible(False)
             
             # prepare subplots for passing first/second plots
             axs[0, 1].set_ylabel('$d_{ego}$ (m)')
             axs[0, 1].set_title('Ego agent passing first')
-            axs[1, 1].set_xlabel('Time (s)')
-            axs[1, 1].set_ylabel('Predicted acc. (blue; m/s^2) and speed (grey; m/s)')
+            axs[1, 1].set_ylabel('$a_{ego}$ (blue; m/s^2) and $v_{ego}$ (grey; m/s)')
+            axs[2, 1].set_xlabel('Time (s)')
             plot_conflict_window(axs[0, 1], oth_state)
             axs[0, 2].set_ylabel('$d_{ego}$ (m)')
             axs[0, 2].set_title('Ego agent passing second')
-            axs[1, 2].set_xlabel('Time (s)')
-            axs[1, 2].set_ylabel('Predicted acc. (blue; m/s^2) and speed (grey; m/s)')
+            axs[1, 2].set_ylabel('$a_{ego}$ (blue; m/s^2) and $v_{ego}$ (grey; m/s)')
+            axs[2, 2].set_xlabel('Time (s)')
             plot_conflict_window(axs[0, 2], oth_state)
                 
             # loop through initial distances
@@ -857,11 +960,21 @@ if __name__ == "__main__":
                     ego_image, ego_pred_state, oth_pred_state, COLL_DIST)
                 access_ord_vals = get_access_order_values(
                     ego_image, ego_curr_state=ego_state, action_acc0=0, action_jerk=0, 
-                    oth_image=None, oth_curr_state=None, beh_acc=None,
-                    access_ord_impls=access_ord_impls, return_details=True)
+                    oth_image=oth_image, oth_curr_state=oth_state, 
+                    oth_first_acc=oth_state.long_acc, 
+                    oth_cont_acc=oth_state.long_acc,
+                    coll_dist=COLL_DIST,
+                    access_ord_impls=access_ord_impls, consider_looming=True, 
+                    return_details=True)
                 for i, access_ord in enumerate(AccessOrder):
                     deets = access_ord_vals[access_ord].details
                     if not (deets is None):
+                        axs[0, 0].plot(deets.time_stamps, deets.oth_cp_dists,
+                                       'k', lw=1)
+                        axs[1, 0].plot(deets.time_stamps, deets.oth_speeds, 
+                                       '-', color='gray', alpha=0.5)
+                        axs[1, 0].plot(deets.time_stamps, deets.oth_accs, 
+                                       '-', color='blue', alpha=0.5)
                         axs[0, i+1].plot(deets.time_stamps, 
                                          deets.cp_dists, 
                                          'k', lw=1, alpha=0.7)
@@ -871,6 +984,8 @@ if __name__ == "__main__":
                         axs[1, i+1].plot(deets.time_stamps, 
                                          deets.accelerations, 
                                          color='blue', alpha=0.5)
+                        axs[2, i+1].plot(deets.time_stamps,
+                                         deets.thetaDots, 'k-', lw=1, alpha=0.5)
                 
             
                 

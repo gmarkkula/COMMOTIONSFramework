@@ -100,16 +100,16 @@ If $\mathscr{C}$ contains an outcome $\Omega \in \{ \Omega_{1st}, \Omega_{2nd} \
     * A behaviour $c$ exhibited by the ego agent A from time $k + T_\mathrm{P}/\Delta t$ onward (not 100% sure about this last one - isn't really implemented yet).
 2. Calculating the acceleration needed for agent $X$ to achieve outcome $\Omega$, given the position and speed of agent $X$ in $\tilde{\mathbf{x}}'$, and the position, speed, and possibly acceleration of agent $\lnot X$ in $\tilde{\mathbf{x}}'$. Acceleration is considered if `oVAa` is enabled.
 3. Calculating the value of the resulting future trajectory of $X$, as described in `COMMOTIONSFramework` diary entry 2021-05-19b (maybe to be described here also later).
-4. If `oVAl` is enabled and the agents are on a collision course at $k + T_\mathrm{P}/\Delta t$, also adding a negative looming aversion value:
+4. If `oVAl` is enabled and the agents are on a collision course at $k + T_\mathrm{P}/\Delta t$, also adding a negative looming aversion term:
 
 $$
-V_{\dot{\theta}} = 
+g_{\dot{\theta}} = 
     \begin{cases}
-        - V_\mathrm{free} \frac{  \dot{\theta} - \dot{\theta}_0 }{  \dot{\theta}_1 - \dot{\theta}_0 } & \text{if } \dot{\theta} > \dot{\theta}_0 \\
+        - g_\mathrm{free} \frac{  \dot{\theta} - \dot{\theta}_0 }{  \dot{\theta}_1 - \dot{\theta}_0 } & \text{if } \dot{\theta} > \dot{\theta}_0 \\
         0 & \text{otherwise}
     \end{cases}
 $$
-where $V_\mathrm{free}$ is the value of being at one's free speed without any interaction, $\dot{\theta}_0$ is the looming value above which looming starts to be aversive, and $\dot{\theta}_1$ is the looming value at which the magnitude of the negative looming value equals $V_\mathrm{free}$.
+where $g_\mathrm{free}$ is the value rate of being at one's free speed without any interaction, $\dot{\theta}_0$ is the looming value above which looming starts to be aversive, and $\dot{\theta}_1$ is the looming value at which the magnitude of the negative looming value equals $V_\mathrm{free}$.
 
 If $X = A$ and $\mathscr{C}$ does *not* contain an outcome $\Omega$, then the value estimate is simply the maximum value of the two possible outcomes:
 $$
@@ -177,20 +177,20 @@ $$
 
 The evidence for behaviour $b$ accumulated from behaviour observation is updated as:
 $$
-\hat{A}_{\mathrm{O},b}(k) = \mathscr{O}_{T_\mathrm{Of},T_\mathrm{O1}} \left[ \hat{A}_{\mathrm{O},b}, \tilde{\mathbf{x}}, b, k \right] \equiv \left( 1 - \frac{\Delta t}{T_\mathrm{O}} \right) \hat{A}_{\mathrm{O},b}(k-1) + \frac{\Delta t}{T_\mathrm{O1}}\ln{p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b]}
+\hat{A}_{\mathrm{O},b}(k) = \mathscr{O}_{T_\mathrm{Of},T_\mathrm{O1}} \left[ \hat{A}_{\mathrm{O},b}, \tilde{\mathbf{x}}, b, k \right] \equiv \left( 1 - \frac{\Delta t}{T_\mathrm{Of}} \right) \hat{A}_{\mathrm{O},b}(k-1) + \frac{\Delta t}{T_\mathrm{O1}}\ln{p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b]}
 $$
 
 where $T_\mathrm{Of}$ is a "forgetting" time constant, and $T_\mathrm{O1}$ the time needed for the human to "take one sample" (which obviously can be different from the simulation time stamp $\Delta t$). 
 
-The specific formulation above is chosen because with $T_\mathrm{O} \rightarrow \infty$ and `oBEv` disabled (such that we can fix $\beta_\mathrm{O} = 1$), we get:
+The specific formulation above is chosen because with $T_\mathrm{Of} \rightarrow \infty$ and `oBEv` disabled (such that we can fix $\beta_\mathrm{O} = 1$), we get, for $\Delta t = T_\mathrm{O1}$:
 
 $$
 \begin{align*}
-P_{b|a}(k)  & = \mathscr{S}_\lambda\left[ \{A_{b'|a}\}, b, k \right] \\
-            & = \mathscr{S}_\lambda\left[ \{\hat{A}_{\mathrm{O},b'}\}, b, k \right] \\
-            & = \frac{e^{\lambda \hat{A}_{\mathrm{O},b}(k)}}{\sum_{b'} e^{\lambda \hat{A}_{\mathrm{O},b'}(k)}} = \{\mathrm{definition\;above} \} \\
-            & = \frac{e^{\lambda \hat{A}_{\mathrm{O},b}(k-1)} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b] }{\sum_{b'} e^{\lambda \hat{A}_{\mathrm{O},b'}(k-1)} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b'] } \\
-            & = \frac{ \frac{e^{\lambda \hat{A}_{\mathrm{O},b}(k-1)}}{\sum_{b''} e^{\lambda \hat{A}_{\mathrm{O},b''}(k-1)}} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b] }{\sum_{b'} \frac{e^{\lambda \hat{A}_{\mathrm{O},b'}(k-1)}}{\sum_{b''} e^{\lambda \hat{A}_{\mathrm{O},b''}(k-1)}} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b'] } \\
+P_{b|a}(k)  & = \mathscr{S}\left[ \{A_{b'|a}\}, b, k \right] \\
+            & = \mathscr{S}\left[ \{\hat{A}_{\mathrm{O},b'}\}, b, k \right] \\
+            & = \frac{e^{\hat{A}_{\mathrm{O},b}(k)}}{\sum_{b'} e^{\hat{A}_{\mathrm{O},b'}(k)}} = \{\mathrm{definition\;above} \} \\
+            & = \frac{e^{ \hat{A}_{\mathrm{O},b}(k-1)} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b] }{\sum_{b'} e^{\hat{A}_{\mathrm{O},b'}(k-1)} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b'] } \\
+            & = \frac{ \frac{e^{\hat{A}_{\mathrm{O},b}(k-1)}}{\sum_{b''} e^{\hat{A}_{\mathrm{O},b''}(k-1)}} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b] }{\sum_{b'} \frac{e^{\hat{A}_{\mathrm{O},b'}(k-1)}}{\sum_{b''} e^{\hat{A}_{\mathrm{O},b''}(k-1)}} p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b'] } \\
             & = \frac{ P_{b|a}(k-1) \cdot p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b] }{\sum_{b'} P_{b'|a}(k-1) \cdot  p[\tilde{\mathbf{x}}(k) | \tilde{\mathbf{x}}(k-1), b'] } 
 \end{align*}
 $$
