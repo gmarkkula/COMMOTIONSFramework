@@ -181,7 +181,11 @@ def get_time_to_dist_with_acc(state, target_dist):
     
 
 def get_app_entry_exit_time_arrays(cp_dists, speeds, coll_dist):
-    # 
+    # Can generate divide by zero warnings. To get rid of these globally, use 
+    # np.seterr(divide='ignore') somewhere in the main script (see 2021-10-28
+    # diary notes for some thoughts), but I am not introducing this into the 
+    # framework code itself (yet) since it might mean that I miss divide by 
+    # zeros somewhere else.
     app_arr_times = []
     for side_sign in (-1, 1):
         side_dists = cp_dists + side_sign * coll_dist

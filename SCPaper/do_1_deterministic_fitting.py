@@ -27,7 +27,7 @@ import multiprocessing as mp
 # set constants
 
 # - models 
-BASE_MODELS = ('', 'oVA', 'oVAa')
+BASE_MODELS = ('oVAoVAl', 'oVAaoVAl') # '', 'oVA', 'oVAa', 
 MODEL_VARIANTS = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
 
 
@@ -52,6 +52,7 @@ DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.T_P = 0.5
 DEFAULT_PARAMS.T_s = 0.5
 DEFAULT_PARAMS.D_s = 0.5
+DEFAULT_PARAMS.thetaDot_0 = 0.001
 DEFAULT_PARAMS.beta_O = 1 
 DEFAULT_PARAMS.T_O1 = 0.05 
 #DEFAULT_PARAMS.DeltaV_th_rel = 0.001 
@@ -64,6 +65,7 @@ PARAM_ARRAYS = {}
 PARAM_ARRAYS['T'] = (0.2, 0.4, 0.6, 0.8)
 PARAM_ARRAYS['k_c'] = np.logspace(np.log10(0.2), np.log10(2), 4)
 PARAM_ARRAYS['k_sc'] = np.logspace(np.log10(0.02), np.log10(0.2), 4)
+PARAM_ARRAYS['thetaDot_1'] = [0.05, 0.1, 0.2, 0.4]
 PARAM_ARRAYS['T_delta'] = (15, 30, 60)
 PARAM_ARRAYS['beta_V'] = (5, 15, 45, 135)
 PARAM_ARRAYS['T_Of'] = (0.5, 1, 2, math.inf)

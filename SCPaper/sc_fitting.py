@@ -26,6 +26,7 @@ AGENT_NAMES = (PED_NAME, VEH_NAME)
 i_PED_AGENT = 0
 i_VEH_AGENT = 1
 AGENT_CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION)
+AGENT_EFF_WIDTHS = (0.8, 1.8)
 AGENT_FREE_SPEEDS = np.array([1.3, 50 / 3.6]) # m/s 
 AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
 COLLISION_MARGIN = 0.5 # m
@@ -157,7 +158,8 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             const_accs=scenario.const_accs,
             start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
             optional_assumptions=self.optional_assumptions, 
-            params=self.params, params_k=self.params_k,
+            params=self.params, params_k=self.params_k, 
+            eff_widths=AGENT_EFF_WIDTHS,
             agent_names=AGENT_NAMES, snapshot_times=snapshots)
         
         # run the simulation
@@ -325,6 +327,9 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         if optional_assumptions[OptionalAssumption.oVA]:
             # affordance-based value functions
             consider_adding_free_param('T_delta')
+            if optional_assumptions[OptionalAssumption.oVAl]:
+                consider_adding_free_param('thetaDot_0')
+                consider_adding_free_param('thetaDot_1')
         else:
             # non-affordance-based value functions
             consider_adding_free_param('k_c')
