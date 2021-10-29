@@ -9,7 +9,7 @@ import numpy as np
 import datetime
 import pickle
 
-STATUS_REP_HEADER_LEN = 35
+STATUS_REP_HEADER_LEN = 40
 
 class ParameterSearchResults:
     def __init__(self, n_params, n_metrics, n_parameterisations, 
