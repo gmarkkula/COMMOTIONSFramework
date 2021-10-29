@@ -16,15 +16,20 @@ if not PARENT_DIR in sys.path:
 # other imports
 import glob
 import numpy as np
+import collections
 import parameter_search
 import sc_fitting
 
+ExampleParameterisation = collections.namedtuple(
+    'ExampleParameterisation',['i_parameterisation', 'params_array', 
+                               'params_dict', 'main_crit_dict', 'sec_crit_dict'])
+
 # constants
-DO_PLOTS = True
+DO_PLOTS = False
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
-SURPLUS_DEC_THRESH = 2 # m/s^2
+SURPLUS_DEC_THRESH = 1 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 0.1 # m/s
 MAIN_CRITERIA = ('veh_assert_prio', 'veh_short_stop', 
@@ -148,15 +153,20 @@ for det_fit_file in det_fit_files:
     det_fit.n_main_criteria_met = n_main_criteria_met
     det_fit.sec_criteria_matrix = sec_criteria_matrix
     
-    # pick a maximally sucessful parameterisations, and provide simulation plots
+    # pick a maximally sucessful parameterisations, and provide simulation 
+    # plots if requested
+    i_parameterisation = np.nonzero(met_max_main_criteria)[0][0]
+    params_array = det_fit.results.params_matrix[i_parameterisation, :]
+    params_dict = det_fit.get_params_dict(params_array)
+    main_crit_dict = {crit : main_criteria_matrix[i_crit, i_parameterisation] 
+                 for i_crit, crit in enumerate(MAIN_CRITERIA)}
+    sec_crit_dict = {crit : sec_criteria_matrix[i_crit, i_parameterisation] 
+                 for i_crit, crit in enumerate(SEC_CRITERIA)}
+    det_fit.example = ExampleParameterisation(
+        i_parameterisation=i_parameterisation, params_array=params_array,
+        params_dict=params_dict, main_crit_dict=main_crit_dict, 
+        sec_crit_dict=sec_crit_dict)
     if DO_PLOTS:
-        i_parameterisation = np.nonzero(met_max_main_criteria)[0][0]
-        params_array = det_fit.results.params_matrix[i_parameterisation, :]
-        params_dict = det_fit.get_params_dict(params_array)
-        main_crit_dict = {crit : main_criteria_matrix[i_crit, i_parameterisation] 
-                     for i_crit, crit in enumerate(MAIN_CRITERIA)}
-        sec_crit_dict = {crit : sec_criteria_matrix[i_crit, i_parameterisation] 
-                     for i_crit, crit in enumerate(SEC_CRITERIA)}
         print('\tLooking at one of the parameterisations meeting'
               f' {n_max_main_criteria_met} criteria:')
         print(f'\t\t{params_dict}')
