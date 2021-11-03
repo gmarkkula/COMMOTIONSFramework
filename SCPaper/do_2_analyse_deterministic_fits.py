@@ -25,7 +25,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_PLOTS = False
+DO_PLOTS = True
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
@@ -94,11 +94,15 @@ for det_fit_file in det_fit_files:
     print(f'\t\tPedestrian hesitation in deceleration scenario:'
           f' Found {n_ped_hesitate_dec}'
           f' ({100 * n_ped_hesitate_dec / n_parameterisations:.1f} %) parameterisations.') 
+    ped_1st = det_fit.get_metric_results('ActPedPrioEncounter_ped_1st')
     veh_speed_at_ped_start = det_fit.get_metric_results(
         'ActPedPrioEncounter_veh_speed_at_ped_start')
-    ped_start_bef_veh_stop = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
+    ped_start_bef_veh_stop = ((ped_1st.astype(bool) 
+                                & np.isnan(veh_speed_at_ped_start)) 
+                              | (veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH))
+    # ped_start_bef_veh_stop = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
     n_ped_start_bef_veh_stop = np.count_nonzero(ped_start_bef_veh_stop)
-    print(f'\t\tPedestrian starting before vehicle at full stop:'
+    print(f'\t\tPedestrian starting before vehicle at full stop (or never stopping):'
           f' Found {n_ped_start_bef_veh_stop}'
           f' ({100 * n_ped_start_bef_veh_stop / n_parameterisations:.1f} %) parameterisations.') 
     
@@ -155,7 +159,9 @@ for det_fit_file in det_fit_files:
     
     # pick a maximally sucessful parameterisations, and provide simulation 
     # plots if requested
-    i_parameterisation = np.nonzero(met_max_main_criteria)[0][0]
+    i_parameterisation = np.nonzero(met_max_main_criteria 
+                                    & (n_sec_criteria_met
+                                       == n_max_sec_crit_met_among_best))[0][0]
     params_array = det_fit.results.params_matrix[i_parameterisation, :]
     params_dict = det_fit.get_params_dict(params_array)
     main_crit_dict = {crit : main_criteria_matrix[i_crit, i_parameterisation] 

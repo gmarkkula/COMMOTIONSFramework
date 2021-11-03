@@ -254,16 +254,23 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             veh_max_surplus_dec_before = np.max(dec_before_ca - stop_dec_before_ca)
             store_metric('veh_max_surplus_dec_before', veh_max_surplus_dec_before)
             # - veh speed at first sample where pedestrian increases speed
-            # - before entering conflict area
+            # - before entering the conflict area, after the last time the 
+            # - pedestrian decreases its speed before the vehicle reaches 
+            # - zero speed (if it does)
+            veh_zero_spd_samples = np.nonzero(
+                veh_agent.trajectory.long_speed == 0)[0]
             veh_speed_at_ped_start = math.nan
-            if ped_entered_ca:
-                # first find the last speed decrease before conflict area entry
-                ped_speed_diff_before_ca = np.diff(ped_agent.trajectory.long_speed[
-                    :ped_entry_sample])
-                dec_samples = np.nonzero(ped_speed_diff_before_ca < 0)[0]
+            if ped_entered_ca and len(veh_zero_spd_samples) > 0:
+                # first find the last speed decrease before vehicle zero speed
+                veh_zero_spd_sample = veh_zero_spd_samples[0]
+                ped_speed_diff_before_vzs = np.diff(
+                    ped_agent.trajectory.long_speed[:veh_zero_spd_sample])
+                dec_samples = np.nonzero(ped_speed_diff_before_vzs < 0)[0]
                 # any speed decreases at all?
                 if len(dec_samples) > 0:
                     last_dec_sample = dec_samples[-1]
+                    ped_speed_diff_before_ca = np.diff(
+                        ped_agent.trajectory.long_speed[:ped_entry_sample])
                     acc_samples_after_last_dec = np.nonzero(
                         (np.arange(ped_entry_sample-1) > last_dec_sample)
                         & (ped_speed_diff_before_ca > 0))[0]
@@ -369,7 +376,6 @@ if __name__ == "__main__":
     plt.close('all')
     
     PARAM_ARRAYS = {}
-    PARAM_ARRAYS['T_P'] = (0.5, 1)
     PARAM_ARRAYS['k_c'] = (0.2, 2)
     
     OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 

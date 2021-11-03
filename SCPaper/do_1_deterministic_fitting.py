@@ -27,7 +27,7 @@ import multiprocessing as mp
 # set constants
 
 # - models 
-BASE_MODELS = ('', 'oVA', 'oVAa', 'oVAoVAl', 'oVAaoVAl')  
+BASE_MODELS = ('', 'oVA', 'oVAa', 'oVAoVAl', 'oVAaoVAl', 'oVAaoBEc')  
 MODEL_VARIANTS = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
 
 

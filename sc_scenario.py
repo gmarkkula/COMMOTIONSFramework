@@ -27,6 +27,7 @@ class OptionalAssumption(Enum):
     oAN = 'oAN'
     oBEo = 'oBEo'
     oBEv = 'oBEv'
+    oBEc = 'oBEc'
     oAI = 'oAI'
 
 def get_assumptions_dict(default_value = False, **kwargs):
@@ -368,13 +369,12 @@ class SCAgent(commotions.AgentWithGoal):
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
         # - is the constant behaviour valid for this time step?
-        if (#(not self.assumptions[OptionalAssumption.oVAa]) and
-            (self.assumptions[DerivedAssumption.dBE] and
-            (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND]))):
-            # no the constant behaviour is not valid, because we are not
-            # doing acceleration-aware affordance-based value estimation, and
-            # we are estimating behaviours, and at least one of the other
-            # behaviours is valid
+        if (self.assumptions[DerivedAssumption.dBE] and 
+            (not self.assumptions[OptionalAssumption.oBEc])
+            and (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND])):
+            # no the constant behaviour is not valid, because we are 
+            # estimating behaviours, oBEc is not enabled, and at least one of 
+            # the other (non-constant-speed) behaviours is valid
             beh_is_valid[i_CONSTANT] = False
             self.states.beh_long_accs[i_CONSTANT, i_time_step] = math.nan
         # - are the pass 1st/2nd behaviours valid? (are we estimating behs?)
@@ -1145,6 +1145,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.assumptions[DerivedAssumption.dBE] = \
             self.assumptions[OptionalAssumption.oBEo] \
             or self.assumptions[OptionalAssumption.oBEv]
+        if not self.assumptions[DerivedAssumption.dBE]:
+            if self.assumptions[OptionalAssumption.oBEc]:
+                warnings.warn('Cannot have oBEc without oBEv or oBEo, so'
+                              ' disabling oBEc.')
+                self.assumptions[OptionalAssumption.oBEc] = False
         if not self.assumptions[OptionalAssumption.oVA]:
             if self.assumptions[OptionalAssumption.oVAa]:
                 warnings.warn('Cannot have oVAa without oVA, so disabling oVAa.')
@@ -1620,7 +1625,8 @@ if __name__ == "__main__":
                                                 oVAa = False,
                                                 oVAl = False,
                                                 oBEo = False,
-                                                oBEv = False, 
+                                                oBEv = False,
+                                                oBEc = False,
                                                 oAI = False,
                                                 oEA = False, 
                                                 oAN = False)  
