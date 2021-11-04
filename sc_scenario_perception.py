@@ -13,16 +13,6 @@ import commotions
 
 N_STATE_DIMS = 2 # position and speed
 
-def is_pos_def(A):
-    if np.allclose(A, A.T):
-        try:
-            np.linalg.cholesky(A)
-            return True
-        except np.linalg.LinAlgError:
-            return False
-    else:
-        return False
-
 class PerceptionStates:
     pass
         
@@ -170,8 +160,6 @@ class Perception:
         # we may also want do randomly draw the perceived noisy state from 
         # the Kalman estimate
         if self.draw_from_estimate:
-            if not is_pos_def(self.states.cov_matrix[:, :, i_time_step]):
-                raise Exception('here buddy')
             self.states.x_perceived[:, i_time_step] = self.rng.multivariate_normal(
                 mean=self.states.x_estimated[:, i_time_step],
                 cov=self.states.cov_matrix[:, :, i_time_step])
