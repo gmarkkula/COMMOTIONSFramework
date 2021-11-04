@@ -108,8 +108,10 @@ class Perception:
         # arrays in self.states are already pointing to x_true)
         if not self.noisy_perception:
             return
-        # get observation noise magnitude
+        # get observation noise magnitude 
         if self.angular_perception:
+            # perceiving distance from angle below horizon
+            # (see 2021-11-02 handwritten notes)
             D = math.sqrt(ego_state.signed_CP_dist ** 2 
                           + oth_state.signed_CP_dist ** 2)
             curr_obs_noise_stddev = (
@@ -123,6 +125,7 @@ class Perception:
                    )
                 )
         else:
+            # constant spatial noise
             curr_obs_noise_stddev = self.pos_obs_noise_stddev
         # get a noisy observation of position
         self.states.x_noisy[0, i_time_step] = self.rng.normal(
@@ -163,6 +166,7 @@ class Perception:
             self.states.x_perceived[:, i_time_step] = self.rng.multivariate_normal(
                 mean=self.states.x_estimated[:, i_time_step],
                 cov=self.states.cov_matrix[:, :, i_time_step])
+
 
     def update(self, i_time_step, ego_state, oth_state):
         # call internal method for updating state arrays
@@ -212,7 +216,8 @@ class Perception:
             pos=None, long_speed=None, yaw_angle=None)
         # Kalman filtering matrices, if needed (see 2021-10-30 hand written notes)
         if self.noisy_perception and self.kalman_filter:
-            # state transition model 
+            # state transition model (negative top right element since 
+            # distance to conflict point decreases with positive speed)
             self.Fmatrix = np.array(((1, -self.simulation.settings.time_step),
                                      (0, 1)))
             # observation model (a row vector)
