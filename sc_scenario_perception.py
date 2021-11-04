@@ -6,7 +6,6 @@ Created on Tue Nov  2 07:32:13 2021
 """
 import math
 from dataclasses import dataclass
-import copy
 import numpy as np
 from numpy.random import default_rng
 import commotions
@@ -30,12 +29,71 @@ class PerceptionStates:
 
 @dataclass
 class Perception:
-    """ A class to manage perception in an SC scenario.
-        Intended use after init is to call method update() for each time step
-        in a simulation, after which the attribute perc_oth_state contains a
-        currently perceived state for the other agent. After the entire
-        simulation is done, the property states contains arrays...
-        TODO
+    """ A class to manage perception of another agent in an SC scenario. 
+        
+        Arguments to __init__:
+            
+            simulation : commotions.Simulation
+                The SC scenario simulation.
+            pos_obs_noise_stddev: float
+                Standard deviation of Gaussian noise in sensing of the other
+                agent's position. In radians if angular_perception is True,
+                otherwise in meters. Set to zero (the default value) to assume
+                non-noisy perception (disabling all other features of this 
+                class).
+            angular_perception: bool
+                If True, assume that position estimation is based on angle below
+                horizon, with constant angular noise, determines position noise,
+                if False (default), assume that position estimation has constant
+                spatial noise.
+            ego_eye_height: float
+                Eye height over the ground of the perceiving observer. Only
+                needed if angular_perception is True. Default is None.
+            kalman_filter: bool
+                If True, the noisy distance to conflict point information
+                will be Kalman filtered to yield filtered distance and speed
+                estimates. Default is False. 
+            x_initial: np.ndarray
+                A numpy array of length 2, describing initial Kalman filter
+                estimates for the other agent's distance to conflict point and 
+                longitudinal speed. Only required if kalman_filter is True.
+                Default is None.
+            cov_matrix_initial: np.ndarray
+                A numpy array of size 2 x 2, describing the initial Kalman filter
+                estimate of the covariance matrix. Only required if kalman_filter 
+                is True. Default is None.
+            spd_proc_noise_stddev: float
+                Standard deviation of Gaussian noise assumed for the longitudinal
+                speed in the process model of the Kalman filter. Unit m/s. 
+                Only relevant if kalman_filter is True. Default is zero.
+            draw_from_estimate: bool
+                If False (the default), the perceived state of the other agent
+                will be the Kalman filter's current maximum probability 
+                estimates of conflict point distance and speed. 
+                If True, the perceived state will instead be a random draw 
+                from the Kalman filter's current estimated joint distribution 
+                for distance and speed. Only relevant if kalman_filter is True. 
+        
+        The intended use after __init__ is to call method .update() for each time 
+        step in a simulation, after which the attribute .perc_oth_state 
+        contains a currently perceived state for the other agent at this time
+        step.
+        
+        After the entire simulation is done, the property .states contains 
+        arrays with time histories of various perception quantities, all 
+        numpy arrays of dimension 2 x N or 2 x 2 x N, where 2 is for position
+        to conflict point and longitudinal speed, and N is the number
+        of time steps in the simulation:
+            
+            x_true: true values
+            x_noisy: with noise added (the speeds remain NaN if doing Kalman 
+                                        filtering, since only observing noisy
+                                        distances to conflict point)
+            x_estimated: maximum probability Kalman filter estimates
+            x_perceived: the perceived values; for many uses of this class
+                          this will be a pointer to one of the arrays above
+            cov_matrix: Kalman filter estimates of the covariance matrix 
+        
     """
     
     simulation: commotions.Simulation
@@ -45,7 +103,7 @@ class Perception:
     kalman_filter: bool = False
     x_initial: np.ndarray = None
     cov_matrix_initial: np.ndarray = None
-    spd_proc_noise_stddev: bool = False
+    spd_proc_noise_stddev: bool = 0
     draw_from_estimate: bool = False
     
     
@@ -187,18 +245,31 @@ if __name__ == "__main__":
     AGENT_POS0 = (np.array((0, -5)), np.array((40, 0)))
     AGENT_FREE_SPEED = (1.5, 10)
     GOALS = np.array(((0, 5), (-50, 0)))
-    N_SCENARIOS = 1
+    N_SCENARIOS = 2
+    END_TIMES = (4, 8)
     INIT_KIN_STATES = ((commotions.KinematicState(pos=AGENT_POS0[0], 
                                                   long_speed=0, 
                                                   yaw_angle=None),
                         commotions.KinematicState(pos=AGENT_POS0[1], 
                                                   long_speed=AGENT_FREE_SPEED[1], 
-                                                  yaw_angle=None)),)
+                                                  yaw_angle=None)),
+                       (commotions.KinematicState(pos=AGENT_POS0[0], 
+                                                  long_speed=AGENT_FREE_SPEED[0], 
+                                                  yaw_angle=None),
+                        commotions.KinematicState(pos=AGENT_POS0[1], 
+                                                  long_speed=AGENT_FREE_SPEED[1], 
+                                                  yaw_angle=None)))
+    NO_ACTION_STATE = commotions.ActionState()
+    veh_stop_dist = AGENT_POS0[1][0] - 2
+    veh_stop_acc = -AGENT_FREE_SPEED[1] ** 2 / (2 * veh_stop_dist)
+    STOPPING_ACTION_STATE = commotions.ActionState(long_acc=veh_stop_acc)
+    INIT_ACT_STATES = ((NO_ACTION_STATE, NO_ACTION_STATE),
+                       (NO_ACTION_STATE, STOPPING_ACTION_STATE))
     
     DIST_OBS_NOISE = 5 # m
     ANG_OBS_NOISE = 0.01 # rad
     PRIOR_STDDEV_MULT = 1 # factor by which to multiply the _POS0 and _FREE_SPEED values above to get initial stddevs
-    PROC_NOISE_MULT = 0*0.01 # factor by which to multiply the _FREE_SPEED values above to get process noise for speed 
+    PROC_NOISE_MULT = 0.01 # factor by which to multiply the _FREE_SPEED values above to get process noise for speed 
     
     def get_signed_dist_to_conflict_pt(pos, yaw_angle):
         vect_to_conflict_point = np.zeros(2) - pos
@@ -208,13 +279,16 @@ if __name__ == "__main__":
     # loop through scenarios
     for i_scenario in range(N_SCENARIOS):
     
-        sim = commotions.Simulation(start_time=0, end_time=4, time_step=0.02)
+        sim = commotions.Simulation(start_time=0, end_time=END_TIMES[i_scenario], 
+                                    time_step=0.02)
         
         # create agents and add them to the simulation
         for i_agent in range(2):
             agent = commotions.AgentWithGoal(AGENT_NAMES[i_agent], sim, 
                                              GOALS[i_agent, :], 
-                                             INIT_KIN_STATES[i_scenario][i_agent])
+                                             INIT_KIN_STATES[i_scenario][i_agent],
+                                             initial_action_state=
+                                             INIT_ACT_STATES[i_scenario][i_agent])
         
         # loop through agents and add various perception objects to test
         for i_agent, agent in enumerate(sim.agents):
