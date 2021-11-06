@@ -9,12 +9,20 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.random import default_rng
 import commotions
+import sc_scenario_helper
 
 
 N_STATE_DIMS = 2 # position and speed
 
 class PerceptionStates:
     pass
+        
+
+class KalmanPrior:
+    def __init__(self, cp_dist_mean, cp_dist_stddev, speed_mean, speed_stddev): 
+        self.x_estimated = np.array((cp_dist_mean, speed_mean))
+        self.cov_matrix = np.array(((cp_dist_stddev ** 2, 0), 
+                                    (0, speed_stddev ** 2)))
         
 
 @dataclass
@@ -91,9 +99,8 @@ class Perception:
     angular_perception: bool = False
     ego_eye_height: float = None
     kalman_filter: bool = False
-    x_initial: np.ndarray = None
-    cov_matrix_initial: np.ndarray = None
-    spd_proc_noise_stddev: bool = 0
+    prior: KalmanPrior = None
+    spd_proc_noise_stddev: float = 0
     draw_from_estimate: bool = False
     
     
@@ -171,9 +178,12 @@ class Perception:
     def update(self, i_time_step, ego_state, oth_state):
         # call internal method for updating state arrays
         self.update_states(i_time_step, ego_state, oth_state)
-        # update the property reflecting perceived current state of other agent
+        # set the perceived current state of other agent
+        self.perc_oth_state.yaw_angle = oth_state.yaw_angle
         self.perc_oth_state.signed_CP_dist = self.states.x_perceived[0, i_time_step]
         self.perc_oth_state.long_speed = self.states.x_perceived[1, i_time_step]
+        self.perc_oth_state.pos = sc_scenario_helper.get_pos_from_signed_dist_to_conflict_pt(
+            self.simulation.conflict_point, self.perc_oth_state)
         
     
     def __post_init__(self):
@@ -197,8 +207,8 @@ class Perception:
                 self.states.x_estimated = np.full((2, n_time_steps), np.nan)
                 self.states.cov_matrix = np.full((2, 2, n_time_steps), np.nan)
                 # initial states
-                self.states.x_estimated[:, -1] = self.x_initial
-                self.states.cov_matrix[:, :, -1] = self.cov_matrix_initial
+                self.states.x_estimated[:, -1] = self.prior.x_estimated
+                self.states.cov_matrix[:, :, -1] = self.prior.cov_matrix
                 if self.draw_from_estimate:
                     self.states.x_perceived = np.full((2, n_time_steps), np.nan)
                 else:
@@ -258,6 +268,7 @@ if __name__ == "__main__":
     STOPPING_ACTION_STATE = commotions.ActionState(long_acc=veh_stop_acc)
     INIT_ACT_STATES = ((NO_ACTION_STATE, NO_ACTION_STATE),
                        (NO_ACTION_STATE, STOPPING_ACTION_STATE))
+    CONFLICT_POINT = np.zeros(2)
     
     DIST_OBS_NOISE = 5 # m
     ANG_OBS_NOISE = 0.01 # rad
@@ -265,7 +276,7 @@ if __name__ == "__main__":
     PROC_NOISE_MULT = 0.01 # factor by which to multiply the _FREE_SPEED values above to get process noise for speed 
     
     def get_signed_dist_to_conflict_pt(pos, yaw_angle):
-        vect_to_conflict_point = np.zeros(2) - pos
+        vect_to_conflict_point = CONFLICT_POINT - pos
         heading_vect = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
         return np.dot(heading_vect, vect_to_conflict_point)
     
@@ -274,6 +285,7 @@ if __name__ == "__main__":
     
         sim = commotions.Simulation(start_time=0, end_time=END_TIMES[i_scenario], 
                                     time_step=0.02)
+        sim.conflict_point = CONFLICT_POINT
         
         # create agents and add them to the simulation
         for i_agent in range(2):
@@ -289,11 +301,10 @@ if __name__ == "__main__":
             agent.other_agent = sim.agents[i_oth_agent]
             oth_dist_prior = get_signed_dist_to_conflict_pt(
                 AGENT_POS0[i_oth_agent], agent.other_agent.trajectory.yaw_angle[0])
-            x_prior = np.array((oth_dist_prior, AGENT_FREE_SPEED[i_oth_agent]))
-            oth_dist_var_prior = (PRIOR_STDDEV_MULT * np.amax(np.abs(AGENT_POS0[i_oth_agent]))) ** 2
-            oth_speed_var_prior = (PRIOR_STDDEV_MULT * AGENT_FREE_SPEED[i_oth_agent]) ** 2
-            cov_matrix_initial = np.array(((oth_dist_var_prior, 0), 
-                                           (0, oth_speed_var_prior)))
+            oth_dist_stddev_prior = (PRIOR_STDDEV_MULT * np.amax(np.abs(AGENT_POS0[i_oth_agent])))
+            oth_speed_stddev_prior = (PRIOR_STDDEV_MULT * AGENT_FREE_SPEED[i_oth_agent])
+            prior = KalmanPrior(oth_dist_prior, oth_dist_stddev_prior, 
+                                AGENT_FREE_SPEED[i_oth_agent], oth_speed_stddev_prior)
             proc_noise_stddev = PROC_NOISE_MULT * AGENT_FREE_SPEED[i_oth_agent]
             agent.perc = {}
             agent.perc['base'] = Perception(sim)
@@ -306,14 +317,12 @@ if __name__ == "__main__":
             agent.perc['kalman'] = Perception(sim, 
                                               pos_obs_noise_stddev = DIST_OBS_NOISE,
                                               kalman_filter = True,
-                                              x_initial = x_prior,
-                                              cov_matrix_initial = cov_matrix_initial,
+                                              prior = prior,
                                               spd_proc_noise_stddev = proc_noise_stddev)
             agent.perc['kalman_draw'] = Perception(sim, 
                                                   pos_obs_noise_stddev = DIST_OBS_NOISE,
                                                   kalman_filter = True,
-                                                  x_initial = x_prior,
-                                                  cov_matrix_initial = cov_matrix_initial,
+                                                  prior = prior,
                                                   spd_proc_noise_stddev = proc_noise_stddev,
                                                   draw_from_estimate = True)
             agent.perc['kalman_ang'] = Perception(sim, 
@@ -321,16 +330,14 @@ if __name__ == "__main__":
                                                   ego_eye_height = AGENT_EYE_HEIGHT,
                                                   pos_obs_noise_stddev = ANG_OBS_NOISE,
                                                   kalman_filter = True,
-                                                  x_initial = x_prior,
-                                                  cov_matrix_initial = cov_matrix_initial,
+                                                  prior = prior,
                                                   spd_proc_noise_stddev = proc_noise_stddev)
             agent.perc['kalman_ang_draw'] = Perception(sim, 
                                                       angular_perception = True,
                                                       ego_eye_height = AGENT_EYE_HEIGHT,
                                                       pos_obs_noise_stddev = ANG_OBS_NOISE,
                                                       kalman_filter = True,
-                                                      x_initial = x_prior,
-                                                      cov_matrix_initial = cov_matrix_initial,
+                                                      prior = prior,
                                                       spd_proc_noise_stddev = proc_noise_stddev,
                                                       draw_from_estimate = True)
             

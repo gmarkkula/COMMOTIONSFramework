@@ -15,6 +15,8 @@ from sc_scenario_helper import (CtrlType, AccessOrder, N_ACCESS_ORDERS,
                                 SCAgentImage,
                                 get_sc_agent_collision_margins, 
                                 get_delay_discount)
+import sc_scenario_perception
+ 
 
 NEW_AFF_VAL_CALCS = True
 
@@ -23,6 +25,9 @@ class OptionalAssumption(Enum):
     oVA = 'oVA'
     oVAa = 'oVAa'
     oVAl = 'oVAl'
+    oSNc = 'oSNc'
+    oSNv = 'oSNv'
+    oPF = 'oPF'
     oEA = 'oEA'
     oAN = 'oAN'
     oBEo = 'oBEo'
@@ -82,6 +87,9 @@ i_PASS2ND = 2
 
 # default parameters
 DEFAULT_PARAMS = commotions.Parameters()
+DEFAULT_PARAMS.tau = 1 # std dev of sensory observation noise; in m or rad depending on whether oSNc or oSNv is enabled
+DEFAULT_PARAMS.H_e = 1.5 # m; height over ground of the eyes of an observed doing oSNv perception
+DEFAULT_PARAMS.sigma_xdot = 0.1 # m/s; std dev of speed process noise in Kalman filtering (oPF)
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
 #DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
@@ -143,7 +151,7 @@ def get_default_params(oVA):
 
 
 SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.d_C = 1.5 # collision distance
+SHARED_PARAMS.d_C = 2 # collision distance
 
 TTC_FOR_COLLISION = 0.1
 MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are considered zero
@@ -230,23 +238,11 @@ class SCAgent(commotions.AgentWithGoal):
                     self.other_agent.get_current_kinematic_state().pos, 
                     self.other_agent.goal)
 
-
-    def get_signed_dist_to_conflict_pt(self, state):
-        """Get the signed distance from the specified agent state to the conflict
-        point. Positive sign means that the agent has its front toward the conflict
-        point. (Which will typically mean that it is on its way toward the 
-        conflict point - however this function does not check for backward
-        travelling.)
-        """
-        vect_to_conflict_point = \
-            self.simulation.conflict_point - state.pos
-        heading_vect = \
-            np.array((math.cos(state.yaw_angle), math.sin(state.yaw_angle)))
-        return np.dot(heading_vect, vect_to_conflict_point)
-
     
     def add_sc_state_info(self, state):
-        state.signed_CP_dist = self.get_signed_dist_to_conflict_pt(state)
+        state.signed_CP_dist = (
+            sc_scenario_helper.get_signed_dist_to_conflict_pt(
+                self.simulation.conflict_point, state))
         state = sc_scenario_helper.add_entry_exit_times_to_state(
                 state, SHARED_PARAMS.d_C)
         return state
@@ -307,6 +303,17 @@ class SCAgent(commotions.AgentWithGoal):
         if self.const_acc != None:
             self.trajectory.long_acc[i_time_step] = self.const_acc
             return
+        
+        # update this agent's current perception of the other agent
+        # - save the percept from the previous time step
+        self.perception.prev_perc_oth_state = copy.deepcopy(
+            self.perception.perc_oth_state)
+        # - do the perception update
+        self.perception.update(i_time_step, self.curr_state, 
+                               self.other_agent.curr_state)
+        # - shouldn't really be needed, but is now given the imperfections
+        # - mentioned in .get_access_order_values_for_agent_v02()
+        self.perception.perc_oth_state.long_acc = self.other_agent.curr_state.long_acc
 
         # if agent can't reverse and is now at zero speed, make sure that any
         # future negative accelerations from past actions are cleared
@@ -359,7 +366,7 @@ class SCAgent(commotions.AgentWithGoal):
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
          self.states.beh_long_accs[i_PASS2ND, i_time_step]) = \
              sc_scenario_helper.get_access_order_accs(
-                     self.oth_image, self.other_agent.curr_state, 
+                     self.oth_image, self.perception.perc_oth_state, 
                      self.curr_state, SHARED_PARAMS.d_C, 
                      consider_oth_acc=False)
              
@@ -429,6 +436,9 @@ class SCAgent(commotions.AgentWithGoal):
                                                      self.plot_color, 
                                                      alpha=True)
                             self.plot_state_snapshot(self.other_agent.curr_state, 
+                                                     'lightgray', 
+                                                     alpha=True)
+                            self.plot_state_snapshot(self.perception.perc_oth_state, 
                                                      self.other_agent.plot_color, 
                                                      alpha=True)
                             self.plot_state_snapshot(pred_own_states[i_action],
@@ -907,7 +917,7 @@ class SCAgent(commotions.AgentWithGoal):
                 ego_curr_state = self.curr_state, 
                 ego_pred_state = my_pred_state, 
                 oth_image = self.oth_image,
-                oth_curr_state = self.other_agent.curr_state,
+                oth_curr_state = self.perception.perc_oth_state,
                 oth_pred_state = oth_pred_state,
                 snapshot_color = self.plot_color,
                 snapshot_loc = 'topleft',
@@ -918,7 +928,7 @@ class SCAgent(commotions.AgentWithGoal):
     def get_access_order_values_for_other_v02(self, oth_pred_state, my_pred_state):
         access_order_values = self.get_access_order_values_for_agent_v02(
                 ego_image = self.oth_image, 
-                ego_curr_state = self.other_agent.curr_state, 
+                ego_curr_state = self.perception.perc_oth_state, 
                 ego_pred_state = oth_pred_state,
                 oth_image = self.self_image,
                 oth_curr_state = self.curr_state,
@@ -1041,18 +1051,41 @@ class SCAgent(commotions.AgentWithGoal):
         if math.isnan(long_acc_for_this_beh):
             predicted_state = None
         else:
-            # let the other agent object calculate what its predicted state would
-            # be with this acceleration 
-            predicted_state = self.other_agent.get_future_kinematic_state(
-                    long_acc_for_this_beh, yaw_rate = 0, 
-                    n_time_steps_to_advance = self.n_prediction_time_steps)
+            # # let the other agent object calculate what its predicted state would
+            # # be with this acceleration 
+            # predicted_state = self.other_agent.get_future_kinematic_state(
+            #         long_acc_for_this_beh, yaw_rate = 0, 
+            #         n_time_steps_to_advance = self.n_prediction_time_steps)
+            # predicted_state.long_acc = long_acc_for_this_beh
+            # # add SC scenario specific state info
+            # predicted_state = self.add_sc_state_info(predicted_state)
+            pred_CP_dist = (self.perception.perc_oth_state.signed_CP_dist
+                            - self.perception.perc_oth_state.long_speed 
+                            * self.params.T_P
+                            - (long_acc_for_this_beh * self.params.T_P ** 2) / 2)
+            pred_speed = (self.perception.perc_oth_state.long_speed 
+                          + long_acc_for_this_beh * self.params.T_P)
+            pred_yaw_angle = self.perception.perc_oth_state.yaw_angle
+            predicted_state = commotions.KinematicState(pos=None, 
+                                                        long_speed=pred_speed,
+                                                        yaw_angle=pred_yaw_angle)
+            predicted_state.signed_CP_dist = pred_CP_dist
+            predicted_state.pos = (
+                sc_scenario_helper.get_pos_from_signed_dist_to_conflict_pt(
+                    self.simulation.conflict_point, predicted_state))
             predicted_state.long_acc = long_acc_for_this_beh
-            # add SC scenario specific state info
-            predicted_state = self.add_sc_state_info(predicted_state)
+            sc_scenario_helper.add_entry_exit_times_to_state(
+                predicted_state, SHARED_PARAMS.d_C)
         return predicted_state
         
 
     def get_prob_of_current_state_given_beh(self, i_beh):
+        """ Return probability density for perceived position of other agent,
+            given perceived position at last time step and the acceleration for
+            behaviour i_beh as estimated on the previous time step. Should only
+            be called when i_time_step > 0.
+
+        """
         i_prev_time_step = self.simulation.state.i_time_step-1
         if math.isnan(self.states.beh_long_accs[i_beh, i_prev_time_step]):
             prob_density = 0
@@ -1061,16 +1094,22 @@ class SCAgent(commotions.AgentWithGoal):
             # the previous time step
             prev_long_acc_for_this_beh = \
                 self.states.beh_long_accs[i_beh, i_prev_time_step]
-            # let the other agent object calculate what its predicted state at the 
-            # current time step would be with this acceleration     
-            expected_curr_state = self.other_agent.get_future_kinematic_state(
-                    prev_long_acc_for_this_beh, yaw_rate = 0, 
-                    n_time_steps_to_advance = 1, 
-                    i_start_time_step = i_prev_time_step)
-            # get the distance between expected and observed position
-            pos_diff = np.linalg.norm(
-                    expected_curr_state.pos 
-                    - self.other_agent.get_current_kinematic_state().pos)
+            # # let the other agent object calculate what its predicted state at the 
+            # # current time step would be with this acceleration     
+            # expected_curr_state = self.other_agent.get_future_kinematic_state(
+            #         prev_long_acc_for_this_beh, yaw_rate = 0, 
+            #         n_time_steps_to_advance = 1, 
+            #         i_start_time_step = i_prev_time_step)
+            # # get the distance between expected and observed position
+            # pos_diff = np.linalg.norm(
+            #         expected_curr_state.pos 
+            #         - self.other_agent.get_current_kinematic_state().pos)
+            pred_CP_dist = (self.perception.prev_perc_oth_state.signed_CP_dist
+                            - self.perception.prev_perc_oth_state.long_speed 
+                            * self.simulation.settings.time_step
+                            - (prev_long_acc_for_this_beh 
+                               * self.simulation.settings.time_step ** 2) / 2)
+            pos_diff = self.perception.perc_oth_state.signed_CP_dist - pred_CP_dist
             # return the probability density for this observed difference
             prob_density = norm.pdf(pos_diff, scale = self.params.sigma_O)
         return max(prob_density, np.finfo(float).eps) # don't return zero probability
@@ -1080,7 +1119,8 @@ class SCAgent(commotions.AgentWithGoal):
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, eff_width = None,
-                 const_acc = None, plot_color = 'k', snapshot_times = None):
+                 kalman_prior = None, const_acc = None, 
+                 plot_color = 'k', snapshot_times = None):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -1128,6 +1168,12 @@ class SCAgent(commotions.AgentWithGoal):
             if eff_width is None:
                 raise Exception('Optional assumption oVAl enabled, so'
                                 ' need to provide an effective agent width.')
+        if ((not self.assumptions[OptionalAssumption.oSNc]) and 
+            (not self.assumptions[OptionalAssumption.oSNv])):
+            # no sensory noise
+            self.params.tau = 0
+            if self.assumptions[OptionalAssumption.oPF]:
+                raise Exception('Cannot enable oPF without oSNc or oSNv.')
         if not self.assumptions[OptionalAssumption.oEA]:
             # no evidence accumulation, implemented by value accumulation 
             # reaching input value in one time step...
@@ -1188,6 +1234,17 @@ class SCAgent(commotions.AgentWithGoal):
                                        g_free = self.g_free,
                                        V_free = self.V_free,
                                        eff_width = self.eff_width)
+        
+        # set up the object that implements perception of the other agent
+        self.perception = sc_scenario_perception.Perception(
+            simulation = simulation,
+            pos_obs_noise_stddev = self.params.tau,
+            angular_perception = self.assumptions[OptionalAssumption.oSNv],
+            ego_eye_height = self.params.H_e,
+            kalman_filter = self.assumptions[OptionalAssumption.oPF],
+            prior = kalman_prior,
+            spd_proc_noise_stddev = self.params.sigma_xdot,
+            draw_from_estimate = True)
 
         # POSSIBLE TODO: absorb this into a new class 
         #                commotions.AgentWithIntermittentActions or similar
@@ -1211,6 +1268,7 @@ class SCSimulation(commotions.Simulation):
                  start_time = 0, end_time = 10, time_step = 0.1, 
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, eff_widths = (None, None), 
+                 kalman_priors = (None, None),
                  const_accs = (None, None), agent_names = ('A', 'B'), 
                  plot_colors = ('c', 'm'), snapshot_times = (None, None)):
 
@@ -1228,6 +1286,7 @@ class SCSimulation(commotions.Simulation):
                     optional_assumptions = optional_assumptions, 
                     params = params, params_k = params_k,
                     eff_width = eff_widths[i_agent],
+                    kalman_prior = kalman_priors[i_agent],
                     const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
@@ -1478,8 +1537,12 @@ class SCSimulation(commotions.Simulation):
                 axs[0].set_ylabel('a (m/s^2)') 
                 
                 # speed
+                axs[1].plot(self.time_stamps, 
+                            agent.other_agent.perception.states.x_perceived[1, :], 
+                            '-' + agent.plot_color, lw=1, alpha=0.3)
                 axs[1].plot(self.time_stamps, agent.trajectory.long_speed, 
                          '-' + agent.plot_color)
+                axs[1].set_ylim(-1, 15)
                 axs[1].set_ylabel('v (m/s)') 
                 
                 # distance to conflict point
@@ -1510,6 +1573,9 @@ class SCSimulation(commotions.Simulation):
                                 color='r', linestyle='--', lw=0.5)
                     axs[2].axhline(0, color='k', linestyle=':')
                 # - plot the distance itself
+                axs[2].plot(self.time_stamps, 
+                            agent.other_agent.perception.states.x_perceived[0, :], 
+                            '-' + agent.plot_color, lw=1, alpha=0.3)
                 axs[2].plot(self.time_stamps, distance_CPs[i_agent], 
                          '-' + agent.plot_color)
                 axs[2].set_ylim(-5, 5)
@@ -1575,15 +1641,20 @@ if __name__ == "__main__":
     # scenario
     GOALS = np.array([[0, 5], [-50, 0]])
     SCE_BASELINE = 0 # "baseline" kinematics
-    SCE_KEIODECEL = 1 # a deceleration scenario from the Keio study
-    SCE_PEDATSPEEDDECEL = 2 # a deceleration scenario where the pedestrian is initially walking
-    SCE_PEDSTAT = 3 # pedestrian stationary at kerb
-    SCE_STARTUP = 4 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_BASELINE
+    SCE_PEDLEAD = 1 # a scenario where both agents start at speed, with a lead for the pedestrian
+    SCE_KEIODECEL = 2 # a deceleration scenario from the Keio study
+    SCE_PEDATSPEEDDECEL = 3 # a deceleration scenario where the pedestrian is initially walking
+    SCE_PEDSTAT = 4 # pedestrian stationary at kerb
+    SCE_STARTUP = 5 # a scenario with both agents starting from zero speed, at non-interaction distance
+    SCENARIO = SCE_PEDLEAD
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
         CONST_ACCS = (None, None)
+    elif SCENARIO == SCE_PEDLEAD:
+        INITIAL_POSITIONS = np.array([[0,-8], [70, 0]])
+        SPEEDS = np.array((1.5, 10))
+        CONST_ACCS = (None, 0)
     elif SCENARIO == SCE_KEIODECEL:
         INITIAL_POSITIONS = np.array([[0,-SHARED_PARAMS.d_C-0.5], 
                                       [13.9*2.29, 0]])
@@ -1616,20 +1687,38 @@ if __name__ == "__main__":
     #params.T_O1 = 0.05
     #params.T_Of = math.inf
     #params.sigma_O = 0.1
-    #params.thetaDot_1 = 0.23
+    params.thetaDot_1 = 0.005
     #params.beta_V = 60
-    #params.T_s = 0
-    #params.D_s = 0
+    params.T_s = 0
+    params.D_s = 0
+    params.tau = 0.05
+    params.DeltaV_th_rel = 0.005
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
                                                 oVAl = False,
+                                                oSNc = False,
+                                                oSNv = True,
+                                                oPF = True,
                                                 oBEo = False,
                                                 oBEv = False,
                                                 oBEc = False,
                                                 oAI = False,
-                                                oEA = False, 
+                                                oEA = True, 
                                                 oAN = False)  
+    
+    # initial Kalman estimates
+    KALMAN_PRIOR_SD_MULT = 2
+    KALMAN_PRIORS = []
+    for i_agent in range(N_AGENTS):
+        i_oth = 1 - i_agent
+        oth_dist = np.amax(np.abs(INITIAL_POSITIONS[i_oth, :]))
+        oth_speed = SPEEDS[i_oth]
+        KALMAN_PRIORS.append(sc_scenario_perception.KalmanPrior(
+            cp_dist_mean = oth_dist, 
+            cp_dist_stddev = KALMAN_PRIOR_SD_MULT * oth_dist, 
+            speed_mean = oth_speed,
+            speed_stddev = KALMAN_PRIOR_SD_MULT * oth_speed))
     
     # run simulation
     SNAPSHOT_TIMES = (None, None)
@@ -1637,7 +1726,8 @@ if __name__ == "__main__":
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
             eff_widths = EFF_WIDTHS, const_accs = CONST_ACCS, agent_names = NAMES, 
-            params = params, snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
+            params = params, kalman_priors = KALMAN_PRIORS, 
+            snapshot_times = SNAPSHOT_TIMES, time_step=0.025)
     tic = time.perf_counter()
     sc_simulation.run()
     toc = time.perf_counter()
