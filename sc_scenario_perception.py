@@ -39,6 +39,9 @@ class Perception:
                 otherwise in meters. Set to zero (the default value) to assume
                 non-noisy perception (disabling all other features of this 
                 class).
+            noise_seed: int
+                Seed for the random noise generation. Default is None, for
+                non-predictable noise.
             angular_perception: bool
                 If True, assume that position estimation is based on angle below
                 horizon, with constant angular noise, determines position noise,
@@ -96,6 +99,7 @@ class Perception:
     
     simulation: commotions.Simulation
     pos_obs_noise_stddev: float = 0
+    noise_seed: int = None
     angular_perception: bool = False
     ego_eye_height: float = None
     kalman_filter: bool = False
@@ -196,7 +200,7 @@ class Perception:
         # are we doing noisy perception?
         self.noisy_perception = self.pos_obs_noise_stddev > 0
         if self.noisy_perception:
-            self.rng = default_rng()
+            self.rng = default_rng(seed = self.noise_seed)
         # object for storing arrays of perception states - depending on user 
         # settings some of these may just be pointers
         self.states = PerceptionStates()
@@ -306,32 +310,38 @@ if __name__ == "__main__":
             prior = KalmanPrior(oth_dist_prior, oth_dist_stddev_prior, 
                                 AGENT_FREE_SPEED[i_oth_agent], oth_speed_stddev_prior)
             proc_noise_stddev = PROC_NOISE_MULT * AGENT_FREE_SPEED[i_oth_agent]
+            noise_seed = i_scenario * 10 + i_agent
             agent.perc = {}
             agent.perc['base'] = Perception(sim)
             agent.perc['noisy'] = Perception(sim, 
-                                             pos_obs_noise_stddev = DIST_OBS_NOISE)
+                                             pos_obs_noise_stddev = DIST_OBS_NOISE,
+                                             noise_seed = noise_seed)
             agent.perc['noisy_ang'] = Perception(sim, 
                                                   angular_perception = True,
                                                   ego_eye_height = AGENT_EYE_HEIGHT,
-                                                  pos_obs_noise_stddev = ANG_OBS_NOISE)
+                                                  pos_obs_noise_stddev = ANG_OBS_NOISE,
+                                                  noise_seed = noise_seed)
             agent.perc['kalman'] = Perception(sim, 
                                               pos_obs_noise_stddev = DIST_OBS_NOISE,
                                               kalman_filter = True,
                                               prior = prior,
-                                              spd_proc_noise_stddev = proc_noise_stddev)
+                                              spd_proc_noise_stddev = proc_noise_stddev,
+                                              noise_seed = noise_seed)
             agent.perc['kalman_draw'] = Perception(sim, 
                                                   pos_obs_noise_stddev = DIST_OBS_NOISE,
                                                   kalman_filter = True,
                                                   prior = prior,
                                                   spd_proc_noise_stddev = proc_noise_stddev,
-                                                  draw_from_estimate = True)
+                                                  draw_from_estimate = True,
+                                                  noise_seed = noise_seed)
             agent.perc['kalman_ang'] = Perception(sim, 
                                                   angular_perception = True,
                                                   ego_eye_height = AGENT_EYE_HEIGHT,
                                                   pos_obs_noise_stddev = ANG_OBS_NOISE,
                                                   kalman_filter = True,
                                                   prior = prior,
-                                                  spd_proc_noise_stddev = proc_noise_stddev)
+                                                  spd_proc_noise_stddev = proc_noise_stddev,
+                                                  noise_seed = noise_seed)
             agent.perc['kalman_ang_draw'] = Perception(sim, 
                                                       angular_perception = True,
                                                       ego_eye_height = AGENT_EYE_HEIGHT,
@@ -339,7 +349,8 @@ if __name__ == "__main__":
                                                       kalman_filter = True,
                                                       prior = prior,
                                                       spd_proc_noise_stddev = proc_noise_stddev,
-                                                      draw_from_estimate = True)
+                                                      draw_from_estimate = True,
+                                                      noise_seed = noise_seed)
             
         # run the actual simulation
         sim.run()

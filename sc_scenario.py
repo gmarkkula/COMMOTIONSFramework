@@ -151,7 +151,7 @@ def get_default_params(oVA):
 
 
 SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.d_C = 2 # collision distance
+SHARED_PARAMS.d_C = 1.5 # collision distance
 
 TTC_FOR_COLLISION = 0.1
 MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are considered zero
@@ -1119,7 +1119,7 @@ class SCAgent(commotions.AgentWithGoal):
     def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, eff_width = None,
-                 kalman_prior = None, const_acc = None, 
+                 noise_seed = None, kalman_prior = None, const_acc = None, 
                  plot_color = 'k', snapshot_times = None):
 
         # set control type
@@ -1239,6 +1239,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.perception = sc_scenario_perception.Perception(
             simulation = simulation,
             pos_obs_noise_stddev = self.params.tau,
+            noise_seed = noise_seed,
             angular_perception = self.assumptions[OptionalAssumption.oSNv],
             ego_eye_height = self.params.H_e,
             kalman_filter = self.assumptions[OptionalAssumption.oPF],
@@ -1268,7 +1269,7 @@ class SCSimulation(commotions.Simulation):
                  start_time = 0, end_time = 10, time_step = 0.1, 
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, eff_widths = (None, None), 
-                 kalman_priors = (None, None),
+                 noise_seeds = (None, None), kalman_priors = (None, None),
                  const_accs = (None, None), agent_names = ('A', 'B'), 
                  plot_colors = ('c', 'm'), snapshot_times = (None, None)):
 
@@ -1286,6 +1287,7 @@ class SCSimulation(commotions.Simulation):
                     optional_assumptions = optional_assumptions, 
                     params = params, params_k = params_k,
                     eff_width = eff_widths[i_agent],
+                    noise_seed = noise_seeds[i_agent],
                     kalman_prior = kalman_priors[i_agent],
                     const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
@@ -1693,6 +1695,7 @@ if __name__ == "__main__":
     params.D_s = 0
     params.tau = 0.05
     params.DeltaV_th_rel = 0.005
+    SHARED_PARAMS.d_C = 2
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
@@ -1721,12 +1724,13 @@ if __name__ == "__main__":
             speed_stddev = KALMAN_PRIOR_SD_MULT * oth_speed))
     
     # run simulation
+    NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
     sc_simulation = SCSimulation(
             CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
             eff_widths = EFF_WIDTHS, const_accs = CONST_ACCS, agent_names = NAMES, 
-            params = params, kalman_priors = KALMAN_PRIORS, 
+            params = params, noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
             snapshot_times = SNAPSHOT_TIMES, time_step=0.025)
     tic = time.perf_counter()
     sc_simulation.run()
