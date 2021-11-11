@@ -1321,7 +1321,8 @@ class SCSimulation(commotions.Simulation):
                  sensory_prob_dens = False, kinem_states = False, 
                  times_to_ca = False, looming = False):
 
-
+        n_plot_actions = max(self.agents[0].n_actions, self.agents[1].n_actions)
+        
         if self.agents[0].assumptions[DerivedAssumption.dBE]:
             plot_behaviors = BEHAVIORS
         else:
@@ -1343,7 +1344,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(agent.n_actions, N_AGENTS, \
+                    plt.subplot(n_plot_actions, N_AGENTS, \
                                 i_action * N_AGENTS +  i_agent + 1)
                     plt.ylim(-1.1, 1.1)
                     for i_beh in range(n_plot_behaviors):
@@ -1363,7 +1364,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(agent.n_actions, N_AGENTS, \
+                    plt.subplot(n_plot_actions, N_AGENTS, \
                                 i_action * N_AGENTS + i_agent + 1)
                     plt.plot(self.time_stamps, 
                              agent.states.action_probs[i_action, :])
@@ -1375,42 +1376,48 @@ class SCSimulation(commotions.Simulation):
 
         if action_val_ests:
             # - momentary and accumulative estimates of action values
-            plt.figure('Action value estimates', figsize = (10.0, 10.0))
+            figname = 'Action value estimates'
+            plt.figure(figname)
             plt.clf()
+            fig, axs = plt.subplots(nrows = n_plot_actions, ncols = N_AGENTS,
+                                    sharex = 'col', sharey = 'col',
+                                    num = figname, figsize = (10.0, 10.0))
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(agent.n_actions, N_AGENTS, 
-                                i_action * N_AGENTS + i_agent + 1)
-                    plt.plot(self.time_stamps, 
+                    ax = axs[i_action, i_agent]
+                    ax.plot(self.time_stamps, 
                              agent.states.mom_action_vals[i_action, :])
-                    plt.plot(self.time_stamps, 
+                    ax.plot(self.time_stamps, 
                              agent.states.est_action_vals[i_action, :])
                     #plt.ylim(-2, 2)
                     if i_action == 0:
-                        plt.title('Agent %s' % agent.name)
+                        ax.set_title('Agent %s' % agent.name)
                         if i_agent == 1:
                             plt.legend(('$\\tilde{V}_a$', '$\\hat{V}_a$'))
                     if i_agent == 0:
-                        plt.ylabel('$V(\\Delta v=%.1f)$' % deltav)
+                        ax.set_ylabel('$V(\\Delta v=%.1f)$' % deltav)
 
         if surplus_action_vals:
             # - surplus action values
-            plt.figure('Surplus action value estimates', figsize = (6, 5))
+            figname = 'Surplus action value estimates'
+            plt.figure(figname)
             plt.clf()
+            fig, axs = plt.subplots(nrows = n_plot_actions, ncols = N_AGENTS,
+                                    sharex = 'col', sharey = 'col',
+                                    num = figname, figsize = (6, 5))
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(agent.n_actions, N_AGENTS, 
-                                i_action * N_AGENTS + i_agent + 1)
-                    plt.plot(self.time_stamps, 
+                    ax = axs[i_action, i_agent]
+                    ax.plot(self.time_stamps, 
                              agent.states.est_action_surplus_vals[i_action, :])
-                    plt.plot([self.time_stamps[0], self.time_stamps[-1]], 
+                    ax.plot([self.time_stamps[0], self.time_stamps[-1]], 
                         [agent.params.DeltaV_th, agent.params.DeltaV_th], 
                         '--', color = 'gray')
                     #plt.ylim(-.5, .3)
                     if i_action == 0:
-                        plt.title('Agent %s' % agent.name)
+                        ax.set_title('Agent %s' % agent.name)
                     if i_agent == 0:
-                        plt.ylabel('$\\Delta V(%.1f)$' % deltav)
+                        ax.set_ylabel('$\\Delta V(%.1f)$' % deltav)
 
         if beh_activs:
             # - behavior activations
@@ -1471,7 +1478,7 @@ class SCSimulation(commotions.Simulation):
             plt.clf()
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(agent.n_actions, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
+                    plt.subplot(n_plot_actions, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
                     for i_beh in range(n_plot_behaviors):
                         # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
                         plt.plot(self.time_stamps, 
