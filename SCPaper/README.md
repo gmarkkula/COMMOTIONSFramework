@@ -29,21 +29,23 @@
         * ~~Need to add support for fixing Tprime = T and similar stuff~~
 * Model expansion/fitting, in some order (see 2021-10-07 diary notes for explanation of some of the planned new assumptions):
     * ~~Implement and test `oVAl` to see how it changes the deterministic fits.~~
-    * ~~Run with `oEA`, to get parameterisations that might be possible to carry over straight to probabilistic fitting.~~ (not done, decided against this approach)
-    * Implement `oSN*` and `oPF`
-        * Implementation in place
-        * Verify that it doesn't change previous, deterministic model behaviour
-        * Document implementation in this README
-        * Make a diary entry showing example results for some various model alternatives. (Also closer look at "flip-flopping" value estimates with the `oSN*oPF` perception?)
-    * Implement `oAN` as actual accumulator noise rather than value noise.
+    * ~~Run with `oEA`, to get parameterisations that might be possible to carry over straight to probabilistic fitting. (not done, decided against this approach)~~
+    * ~~Implement `oSN*` and `oPF`~~
+        * ~~Implementation in place~~
+        * ~~Verify that it doesn't change previous, deterministic model behaviour~~
+        * ~~Document implementation in this README~~
+        * ~~Make a diary entry showing example results for some various model alternatives.~~
+    * ~~Implement `oAN` as actual accumulator noise rather than value noise.~~
     * Get to the point where I am ready to run probabilistic fits (but don't really run them yet):
+        * Identify models and parameterisations from the deterministic fits, to use as starting points.
         * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
         * Make sure to include tests both with and without `oPF`, to see if it is need for the "pedestrian hesitation and speedup" phenomenon.
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * Maybe first on my own computer...?
         * ... And then on a faster computer, with an expanded grid?
+            * Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.
     * Run the actual probabilistic fits - probably again in multiple stages with expanding grid.
-* Test the best model candidates on the Keio or HIKER pedestrian crossing data. (without fitting)
+* Idea: Test the best model candidates on the Keio or HIKER pedestrian crossing data - without fitting.
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
     * Add support for agent width and length.
@@ -88,6 +90,28 @@ $$
 with the $[]$ versus $()$ indicating that a model variant is fully defined versus requires further specification, respectively.
 
 Above, $\tilde{\mathbf{x}}(k)$ is a (possibly noisy) sensory snapshot of the world state at time $k$, and $V_A[\tilde{\mathbf{x}}(k) | \mathscr{C}]$ is the estimated value for agent $A$ of this world state, conditional upon $\mathscr{C}$.
+
+
+### Perception
+
+#### Sensory input
+
+The world state $\tilde{\mathbf{x}}(k)$ perceived by the agent is affected by sensory noise. Specifically, the ego agent observes the position of the other agent along its line of travel with Gaussian noise of standard deviation $\sigma_x(k)$, which is either constant $\sigma_x(k) = \tau$, or varying with the true world state $\sigma_x = f_\tau[\mathbf{x}(k)]$. In the latter case, $f_\tau$ is based on the assumption that the ego agent estimates the position of other agent along its line of travel by observing the angle below horizon of the other agent's base, and that the sensing of this angle is subject to constant Gaussian noise $\tau$, which in practice means that the position estimate is much noisier for larger distances. See handwritten notes dated 2021-11-02 for the maths (also showing that instead observing optical size of the other agent would lead to noise that scales in the same way with distance).
+
+The ego agent can get a noisy estimate of the speed of the other agent by simple one-step comparison of the noisy position estimates between time steps (but see "Perceptual filtering" below).
+
+Two optional assumptions defined based on the above:
+* `oSNc`, sensory noise in cartesian coordinates: $\sigma_x(k) = \tau > 0$
+* `oSNv`, sensory noise in visual coordinates: $\sigma_x(k) = f_\tau[\mathbf{x}(k)], \tau > 0$
+
+#### Perceptual filtering
+
+A more advanced version of the agent's perception can also include a Kalman filter for estimating both position and speed of the other agent from the noisy observations of position. This Kalman filter assumes constant acceleration for the other agent, but includes process noise for the other agent's speed, with standard deviation $\sigma_{\dot{x}}$. See handwritten notes dated 2021-10-30 for details.
+
+A key feature of the noisy perception in the model is that the noisy $\tilde{\mathbf{x}}(k)$ that is processed by the value estimation should, over time, span the entire range of plausible world states, rather than a maximum probability point estimate of the world state, such that average action values can be estimated over this entire range of plausible world states, by means of the `oEA` evidence accumulation. Importantly, these average values are generally not equal to the action values that would be estimated given the maximum probability point estimate of the world state. For this reason, in the version of the model with perceptual filtering, $\tilde{\mathbf{x}}(k)$ is a random draw from the currently estimated posterior distribution of position and speed of the other agent.
+
+One optional assumption:
+* `oPF`, for an agent that does perceptual filtering as described above.
 
 
 ### Estimating the other agent's possible behaviours
