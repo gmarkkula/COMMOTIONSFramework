@@ -15,6 +15,8 @@ if not PARENT_DIR in sys.path:
 
 # other imports
 import glob
+import pickle
+import copy
 import numpy as np
 import collections
 import parameter_search
@@ -25,7 +27,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_PLOTS = True
+DO_PLOTS = False
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
@@ -37,6 +39,7 @@ MAIN_CRITERIA = ('veh_assert_prio', 'veh_short_stop',
 SEC_CRITERIA = ('ped_hesitate_const', 'ped_fast_crossing')
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
+N_MAIN_CRIT_FOR_RETAINING = 3
 
 
 # find pickle files from deterministic fitting
@@ -48,6 +51,7 @@ print(det_fit_files)
 
 # loop through the deterministic fitting results files
 det_fits = {}
+retained_models = []
 for det_fit_file in det_fit_files:
     print()
     det_fit = parameter_search.load(det_fit_file, verbose=True)
@@ -157,6 +161,16 @@ for det_fit_file in det_fit_files:
     det_fit.n_main_criteria_met = n_main_criteria_met
     det_fit.sec_criteria_matrix = sec_criteria_matrix
     
+    # did the model meet all main criteria at least somewhere, even if not in
+    # a single parameterisation?
+    main_crit_met_somewhere = np.amax(main_criteria_matrix, axis=1)
+    all_main_crit_met_somewhere = np.all(main_crit_met_somewhere)
+    if all_main_crit_met_somewhere:
+        retained_params = (n_main_criteria_met == N_MAIN_CRIT_FOR_RETAINING)
+        retained_models.append(sc_fitting.ModelWithParams(
+            model=det_fit.name, param_names=copy.copy(det_fit.param_names), 
+            params_array=np.copy(det_fit.results.params_matrix[retained_params])))
+    
     # pick a maximally sucessful parameterisations, and provide simulation 
     # plots if requested
     i_parameterisation = np.nonzero(met_max_main_criteria 
@@ -187,5 +201,17 @@ for det_fit_file in det_fit_files:
                                    beh_probs=be_plots)
         
     
+# provide info on retained models
+print('\n\n*** Retained models ***')
+for ret_model in retained_models:
+    print(f'\nModel {ret_model.model}\nRetaining {ret_model.params_array.shape[0]}'
+          ' parameterisations, across:')
+    print(ret_model.param_names)
+    print('\n***********************')
+    
+
+# save the retained models
+with open(sc_fitting.FIT_RESULTS_FOLDER + '/RetainedDetModels.pkl', 'wb') as file_obj:
+    pickle.dump(retained_models, file_obj)
     
     

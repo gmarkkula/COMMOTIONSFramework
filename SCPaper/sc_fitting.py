@@ -8,6 +8,7 @@ import os
 import math
 import copy
 import keyboard
+from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 import parameter_search
@@ -34,6 +35,13 @@ TIME_STEP = 0.1 # s
 END_TIME = 8 # s
 V_NY_REL = -1.5
 
+
+@dataclass
+class ModelWithParams:
+    model: str
+    param_names: list
+    params_array: np.ndarray
+        
 
 # deterministic fitting
 class SCPaperScenario:
