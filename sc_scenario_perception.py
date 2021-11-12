@@ -183,9 +183,19 @@ class Perception:
         # call internal method for updating state arrays
         self.update_states(i_time_step, ego_state, oth_state)
         # set the perceived current state of other agent
+        # - ideal perception of yaw angle
         self.perc_oth_state.yaw_angle = oth_state.yaw_angle
+        # - get the perceived (possibly noisy, possibly filtered) position and
+        # - speed. NB: Truncating the speed to non-negative values, since the 
+        # - the value estimation in sc_scenario etc currently can't handle 
+        # - reversing other agents, and if it could handle it, the values reported
+        # - for a reversing agent should anyway be equal or very similar to the
+        # - values reported for a stationary agent.
         self.perc_oth_state.signed_CP_dist = self.states.x_perceived[0, i_time_step]
+        self.states.x_perceived[1, i_time_step] = max(
+            0, self.states.x_perceived[1, i_time_step]) 
         self.perc_oth_state.long_speed = self.states.x_perceived[1, i_time_step]
+        # - also set the position in the .pos attribute
         self.perc_oth_state.pos = sc_scenario_helper.get_pos_from_signed_dist_to_conflict_pt(
             self.simulation.conflict_point, self.perc_oth_state)
         
