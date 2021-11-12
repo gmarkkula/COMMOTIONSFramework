@@ -1,6 +1,7 @@
 import warnings
 import math
 import numpy as np
+from numpy.random import default_rng
 import matplotlib.pyplot as plt
 #import matplotlib
 import scipy.special
@@ -273,10 +274,11 @@ class SCAgent(commotions.AgentWithGoal):
     
     
     def noisy_lp_filter(self, T, sigma, prevXhat, currXtilde):
-        noise = np.random.randn(len(prevXhat)) * sigma * math.sqrt(
-            self.simulation.settings.time_step)
         f = self.simulation.settings.time_step / T
-        currXhat = (1 - f) * prevXhat + f * currXtilde + noise
+        currXhat = (1 - f) * prevXhat + f * currXtilde
+        if sigma > 0:
+            currXhat += self.rng.standard_normal(len(prevXhat)) * sigma * math.sqrt(
+                self.simulation.settings.time_step)
         return currXhat
     
     
@@ -1174,6 +1176,11 @@ class SCAgent(commotions.AgentWithGoal):
             self.params.tau = 0
             if self.assumptions[OptionalAssumption.oPF]:
                 raise Exception('Cannot enable oPF without oSNc or oSNv.')
+        else:
+            # some form of sensory noise included
+            if self.assumptions[OptionalAssumption.oAN]:
+                raise Exception('Simultaneous sensory noise (oSN*) and'
+                                'accumulator noise (oAN) not supported.')
         if not self.assumptions[OptionalAssumption.oEA]:
             # no evidence accumulation, implemented by value accumulation 
             # reaching input value in one time step...
@@ -1181,7 +1188,10 @@ class SCAgent(commotions.AgentWithGoal):
             #self.params.Tprime = self.simulation.settings.time_step 
             # ... and decision threshold at zero
             self.params.DeltaV_th_rel = 0
-        if not self.assumptions[OptionalAssumption.oAN]:
+        if self.assumptions[OptionalAssumption.oAN]:
+            # initialise the accumulator noise generator
+            self.rng = default_rng(seed = noise_seed)
+        else:
             self.params.sigma_V = 0
             #self.params.sigma_Vprime = 0
         if not self.assumptions[OptionalAssumption.oBEo]:
@@ -1655,7 +1665,7 @@ if __name__ == "__main__":
     SCE_PEDATSPEEDDECEL = 3 # a deceleration scenario where the pedestrian is initially walking
     SCE_PEDSTAT = 4 # pedestrian stationary at kerb
     SCE_STARTUP = 5 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_PEDLEAD
+    SCENARIO = SCE_BASELINE
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
@@ -1696,25 +1706,25 @@ if __name__ == "__main__":
     #params.T_O1 = 0.05
     #params.T_Of = math.inf
     #params.sigma_O = 0.1
-    params.thetaDot_1 = 0.005
+    # params.thetaDot_1 = 0.005
     #params.beta_V = 60
     params.T_s = 0
     params.D_s = 0
-    params.tau = 0.05
-    params.DeltaV_th_rel = 0.005
+    # params.tau = 0.05
+    # params.DeltaV_th_rel = 0.005
     SHARED_PARAMS.d_C = 2
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
                                                 oVAl = False,
                                                 oSNc = False,
-                                                oSNv = True,
-                                                oPF = True,
+                                                oSNv = False,
+                                                oPF = False,
                                                 oBEo = False,
                                                 oBEv = False,
                                                 oBEc = False,
                                                 oAI = False,
-                                                oEA = True, 
+                                                oEA = False, 
                                                 oAN = False)  
     
     # initial Kalman estimates
@@ -1738,7 +1748,7 @@ if __name__ == "__main__":
             end_time = 8, optional_assumptions = optional_assumptions,
             eff_widths = EFF_WIDTHS, const_accs = CONST_ACCS, agent_names = NAMES, 
             params = params, noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step=0.025)
+            snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
     tic = time.perf_counter()
     sc_simulation.run()
     toc = time.perf_counter()
