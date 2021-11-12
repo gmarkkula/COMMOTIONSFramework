@@ -28,11 +28,22 @@
     * ~~Classes for SCPaper specific parameter searching~~
         * ~~Need to add support for fixing Tprime = T and similar stuff~~
 * Model expansion/fitting, in some order (see 2021-10-07 diary notes for explanation of some of the planned new assumptions):
-    * Implement and test `oVAl` to see how it changes the deterministic fits.
-    * Run with `oEA`, to get parameterisations that might be possible to carry over straight to probabilistic fitting.
-    * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
-    * Push into noisy territory, testing both `oAN` and `oSN*` to fit crossing onset distributions.
-    * Circle back to the "pedestrian hesitation and speed-up" phenomenon, and see if `oPF` still seems needed in order to account for it.
+    * ~~Implement and test `oVAl` to see how it changes the deterministic fits.~~
+    * ~~Run with `oEA`, to get parameterisations that might be possible to carry over straight to probabilistic fitting.~~ (not done, decided against this approach)
+    * Implement `oSN*` and `oPF`
+        * Implementation in place
+        * Verify that it doesn't change previous, deterministic model behaviour
+        * Document implementation in this README
+        * Make a diary entry showing example results for some various model alternatives. (Also closer look at "flip-flopping" value estimates with the `oSN*oPF` perception?)
+    * Implement `oAN` as actual accumulator noise rather than value noise.
+    * Get to the point where I am ready to run probabilistic fits (but don't really run them yet):
+        * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
+        * Make sure to include tests both with and without `oPF`, to see if it is need for the "pedestrian hesitation and speedup" phenomenon.
+    * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
+        * Maybe first on my own computer...?
+        * ... And then on a faster computer, with an expanded grid?
+    * Run the actual probabilistic fits - probably again in multiple stages with expanding grid.
+* Test the best model candidates on the Keio or HIKER pedestrian crossing data. (without fitting)
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
     * Add support for agent width and length.

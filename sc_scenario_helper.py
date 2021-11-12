@@ -104,6 +104,28 @@ def get_agent_free_value(params):
     return (params.T_delta / math.log(2)) * get_agent_free_value_rate(params)
 
 
+def get_signed_dist_to_conflict_pt(conflict_point, state):
+    """Get the signed distance from the specified agent state (.pos, .yaw_angle) 
+        to the conflict point. Positive sign means that the agent has its front 
+        toward the conflict point. (Which will typically mean that it is on its 
+        way toward the conflict point - however this function does not check 
+        for backward travelling.)
+    """
+    vect_to_conflict_point = conflict_point - state.pos
+    heading_vect = \
+        np.array((math.cos(state.yaw_angle), math.sin(state.yaw_angle)))
+    return np.dot(heading_vect, vect_to_conflict_point)
+
+
+def get_pos_from_signed_dist_to_conflict_pt(conflict_point, state):
+    """Get the 2D position from the specified agent state (.signed_CP_dist, 
+        .yaw_angle) to the conflict point. 
+    """
+    heading_vect = \
+        np.array((math.cos(state.yaw_angle), math.sin(state.yaw_angle)))
+    return conflict_point - state.signed_CP_dist * heading_vect
+
+
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
     """ Return acceleration required to travel a further distance target_dist
         in time target_time if starting at speed speed, as well as time during
@@ -181,11 +203,13 @@ def get_time_to_dist_with_acc(state, target_dist):
     
 
 def get_app_entry_exit_time_arrays(cp_dists, speeds, coll_dist):
-    # Can generate divide by zero warnings. To get rid of these globally, use 
-    # np.seterr(divide='ignore') somewhere in the main script (see 2021-10-28
-    # diary notes for some thoughts), but I am not introducing this into the 
-    # framework code itself (yet) since it might mean that I miss divide by 
-    # zeros somewhere else.
+    # Generates divide by zero warnings if speeds has zeros, or "invalid value" 
+    # warnings if cp_dists is zero at any elements where speeds is zero.
+    # To get rid of these warnings globally, use np.seterr(divide='ignore') or
+    # np.seterr(invalid='ignore') somewhere in the main script (see 2021-10-28
+    # diary notes for some thoughts and tests of other ways to suppress these
+    # warnings), but I am not introducing this into the framework code itself 
+    # (yet) since it might mean that I miss divide by zeros somewhere else.
     app_arr_times = []
     for side_sign in (-1, 1):
         side_dists = cp_dists + side_sign * coll_dist
