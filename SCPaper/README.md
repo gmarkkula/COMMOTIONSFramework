@@ -37,8 +37,13 @@
         * ~~Make a diary entry showing example results for some various model alternatives.~~
     * ~~Implement `oAN` as actual accumulator noise rather than value noise.~~
     * Get to the point where I am ready to run probabilistic fits (but don't really run them yet):
-        * Identify models and parameterisations from the deterministic fits, to use as starting points.
-        * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
+        * ~~Identify models and parameterisations from the deterministic fits, to use as starting points.~~
+        * Code modifications
+            * Add support for agent width and length.
+            * Modify parameter search classes to support parallelising individual parameterisations
+        * Scenario modifications
+            * Break up the pedestrian scenarios in two parts, one per phenomenon of interest
+            * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
         * Make sure to include tests both with and without `oPF`, to see if it is need for the "pedestrian hesitation and speedup" phenomenon.
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * Maybe first on my own computer...?
@@ -48,7 +53,7 @@
 * Idea: Test the best model candidates on the Keio or HIKER pedestrian crossing data - without fitting.
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
-    * Add support for agent width and length.
+    
 
 
 
