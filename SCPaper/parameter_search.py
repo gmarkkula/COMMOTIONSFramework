@@ -172,11 +172,17 @@ class ParameterSearch:
         self.verbosity_push()
         i_parameterisation = results_tuple[0]
         metrics_dict = results_tuple[1]
-        self.report(f'Received results for parameterisation #{i_parameterisation}:'
-                    f' {metrics_dict}')
+        self.report(f'Received results for parameterisation #{i_parameterisation}'
+                    f' out of {self.n_parameterisations_to_do}.')
         self.results.metrics_matrix[
             i_parameterisation, :] = self.get_metrics_array(metrics_dict)
         self.verbosity_pop()
+        self.n_parameterisations_done += 1
+        percent_done = math.floor(100 * self.n_parameterisations_done 
+                                  / self.n_parameterisations_to_do)
+        if percent_done > self.last_percent_reported:
+            self.report(f'Parameter search {percent_done} % done.')
+            self.last_percent_reported = percent_done
     
     def search_list(self, params_matrix):
         """
@@ -211,6 +217,9 @@ class ParameterSearch:
             self.report('Pool of workers initialised.')
         self.report(f'Searching {n_parameterisations} parameterisations for'
                     f' parameter set {self.param_names}...')
+        self.last_percent_reported = 0
+        self.n_parameterisations_done = 0
+        self.n_parameterisations_to_do = n_parameterisations
         for i in range(n_parameterisations):
             params_dict = self.get_params_dict(self.results.params_matrix[i, :])
             if self.parallel:
@@ -403,7 +412,7 @@ if __name__ == "__main__":
     class TestParallelParameterSearch(ParameterSearch):
         def get_metrics_for_params(self, params, i_parameterisation):
             self.verbosity_push()
-            self.report(f'Setting up test of parameterisation {i_parameterisation}:'
+            self.report(f'Setting up test of parameterisation #{i_parameterisation}:'
                         f' {params}')
             self.pool.apply_async(par_get_metrics_for_params, 
                                   (params, i_parameterisation),
@@ -417,7 +426,7 @@ if __name__ == "__main__":
     test_search = TestParallelParameterSearch(name='test3', verbosity=3)
     param_arrays = {}
     param_arrays['p1'] = (0,1,2,3)
-    param_arrays['p2'] = np.arange(0, 9, 3)
+    param_arrays['p2'] = np.arange(0, 30, 3)
     param_arrays['p3'] = param_arrays['p1']
     test_search.search_grid(param_arrays)
     results = np.concatenate((test_search.results.params_matrix, 
