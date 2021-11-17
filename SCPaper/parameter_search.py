@@ -8,6 +8,7 @@ import math
 import numpy as np
 import datetime
 import pickle
+import multiprocessing as mp
 
 STATUS_REP_HEADER_LEN = 40
 
@@ -138,23 +139,44 @@ class ParameterSearch:
             metrics_array[i] = metrics[self.metric_names[i]]
         return metrics_array
     
-    def get_metrics_for_params(self, params_vector):
+    def get_metrics_for_params(self, params_dict, i_parameterisation=None):
         """
         To be overridden by descendant classes.
 
         Parameters
         ----------
-        params : 1D numpy array 
+        params : dict
             Parameter values for the parameterisation to analyse, with 
             param_names as keys.
+        i_parameterisation : int, optional
+            The index number of the parameterisation being tested. Only needed
+            if self.parallel is True.
 
         Returns
         -------
-        Implementation in descendant classes should return a 1D numpy array of 
-        calculated metric values for the parameterisation.
+        Implementation in descendant classes should return:
+        If self.parallel is False:
+            A dict of calculated metric values for the parameterisation, with 
+            self.param_names as keys.
+        If self.parallel is True:
+            The descendant class implementation should not return anything, but
+            should use self.pool.apply_async or similar, with 
+            self.receive_metrics_for_params as callback, to queue a (non-class) 
+            function call that returns a tuple of i_parameterisation and the 
+            same dict of metric values as mentioned above. 
 
         """
         raise Exception('This method should be overridden.')
+        
+    def receive_metrics_for_params(self, results_tuple):
+        self.verbosity_push()
+        i_parameterisation = results_tuple[0]
+        metrics_dict = results_tuple[1]
+        self.report(f'Received results for parameterisation #{i_parameterisation}:'
+                    f' {metrics_dict}')
+        self.results.metrics_matrix[
+            i_parameterisation, :] = self.get_metrics_array(metrics_dict)
+        self.verbosity_pop()
     
     def search_list(self, params_matrix):
         """
@@ -181,11 +203,24 @@ class ParameterSearch:
                                               n_metrics = self.n_metrics,
                                               n_parameterisations = n_parameterisations,
                                               params_matrix = params_matrix)
+        if self.parallel:
+            n_workers = mp.cpu_count()-1
+            self.report(f'Starting a pool of {n_workers} workers for parallel'
+                        ' evaluation of parameterisations...')
+            self.pool = mp.Pool()
+            self.report('Pool of workers initialised.')
         self.report(f'Searching {n_parameterisations} parameterisations for'
                     f' parameter set {self.param_names}...')
         for i in range(n_parameterisations):
-            self.results.metrics_matrix[i, :] = self.get_metrics_for_params(
-                self.results.params_matrix[i, :])
+            params_dict = self.get_params_dict(self.results.params_matrix[i, :])
+            if self.parallel:
+                self.get_metrics_for_params(params_dict, i)
+            else:
+                metrics_dict = self.get_metrics_for_params(params_dict)
+                self.receive_metrics_for_params((i, metrics_dict))
+        if self.parallel:
+            self.pool.close()
+            self.pool.join()
         self.report('Parameter search complete.')
         self.verbosity_pop()
             
@@ -257,7 +292,8 @@ class ParameterSearch:
         self.verbosity_pop()
         
     
-    def __init__(self, param_names, metric_names, name='Unnamed', verbosity=0):
+    def __init__(self, param_names, metric_names, name='Unnamed', 
+                 parallel=False, verbosity=0):
         """
         Constructor.
 
@@ -269,6 +305,10 @@ class ParameterSearch:
             Names of the metrics to be calculated for each parameterisation.
         name : string, optional
             Name for the parameter search. The default is 'Unnamed'.
+        parallel : bool, optional
+            If True, a multiprocessing.Pool will be created, for each parameter
+            search, to evaluate parameterisations in parallel. The default is 
+            False.
         verbosity : int, optional
             The deepest level of processing at which to provide status report
             information. The default is 0, i.e., no status reports at all.
@@ -283,6 +323,7 @@ class ParameterSearch:
         self.param_names = param_names
         self.n_metrics = len(metric_names)
         self.metric_names = metric_names
+        self.parallel = parallel
         self.max_verbosity_depth = verbosity
         self.curr_verbosity_depth = 0
         
@@ -299,18 +340,28 @@ def load(file_name, verbose=False):
         print('\tDone.')
     return loaded_obj
         
+
+
+# function used by the unit testing code below
+import time, random
+def par_get_metrics_for_params(params, i_parameterisation):
+    time.sleep(random.uniform(0.5, 1.5))
+    metrics = {}
+    metrics['m1'] = params['p1'] + params['p2'] + params['p3']
+    metrics['m2'] = -metrics['m1']
+    return (i_parameterisation, metrics)
+
     
 # unit testing
 if __name__ == "__main__":
     
     # simple descendant class for testing
     class TestParameterSearch(ParameterSearch):
-        def get_metrics_for_params(self, params_vector):
-            params = self.get_params_dict(params_vector)
+        def get_metrics_for_params(self, params):
             metrics = {}
             metrics['m1'] = params['p1'] + params['p2'] + params['p3']
             metrics['m2'] = -metrics['m1']
-            return self.get_metrics_array(metrics)
+            return metrics
         def __init__(self, name, verbosity):
             super().__init__(param_names=('p1', 'p2', 'p3'),
                              metric_names=('m1', 'm2'), name=name,
@@ -347,6 +398,30 @@ if __name__ == "__main__":
     print(results)
     
     
-    
+    # test parallelised grid search
+    # - simple descendant class for testing
+    class TestParallelParameterSearch(ParameterSearch):
+        def get_metrics_for_params(self, params, i_parameterisation):
+            self.verbosity_push()
+            self.report(f'Setting up test of parameterisation {i_parameterisation}:'
+                        f' {params}')
+            self.pool.apply_async(par_get_metrics_for_params, 
+                                  (params, i_parameterisation),
+                                  callback = self.receive_metrics_for_params)
+            self.verbosity_pop()
+        def __init__(self, name, verbosity):
+            super().__init__(param_names=('p1', 'p2', 'p3'),
+                             metric_names=('m1', 'm2'), name=name,
+                             parallel=True, verbosity=verbosity)
+    # - run the test
+    test_search = TestParallelParameterSearch(name='test3', verbosity=3)
+    param_arrays = {}
+    param_arrays['p1'] = (0,1,2,3)
+    param_arrays['p2'] = np.arange(0, 9, 3)
+    param_arrays['p3'] = param_arrays['p1']
+    test_search.search_grid(param_arrays)
+    results = np.concatenate((test_search.results.params_matrix, 
+               test_search.results.metrics_matrix), axis=1)
+    print(results)
     
     
