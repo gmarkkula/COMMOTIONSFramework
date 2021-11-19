@@ -27,11 +27,11 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_PLOTS = False
+DO_PLOTS = True
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
-SURPLUS_DEC_THRESH = 1 # m/s^2
+SURPLUS_DEC_THRESH = 2 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 0.1 # m/s
 MAIN_CRITERIA = ('veh_assert_prio', 'veh_short_stop', 
