@@ -39,12 +39,17 @@
     * Get to the point where I am ready to run probabilistic fits (but don't really run them yet):
         * ~~Identify models and parameterisations from the deterministic fits, to use as starting points.~~
         * Code modifications
-            * Add support for agent width and length.
-            * Modify parameter search classes to support parallelising individual parameterisations
-        * Scenario modifications
-            * Break up the pedestrian scenarios in two parts, one per phenomenon of interest
-            * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
-        * Make sure to include tests both with and without `oPF`, to see if it is need for the "pedestrian hesitation and speedup" phenomenon.
+            * ~~Add support for agent width and length.~~
+            * ~~Modify parameter search classes to support parallelising individual parameterisations~~
+        * Scenario modifications (branch splitting-scenarios)
+            * ~~Define updated scenarios:~~
+                * ~~Break up the pedestrian scenarios in two parts, one per phenomenon of interest.~~
+                * ~~Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.~~
+            * Implement the updated scenarios (see 2021-11-20b diary notes).
+                * Up to date scenario definitions.
+                * Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes.
+            * Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios, with one or more repetitions per scenario, with an option to parallelise individual parameterisations, and also supporting additional simulation stopping criteria. (A lot of this is just to expose the already implemented functionality in `parameter_search.ParameterSearch`.)
+        * Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * Maybe first on my own computer...?
         * ... And then on a faster computer, with an expanded grid?
