@@ -4,6 +4,16 @@ Created on Tue Sep 21 10:47:55 2021
 
 @author: tragma
 """
+# assuming this file is in a subfolder to the COMMOTIONS framework root, so 
+# add parent directory to Python path
+import os 
+import sys
+THIS_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR, __ = os.path.split(THIS_FILE_DIR)
+if not PARENT_DIR in sys.path:
+    sys.path.append(PARENT_DIR)
+
+# other imports
 import os
 import math
 import copy
@@ -105,16 +115,15 @@ DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
 
 class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
     
-    def set_params(self, params_vector):
+    def set_params(self, params_dict):
         """
         Set self.params and self.params_k to reflect a given model 
         parameterisation.
 
         Parameters
         ----------
-        params_vector : 1D numpy array
-            The vector of free parameter values, same order as in 
-            self.param_names.
+        params_dict : dict
+            Parameter values, with keys from self.param_names
 
         Returns
         -------
@@ -123,8 +132,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         """    
         # loop through the provided free parameter values and assign them
         # to the correct attributes of the local parameter objects
-        for i_param, param_name in enumerate(self.param_names):
-            param_value = params_vector[i_param]
+        for param_name, param_value in params_dict.items():
             if param_name[0:2] == 'k_':
                 # value function gain parameter - set across both control types
                 # (redundant, but doesn't matter)
@@ -133,8 +141,6 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
                     setattr(self.params_k[ctrl_type], param_attr, param_value)
             else:
                 # other parameter
-                params_obj = self.params
-                param_attr = param_name
                 setattr(self.params, param_name, param_value)
     
     
@@ -182,14 +188,14 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         return sc_simulation
         
     
-    def get_metrics_for_params(self, params_vector):
+    def get_metrics_for_params(self, params_dict):
         
         self.verbosity_push()
         self.report('Running simulations for parameterisation'
-                    f' {self.get_params_dict(params_vector)}...')
+                    f' {params_dict}...')
         
         # set the model parameters as specified
-        self.set_params(params_vector)
+        self.set_params(params_dict)
         
         # loop through the scenarios, simulate them, and calculate metrics
         metrics = {}
@@ -310,8 +316,8 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
     
         self.verbosity_pop()
                 
-        # return the metrics as a vector
-        return self.get_metrics_array(metrics)
+        # return the dict of metrics
+        return metrics
             
     
     def __init__(self, name, optional_assumptions, 
