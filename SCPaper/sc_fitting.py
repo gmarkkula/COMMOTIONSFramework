@@ -7,7 +7,6 @@ Created on Tue Sep 21 10:47:55 2021
 import os
 import math
 import copy
-import keyboard
 from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,13 +26,18 @@ AGENT_NAMES = (PED_NAME, VEH_NAME)
 i_PED_AGENT = 0
 i_VEH_AGENT = 1
 AGENT_CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION)
-AGENT_EFF_WIDTHS = (0.8, 1.8)
+AGENT_WIDTHS = (0.8, 1.8)
+AGENT_LENGTHS = (0.8, 4.2)
 AGENT_FREE_SPEEDS = np.array([1.3, 50 / 3.6]) # m/s 
 AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
 COLLISION_MARGIN = 0.5 # m
 TIME_STEP = 0.1 # s
 END_TIME = 8 # s
 V_NY_REL = -1.5
+AGENT_COLL_DISTS = []
+for i_ag in range(2):
+    AGENT_COLL_DISTS.append(sc_scenario_helper.get_agent_coll_dist(
+        AGENT_LENGTHS[i_ag], AGENT_WIDTHS[1-i_ag]))
 
 
 @dataclass
@@ -53,12 +57,12 @@ class SCPaperScenario:
         self.name = name
         self.ped_prio = ped_prio
         self.initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
-                                     + sc_scenario.SHARED_PARAMS.d_C)
+                                     + np.array(AGENT_COLL_DISTS))
         self.initial_speeds = np.copy(AGENT_FREE_SPEEDS)
         self.const_accs = [None, None]
         if ped_start_standing:
             self.initial_cp_distances[i_PED_AGENT] = (
-                sc_scenario.SHARED_PARAMS.d_C + ped_standing_margin)
+                AGENT_COLL_DISTS[i_PED_AGENT] + ped_standing_margin)
             self.initial_speeds[i_PED_AGENT] = 0
         if ped_const_speed:
             self.const_accs[i_PED_AGENT] = 0
@@ -66,7 +70,7 @@ class SCPaperScenario:
             self.const_accs[i_VEH_AGENT] = 0
         elif veh_yielding:
             stop_dist = (self.initial_cp_distances[i_VEH_AGENT] 
-                         - sc_scenario.SHARED_PARAMS.d_C - veh_yielding_margin)
+                         - AGENT_COLL_DISTS[i_VEH_AGENT] - veh_yielding_margin)
             self.const_accs[i_VEH_AGENT] = (
                 -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
         
@@ -161,13 +165,14 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             self.params.V_ny_rel = 0
         # - set up the SCSimulation object
         sc_simulation = sc_scenario.SCSimulation(
-            AGENT_CTRL_TYPES, AGENT_GOALS, initial_pos, 
+            ctrl_types=AGENT_CTRL_TYPES, 
+            widths=AGENT_WIDTHS, lengths=AGENT_LENGTHS, 
+            goal_positions=AGENT_GOALS, initial_positions=initial_pos, 
             initial_speeds=scenario.initial_speeds, 
             const_accs=scenario.const_accs,
             start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
             optional_assumptions=self.optional_assumptions, 
             params=self.params, params_k=self.params_k, 
-            eff_widths=AGENT_EFF_WIDTHS,
             agent_names=AGENT_NAMES, snapshot_times=snapshots)
         
         # run the simulation
@@ -252,7 +257,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             # -- get the required deceleration to stop just at the conflict
             # -- area
             ca_dist_before_ca = veh_agent.trajectory.pos[
-                0,:veh_entry_sample] - sc_scenario.SHARED_PARAMS.d_C
+                0,:veh_entry_sample] - AGENT_COLL_DISTS[i_VEH_AGENT]
             stop_dec_before_ca = veh_agent.trajectory.long_speed[
                 :veh_entry_sample] ** 2 / (2 * ca_dist_before_ca)
             # -- get the vehicle agent's actual deceleration before the

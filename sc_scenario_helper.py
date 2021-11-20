@@ -66,8 +66,8 @@ AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
 
 SCAgentImage = collections.namedtuple('SCAgentImage', 
                                       ['ctrl_type', 'params', 'v_free', 
-                                       'g_free', 'V_free', 'eff_width'])
-
+                                       'g_free', 'V_free', 'coll_dist',
+                                       'eff_width'])
 
 
 def get_agent_free_speed(k):
@@ -202,6 +202,10 @@ def get_time_to_dist_with_acc(state, target_dist):
     
     
 
+def get_agent_coll_dist(ego_length, oth_width):
+    return oth_width / 2 + ego_length / 2
+
+
 def get_app_entry_exit_time_arrays(cp_dists, speeds, coll_dist):
     # Generates divide by zero warnings if speeds has zeros, or "invalid value" 
     # warnings if cp_dists is zero at any elements where speeds is zero.
@@ -318,8 +322,7 @@ def anticipation_integration(x0, xdots, xdotdots=0):
 def get_access_order_values(
         ego_image, ego_curr_state, action_acc0, action_jerk, 
         oth_image, oth_curr_state, oth_first_acc, oth_cont_acc,
-        coll_dist, access_ord_impls, 
-        consider_looming = False, return_details = False):
+        access_ord_impls, consider_looming = False, return_details = False):
     # TODO add documentation here.
     
     access_ord_values = {}
@@ -425,9 +428,9 @@ def get_access_order_values(
                                                     -oth_speeds, -oth_accs)
             # get anticipated apparent entry/exit times for both agents
             app_entry_times, app_exit_times = get_app_entry_exit_time_arrays(
-                cp_dists, speeds, coll_dist)
+                cp_dists, speeds, ego_image.coll_dist)
             oth_app_entry_times, oth_app_exit_times = get_app_entry_exit_time_arrays(
-                oth_cp_dists, oth_speeds, coll_dist)
+                oth_cp_dists, oth_speeds, oth_image.coll_dist)
             # get anticipated apparent collision courses
             # - apparent other collision into ego
             app_ego_leads = app_entry_times < oth_app_entry_times
@@ -510,12 +513,12 @@ def get_access_order_values(
     return access_ord_values
 
 
-def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
+def get_access_order_implications(ego_image, ego_state, oth_image, oth_state, 
                                   consider_oth_acc = True, return_nans = True):
     """ Return a dict over AccessOrder with an AccessOrderImplication for each, 
         for the ego agent described by ego_image, with state ego_state (using 
         fields signed_CP_dist, long_speed), to pass respectively before or 
-        after, respecting collision distance coll_dist, the other agent 
+        after, respecting collision distances ego/oth_coll_dist, the other agent 
         described by oth_state (same fields as above, but also 
         cs_times), assumed to keep either a constant acceleration 
         (consider_oth_acc = True) or constant speed (consider_oth_acc = False) 
@@ -555,8 +558,8 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     """
 
     # are both agents currently in the conflict space (i.e., a collision)?
-    if (abs(ego_state.signed_CP_dist) < coll_dist and
-        abs(oth_state.signed_CP_dist) < coll_dist):
+    if (abs(ego_state.signed_CP_dist) < ego_image.coll_dist and
+        abs(oth_state.signed_CP_dist) < oth_image.coll_dist):
         implications = {}
         if return_nans:
             for access_order in AccessOrder:
@@ -590,7 +593,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         T_acc_free = agent_time_to_v_free
         
     # has the ego agent already exited the conflict space?
-    if ego_state.signed_CP_dist <= -coll_dist - ego_image.params.D_s:
+    if ego_state.signed_CP_dist <= -ego_image.coll_dist - ego_image.params.D_s:
         # yes - so no interaction left to do - return just the acceleration 
         # to free speed for both outcomes
         implications = {}
@@ -616,7 +619,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     # get acceleration needed to pass first
     # - other agent already entered conflict space? 
     # (note less than, not less than or equal)
-    if oth_state.signed_CP_dist < coll_dist + ego_image.params.D_s:
+    if oth_state.signed_CP_dist < oth_image.coll_dist + ego_image.params.D_s:
         # yes, so not possible for ego agent to pass first
         if return_nans:
             accs[AccessOrder.EGOFIRST] = math.nan
@@ -630,7 +633,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # space at the same time as the other agent enters it
         # (need to consider stop as possibility here, in case there is a long
         # time left until the other agent reaches the conflict space)
-        ego_dist_to_exit = ego_state.signed_CP_dist + coll_dist
+        ego_dist_to_exit = ego_state.signed_CP_dist + ego_image.coll_dist
         accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
             get_acc_to_be_at_dist_at_time(
                 ego_state.long_speed, ego_dist_to_exit + ego_image.params.D_s, 
@@ -646,7 +649,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         
     # get acceleration needed to pass second
     # - has the other agent already exited the conflict space?
-    if oth_state.signed_CP_dist <= -coll_dist - ego_image.params.D_s:
+    if oth_state.signed_CP_dist <= -oth_image.coll_dist - ego_image.params.D_s:
         # yes, so just accelerate to free speed
         accs[AccessOrder.EGOSECOND] = ego_free_acc
         T_accs[AccessOrder.EGOSECOND] = T_acc_free
@@ -655,7 +658,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
         # no, the other agent hasn't already exited the conflict space
         # has the ego agent already entered conflict space?
         # (note less than, not less than or equal)
-        if ego_state.signed_CP_dist < coll_dist + ego_image.params.D_s:
+        if ego_state.signed_CP_dist < ego_image.coll_dist + ego_image.params.D_s:
             # yes, so passing in second is no longer an option
             if return_nans:
                 accs[AccessOrder.EGOSECOND] = math.nan
@@ -670,7 +673,7 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
             # agent be at entrance to the conflict space at the same time as the 
             # other agent exits it (possibly by stopping completely, possibly
             # even before the other agent reaches the conflict space)
-            ego_dist_to_entry = ego_state.signed_CP_dist - coll_dist
+            ego_dist_to_entry = ego_state.signed_CP_dist - ego_image.coll_dist
             oth_exit_time = oth_state.cs_exit_time[oth_pred]
             accs[AccessOrder.EGOSECOND], T_accs[AccessOrder.EGOSECOND] = \
                 get_acc_to_be_at_dist_at_time(
@@ -699,16 +702,18 @@ def get_access_order_implications(ego_image, ego_state, oth_state, coll_dist,
     return implications
 
 
-def get_access_order_accs(ego_image, ego_state, oth_state, coll_dist, 
+def get_access_order_accs(ego_image, ego_state, oth_image, oth_state, 
                           consider_oth_acc = True):
     """ Return a tuple (acc_1st, acc_2nd) of expected accelerations 
         for the ego agent to pass before or after the other agent. A wrapper
         for get_access_order_implications() - see that function for 
         calling details.
     """
-    implications = get_access_order_implications(ego_image, ego_state, 
-                                                 oth_state, coll_dist,
-                                                 consider_oth_acc, 
+    implications = get_access_order_implications(ego_image=ego_image, 
+                                                 ego_state=ego_state, 
+                                                 oth_image=oth_image, 
+                                                 oth_state=oth_state, 
+                                                 consider_oth_acc=consider_oth_acc, 
                                                  return_nans = True)
     return (implications[AccessOrder.EGOFIRST].acc, 
             implications[AccessOrder.EGOSECOND].acc)
@@ -751,14 +756,14 @@ def get_time_to_sc_agent_collision(state1, state2, consider_acc=False):
     return math.inf
 
 
-def get_sc_agent_collision_margins(ag1_ds, ag2_ds, coll_dist):
+def get_sc_agent_collision_margins(ag1_ds, ag2_ds, ag1_coll_dist, ag2_coll_dist):
     """
     Return the distance margins between agents at signed distances from conflict
-    point ag1_ds and ag2_ds (can be numpy arrays), given the collision distance 
-    coll_dist.
+    point ag1_ds and ag2_ds (can be numpy arrays), given the collision distances 
+    ag1/2_coll_dist.
     """
-    ag1_margins_to_CS = np.abs(ag1_ds) - coll_dist
-    ag2_margins_to_CS = np.abs(ag2_ds) - coll_dist
+    ag1_margins_to_CS = np.abs(ag1_ds) - ag1_coll_dist
+    ag2_margins_to_CS = np.abs(ag2_ds) - ag2_coll_dist
     ag1_in_CS = ag1_margins_to_CS < 0
     ag2_in_CS = ag2_margins_to_CS < 0
     collision_margins = (np.maximum(ag1_margins_to_CS, 0)
@@ -822,7 +827,7 @@ if __name__ == "__main__":
     plt.close('all')
     
     TEST_ACCESS_ORDERS = True
-    TEST_TTCS_AND_LOOMING = False
+    TEST_TTCS_AND_LOOMING = True
 
 # =============================================================================
 #   Testing get_access_order_implications() and ..._values()
@@ -899,20 +904,24 @@ if __name__ == "__main__":
         OTH_D = {}
         OTH_D[CtrlType.SPEED] = 40
         OTH_D[CtrlType.ACCELERATION] = 6
-        # constants depending on other agent control type
-        OTH_EFF_WIDTH = {}
-        OTH_EFF_WIDTH[CtrlType.SPEED] = 0.8
-        OTH_EFF_WIDTH[CtrlType.ACCELERATION] = 1.8
+        # constants depending on ego/other agent control type
+        AGENT_WIDTH = {}
+        AGENT_WIDTH[CtrlType.SPEED] = 0.8
+        AGENT_WIDTH[CtrlType.ACCELERATION] = 1.8
+        AGENT_LENGTH = {}
+        AGENT_LENGTH[CtrlType.SPEED] = 0.8
+        AGENT_LENGTH[CtrlType.ACCELERATION] = 4.2
         # other constants
-        COLL_DIST = 2
         END_TIME = 10 # s
         TIME_STEP = 0.005 # s
         TIME_STAMPS = np.arange(0, END_TIME, TIME_STEP)
         
         # plot fcns
-        def plot_conflict_window(ax, oth_state):
-            ax.axhline(COLL_DIST, color='r', linestyle='--', lw=0.5)
-            ax.axhline(-COLL_DIST, color='r', linestyle='--', lw=0.5)
+        def plot_conflict_window(ax, oth_state, ego_coll_dist, oth_coll_dist):
+            ax.axhline(ego_coll_dist, color='lightgray', linestyle='--', lw=0.5)
+            ax.axhline(-ego_coll_dist, color='lightgray', linestyle='--', lw=0.5)
+            ax.axhline(oth_coll_dist, color='r', linestyle='--', lw=0.5)
+            ax.axhline(-oth_coll_dist, color='r', linestyle='--', lw=0.5)
             ax.axvline(oth_state.cs_entry_time[CtrlType.ACCELERATION], 
                        color='r', linestyle='--', lw=0.5)
             ax.axvline(oth_state.cs_exit_time[CtrlType.ACCELERATION], 
@@ -924,15 +933,22 @@ if __name__ == "__main__":
             # get test settings
             ego_ctrl_type = EGO_CTRL_TYPES[i_test]
             oth_ctrl_type = OTH_CTRL_TYPES[i_test]
-            V_free = get_agent_free_value(EGO_PARAMS[ego_ctrl_type],
-                                          get_total_future_val=True)
+            g_free = get_agent_free_value_rate(EGO_PARAMS[ego_ctrl_type])
+            V_free = get_agent_free_value(EGO_PARAMS[ego_ctrl_type])
+            ego_coll_dist = get_agent_coll_dist(AGENT_LENGTH[ego_ctrl_type], 
+                                                AGENT_WIDTH[oth_ctrl_type])
+            oth_coll_dist = get_agent_coll_dist(AGENT_LENGTH[oth_ctrl_type], 
+                                                AGENT_WIDTH[ego_ctrl_type])
             ego_image = SCAgentImage(ego_ctrl_type, 
                                      EGO_PARAMS[ego_ctrl_type], 
                                      v_free = EGO_V_FREE[ego_ctrl_type],
-                                     V_free = V_free, eff_width = None)
+                                     V_free = V_free, g_free = g_free,
+                                     coll_dist=ego_coll_dist, eff_width = None)
             oth_image = SCAgentImage(oth_ctrl_type, params = None, 
-                                     v_free = None, V_free = None, 
-                                     eff_width = OTH_EFF_WIDTH[oth_ctrl_type])
+                                     v_free = None, g_free = None, 
+                                     V_free = None, 
+                                     coll_dist=oth_coll_dist,
+                                     eff_width = AGENT_WIDTH[oth_ctrl_type])
             
             # - prepare objects for current and predicted ego state
             ego_state = commotions.KinematicState(long_speed = EGO_VS[i_test])
@@ -943,12 +959,12 @@ if __name__ == "__main__":
             oth_state.long_acc = OTH_AS[i_test]
             oth_pred_state = copy.deepcopy(oth_state)
             oth_state.signed_CP_dist = OTH_D[ego_ctrl_type]
-            oth_state = add_entry_exit_times_to_state(oth_state, COLL_DIST)
+            oth_state = add_entry_exit_times_to_state(oth_state, oth_coll_dist)
             oth_pred_state.signed_CP_dist = (OTH_D[ego_ctrl_type] 
                                              - OTH_VS[i_test] * EGO_ACTION_DUR
                                              - OTH_AS[i_test] * EGO_ACTION_DUR ** 2 / 2)
             oth_pred_state.long_speed = OTH_VS[i_test] + OTH_AS[i_test] * EGO_ACTION_DUR
-            oth_pred_state = add_entry_exit_times_to_state(oth_pred_state, COLL_DIST)
+            oth_pred_state = add_entry_exit_times_to_state(oth_pred_state, oth_coll_dist)
             # - get other agent's movement
             oth_speeds = oth_state.long_speed + oth_state.long_acc * TIME_STAMPS
             oth_distances = (oth_state.signed_CP_dist 
@@ -960,7 +976,7 @@ if __name__ == "__main__":
             
             # plot other agent's path
             axs[0, 0].plot(TIME_STAMPS, oth_distances, 'k-', alpha=0.3, lw=3)
-            plot_conflict_window(axs[0, 0], oth_state)
+            plot_conflict_window(axs[0, 0], oth_state, ego_coll_dist, oth_coll_dist)
             axs[0, 0].set_ylabel('$d_{oth}$ (m)')
             axs[0, 0].set_title("Other agent")
             axs[1, 0].set_ylabel('$a_{oth}$ (blue; m/s^2) and $v_{oth}$ (grey; m/s)')
@@ -972,12 +988,12 @@ if __name__ == "__main__":
             axs[0, 1].set_title('Ego agent passing first')
             axs[1, 1].set_ylabel('$a_{ego}$ (blue; m/s^2) and $v_{ego}$ (grey; m/s)')
             axs[2, 1].set_xlabel('Time (s)')
-            plot_conflict_window(axs[0, 1], oth_state)
+            plot_conflict_window(axs[0, 1], oth_state, ego_coll_dist, oth_coll_dist)
             axs[0, 2].set_ylabel('$d_{ego}$ (m)')
             axs[0, 2].set_title('Ego agent passing second')
             axs[1, 2].set_ylabel('$a_{ego}$ (blue; m/s^2) and $v_{ego}$ (grey; m/s)')
             axs[2, 2].set_xlabel('Time (s)')
-            plot_conflict_window(axs[0, 2], oth_state)
+            plot_conflict_window(axs[0, 2], oth_state, ego_coll_dist, oth_coll_dist)
                 
             # loop through initial distances
             for ego_d in ego_ds:
@@ -985,13 +1001,12 @@ if __name__ == "__main__":
                 ego_pred_state.signed_CP_dist = (
                     ego_d - ego_state.long_speed * EGO_ACTION_DUR)
                 access_ord_impls = get_access_order_implications(
-                    ego_image, ego_pred_state, oth_pred_state, COLL_DIST)
+                    ego_image, ego_pred_state, oth_image, oth_pred_state)
                 access_ord_vals = get_access_order_values(
                     ego_image, ego_curr_state=ego_state, action_acc0=0, action_jerk=0, 
                     oth_image=oth_image, oth_curr_state=oth_state, 
                     oth_first_acc=oth_state.long_acc, 
                     oth_cont_acc=oth_state.long_acc,
-                    coll_dist=COLL_DIST,
                     access_ord_impls=access_ord_impls, consider_looming=True, 
                     return_details=True)
                 for i, access_ord in enumerate(AccessOrder):
@@ -1035,11 +1050,14 @@ if __name__ == "__main__":
                  'Ped const - Not colliding', 'Ped const - Stopping', 
                  'Ped stat - Passing', 'Ped stat - Stopping')
         N_TESTS = len(TESTS)
-        COLL_DIST = 2
-        AG_EFF_WIDTH = [1.8, 0.8] # car, pedestrian
+        AG_WIDTHS = [1.8, 0.8] # car, pedestrian
+        AG_LENGTHS = [4.2, 0.8] # car, pedestrian
+        AG_COLL_DISTS = []
+        for i_ag in range(2):
+            AG_COLL_DISTS.append(get_agent_coll_dist(AG_LENGTHS[i_ag], AG_WIDTHS[1-i_ag]))
         AG1_V0S = (10, 10, 10, 10, 10)
-        AG1_D0S = (40, (4+COLL_DIST)*10+COLL_DIST+0.1, 40, 40, 40)
-        STOP_ACC = -10**2/(2*(40-COLL_DIST))
+        AG1_D0S = (40, (4+AG_COLL_DISTS[0])*10+AG_COLL_DISTS[0]+0.1, 40, 40, 40)
+        STOP_ACC = -10**2/(2*(40-AG_COLL_DISTS[0]))
         AG1_ACCS = (0, 0, STOP_ACC, 0, STOP_ACC)
         AG2_V0S = (1, 1, 1, 0, 0)
         AG2_D0S = (4, 4, 4, 2.5, 2.5)
@@ -1064,7 +1082,10 @@ if __name__ == "__main__":
         ag_image = []
         ag_state = [] 
         for i in range(2):
-            ag_image.append(SCAgentImage(None, None, None, None, AG_EFF_WIDTH[i]))
+            ag_image.append(SCAgentImage(ctrl_type=None, params=None, 
+                                         v_free=None, g_free=None, V_free=None, 
+                                         coll_dist=AG_COLL_DISTS[i],
+                                         eff_width=AG_WIDTHS[i]))
             ag_state.append(commotions.KinematicState())
 
         # loop throgh scenarios
@@ -1097,7 +1118,7 @@ if __name__ == "__main__":
                         else:
                             ag_state[i_agent].long_acc = 0
                         ag_state[i_agent] = add_entry_exit_times_to_state(
-                                ag_state[i_agent], COLL_DIST)
+                                ag_state[i_agent], AG_COLL_DISTS[i_agent])
                      
                     # loop through agent and get theoretical optical size and
                     # expansion
@@ -1129,7 +1150,8 @@ if __name__ == "__main__":
             for i_agent in range(2):
                 axs[0].plot(TIME_STAMPS, ag_vs[i_agent,:], 
                             color = AG_COLORS[i_agent])
-                in_CS_idxs = np.nonzero(np.abs(ag_ds[i_agent,:]) <= COLL_DIST)[0]
+                in_CS_idxs = np.nonzero(np.abs(ag_ds[i_agent,:]) 
+                                        <= AG_COLL_DISTS[i_agent])[0]
                 if len(in_CS_idxs) > 0:
                     t_en = TIME_STAMPS[in_CS_idxs[0]]
                     t_ex = TIME_STAMPS[in_CS_idxs[-1]]
@@ -1137,9 +1159,13 @@ if __name__ == "__main__":
                     t_en = math.nan
                     t_ex = math.nan
                 axs[1].fill(np.array((t_en, t_ex, t_ex, t_en)), 
-                            np.array((-1, -1, 1, 1)) * COLL_DIST, 
+                            np.array((-1, -1, 1, 1)) * AG_COLL_DISTS[i_agent], 
                             color = AG_COLORS[i_agent], alpha = 0.3,
                             edgecolor = None)
+                axs[1].axhline(AG_COLL_DISTS[i_agent], color=AG_COLORS[i_agent], 
+                               linestyle='--', lw=0.5)
+                axs[1].axhline(-AG_COLL_DISTS[i_agent], color=AG_COLORS[i_agent], 
+                               linestyle='--', lw=0.5)
                 axs[1].plot(TIME_STAMPS, ag_ds[i_agent,:], 
                                 color = AG_COLORS[i_agent])
                 axs[4].plot(TIME_STAMPS, thetas[i_agent,:], 
@@ -1150,17 +1176,16 @@ if __name__ == "__main__":
                 axs[5].plot(TIME_STAMPS, thetaDots[i_agent,:], 
                             color = AG_COLORS[i_agent], lw = 1)
             axs[0].set_ylabel('v (m)')
-            axs[1].axhline(COLL_DIST, color='r', linestyle='--', lw=0.5)
-            axs[1].axhline(-COLL_DIST, color='r', linestyle='--', lw=0.5)
             axs[1].set_ylabel('d (m)')
-            axs[1].set_ylim(np.array((-1, 1)) * COLL_DIST * 3)
+            axs[1].set_ylim(np.array((-1, 1)) * max(AG_COLL_DISTS) * 3)
             axs[2].set_ylabel('TTC (s)')
             (coll_margins, coll_idxs) = \
-                get_sc_agent_collision_margins(ag_ds[0,:], ag_ds[1,:], COLL_DIST) 
+                get_sc_agent_collision_margins(ag_ds[0,:], ag_ds[1,:], 
+                                               AG_COLL_DISTS[0], AG_COLL_DISTS[1]) 
             axs[3].plot(TIME_STAMPS, coll_margins, 'k-')
             axs[3].plot(TIME_STAMPS[coll_idxs], coll_margins[coll_idxs], 'r.')
             axs[3].set_ylabel('$d_{margin}$ (m)')
-            axs[3].set_ylim(np.array((-.1, 1)) * COLL_DIST * 3)
+            axs[3].set_ylim(np.array((-.1, 1)) * max(AG_COLL_DISTS) * 3)
             axs[4].set_ylabel(r'$\theta$ (rad)')
             axs[5].set_ylim(np.array((-0.2, 0.2)))
             axs[5].set_ylabel(r'$\dot{\theta}$ (rad/s)')

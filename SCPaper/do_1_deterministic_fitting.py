@@ -49,6 +49,8 @@ for ctrl_type in CtrlType:
     DEFAULT_PARAMS_K_NVA[ctrl_type]._sg = 0
 # --- other fixed parameters
 DEFAULT_PARAMS = commotions.Parameters()
+DEFAULT_PARAMS.H_e = 1.5
+DEFAULT_PARAMS.sigma_xdot = 0.1
 DEFAULT_PARAMS.T_P = 0.5
 DEFAULT_PARAMS.T_s = 0.5
 DEFAULT_PARAMS.D_s = 0.5

@@ -27,13 +27,14 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_PLOTS = False
-MODELS_TO_ANALYSE = 'all' # ('oVAoBEo',)
+DO_PLOTS = True
+N_MAIN_CRIT_FOR_PLOT = 4
+MODELS_TO_ANALYSE = 'all' #('oVAoVAloBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
-SURPLUS_DEC_THRESH = 1 # m/s^2
+SURPLUS_DEC_THRESH = 2 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
-VEH_SPEED_AT_PED_START_THRESH = 0.1 # m/s
+VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
 MAIN_CRITERIA = ('veh_assert_prio', 'veh_short_stop', 
                  'ped_hesitate_dec', 'ped_start_bef_veh_stop')
 SEC_CRITERIA = ('ped_hesitate_const', 'ped_fast_crossing')
@@ -186,9 +187,9 @@ for det_fit_file in det_fit_files:
         i_parameterisation=i_parameterisation, params_array=params_array,
         params_dict=params_dict, main_crit_dict=main_crit_dict, 
         sec_crit_dict=sec_crit_dict)
-    if DO_PLOTS:
+    if DO_PLOTS and (np.sum(main_crit_met_somewhere) >= N_MAIN_CRIT_FOR_PLOT):
         print('\tLooking at one of the parameterisations meeting'
-              f' {n_max_main_criteria_met} criteria:')
+              f' {n_main_criteria_met[i_parameterisation]} criteria:')
         print(f'\t\t{params_dict}')
         print(f'\t\t{main_crit_dict}')
         print(f'\t\t{sec_crit_dict}')

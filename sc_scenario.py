@@ -150,10 +150,6 @@ def get_default_params(oVA):
         params_k = copy.deepcopy(DEFAULT_PARAMS_K_NVA)
     return (params, params_k)
 
-
-SHARED_PARAMS = commotions.Parameters()
-SHARED_PARAMS.d_C = 1.5 # collision distance
-
 TTC_FOR_COLLISION = 0.1
 MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are considered zero
 
@@ -170,6 +166,18 @@ class SCAgent(commotions.AgentWithGoal):
         for agent in self.simulation.agents:
             if agent is not self:
                 self.other_agent = agent
+        # store a (correct) "image" of oneself 
+        # [not quite generalisable to store the collision distance as part of 
+        #  this image, since it is a function of the other agent also...]
+        self.coll_dist = sc_scenario_helper.get_agent_coll_dist(
+            self.length, self.other_agent.width)
+        self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
+                                       params = self.params, 
+                                       v_free = self.v_free,
+                                       g_free = self.g_free,
+                                       V_free = self.V_free,
+                                       coll_dist = self.coll_dist,
+                                       eff_width = self.eff_width)
         # store an "image" of the other agent, with parameters assumed same as 
         # own parameters (but for the appropriate ctrl type)
         oth_params = copy.copy(self.params)
@@ -177,11 +185,14 @@ class SCAgent(commotions.AgentWithGoal):
         oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
         oth_g_free = self.other_agent.g_free
         oth_V_free = self.other_agent.V_free
+        oth_coll_dist = sc_scenario_helper.get_agent_coll_dist(
+            self.other_agent.length, self.width)
         self.oth_image = SCAgentImage(ctrl_type = self.other_agent.ctrl_type,
                                       params = oth_params, 
                                       v_free = oth_v_free,
                                       g_free = oth_g_free,
                                       V_free = oth_V_free,
+                                      coll_dist = oth_coll_dist,
                                       eff_width = self.other_agent.eff_width)
         # allocate vectors for storing internal states
         n_time_steps = self.simulation.settings.n_time_steps
@@ -240,12 +251,12 @@ class SCAgent(commotions.AgentWithGoal):
                     self.other_agent.goal)
 
     
-    def add_sc_state_info(self, state):
+    def add_sc_state_info(self, state, coll_dist):
         state.signed_CP_dist = (
             sc_scenario_helper.get_signed_dist_to_conflict_pt(
                 self.simulation.conflict_point, state))
         state = sc_scenario_helper.add_entry_exit_times_to_state(
-                state, SHARED_PARAMS.d_C)
+                state, coll_dist)
         return state
     
     
@@ -290,7 +301,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.curr_state = self.get_current_kinematic_state()
         self.curr_state.long_acc = \
             self.trajectory.long_acc[self.simulation.state.i_time_step-1]
-        self.curr_state = self.add_sc_state_info(self.curr_state)
+        self.curr_state = self.add_sc_state_info(self.curr_state, self.coll_dist)
 
 
     def do_action_update(self):
@@ -335,7 +346,7 @@ class SCAgent(commotions.AgentWithGoal):
             - np.cumsum(proj_long_speeds * time_step)
         # - entry
         i_time_steps_entered = \
-            np.nonzero(proj_signed_dist_to_CP < SHARED_PARAMS.d_C)[0]
+            np.nonzero(proj_signed_dist_to_CP < self.coll_dist)[0]
         if len(i_time_steps_entered) == 0:
             # not currently projected to enter he conflict area within the simulation duration
             self.states.time_left_to_CA_entry[i_time_step] = math.inf
@@ -344,7 +355,7 @@ class SCAgent(commotions.AgentWithGoal):
                 i_time_steps_entered[0] * time_step
         # - exit
         i_time_steps_exited = \
-            np.nonzero(proj_signed_dist_to_CP < -SHARED_PARAMS.d_C)[0]
+            np.nonzero(proj_signed_dist_to_CP < -self.coll_dist)[0]
         if i_time_steps_exited.size == 0:
             # not currently projected to exit the conflict area within the simulation duration
             self.states.time_left_to_CA_exit[i_time_step] = math.inf
@@ -368,8 +379,10 @@ class SCAgent(commotions.AgentWithGoal):
         (self.states.beh_long_accs[i_PASS1ST, i_time_step], 
          self.states.beh_long_accs[i_PASS2ND, i_time_step]) = \
              sc_scenario_helper.get_access_order_accs(
-                     self.oth_image, self.perception.perc_oth_state, 
-                     self.curr_state, SHARED_PARAMS.d_C, 
+                     ego_image=self.oth_image, 
+                     ego_state=self.perception.perc_oth_state, 
+                     oth_image=self.self_image,
+                     oth_state=self.curr_state, 
                      consider_oth_acc=False)
              
         # determine which behaviours are valid at this time step
@@ -707,7 +720,8 @@ class SCAgent(commotions.AgentWithGoal):
         # call helper function to get needed manoeuvring and delay times for
         # each access order, starting from this state
         implications = sc_scenario_helper.get_access_order_implications(
-                ego_image, ego_pred_state, oth_pred_state, SHARED_PARAMS.d_C,
+                ego_image=ego_image, ego_state=ego_pred_state, 
+                oth_image=oth_image, oth_state=oth_pred_state, 
                 consider_oth_acc=self.assumptions[OptionalAssumption.oVAa])
         
         # get values for the respective access orders
@@ -734,7 +748,7 @@ class SCAgent(commotions.AgentWithGoal):
                 action_acc0 = action_acc0, action_jerk = action_jerk, 
                 oth_image = oth_image, oth_curr_state = oth_curr_state,
                 oth_first_acc = oth_first_acc, oth_cont_acc = oth_cont_acc, 
-                coll_dist = SHARED_PARAMS.d_C, access_ord_impls = implications, 
+                access_ord_impls = implications, 
                 consider_looming = self.assumptions[OptionalAssumption.oVAl],
                 return_details = self.do_snapshot_now)      
             
@@ -942,7 +956,7 @@ class SCAgent(commotions.AgentWithGoal):
 
 
     def get_value_of_state_for_agent(self, own_image, own_state, own_goal, 
-                                     oth_state, ctrl_type, k):
+                                     oth_image, oth_state):
 
         heading_vector = np.array([math.cos(own_state.yaw_angle), \
             math.sin(own_state.yaw_angle)])
@@ -954,20 +968,20 @@ class SCAgent(commotions.AgentWithGoal):
             np.dot(heading_vector, heading_to_goal_vector)
         goal_distance_change_rate = \
             -heading_toward_goal_component * own_state.long_speed
-        value = -k._g * goal_distance_change_rate \
-            - k._dv * own_state.long_speed ** 2 
+        value = -own_image.params.k._g * goal_distance_change_rate \
+            - own_image.params.k._dv * own_state.long_speed ** 2 
         
-        if ctrl_type is CtrlType.ACCELERATION:
+        if own_image.ctrl_type is CtrlType.ACCELERATION:
             # acceleration discomfort cost
-            value += -k._da * own_state.long_acc ** 2
+            value += -own_image.params.k._da * own_state.long_acc ** 2
             # cost for acceleration required to stop at goal
             goal_distance = np.linalg.norm(vector_to_goal)
             req_acc_to_goal = -(own_state.long_speed ** 2 / (2 * goal_distance))
-            value += -k._sg * req_acc_to_goal ** 2
+            value += -own_image.params.k._sg * req_acc_to_goal ** 2
             # priority cost for vehicle of passing first
             if own_image.params.V_ny != 0:
                 (__, acc_for_2nd) = sc_scenario_helper.get_access_order_accs(
-                    own_image, own_state, oth_state, SHARED_PARAMS.d_C,
+                    own_image, own_state, oth_image, oth_state, 
                     consider_oth_acc = False)
                 if own_state.long_acc > acc_for_2nd:
                     value += (own_image.params.V_ny 
@@ -984,10 +998,10 @@ class SCAgent(commotions.AgentWithGoal):
             time_to_agent_collision = TTC_FOR_COLLISION
 
         if time_to_agent_collision < math.inf:
-            if ctrl_type is CtrlType.SPEED:
-                value += -k._c / time_to_agent_collision  
-            elif self.ctrl_type is CtrlType.ACCELERATION:
-                value += -k._sc * (own_state.long_speed \
+            if own_image.ctrl_type is CtrlType.SPEED:
+                value += -own_image.params.k._c / time_to_agent_collision  
+            elif own_image.ctrl_type is CtrlType.ACCELERATION:
+                value += -own_image.params.k._sc * (own_state.long_speed \
                     / (2 * time_to_agent_collision)) ** 2  
         
                     
@@ -1002,8 +1016,7 @@ class SCAgent(commotions.AgentWithGoal):
         value = -self.params.k._e * self.params.ctrl_deltas[i_action] ** 2
         # add value of the state
         value += self.get_value_of_state_for_agent(
-            self.self_image, my_state, self.goal, oth_state, self.ctrl_type, 
-            self.params.k)
+            self.self_image, my_state, self.goal, self.oth_image, oth_state)
         return value
 
 
@@ -1014,8 +1027,8 @@ class SCAgent(commotions.AgentWithGoal):
         value = 0
         # add value of the state
         value += self.get_value_of_state_for_agent(
-                self.oth_image, oth_state, self.other_agent.goal, my_state, 
-                self.other_agent.ctrl_type, self.oth_image.params.k) 
+                self.oth_image, oth_state, self.other_agent.goal, 
+                self.self_image, my_state) 
         return value
 
 
@@ -1041,7 +1054,7 @@ class SCAgent(commotions.AgentWithGoal):
         predicted_state.long_acc = local_long_accs[
                 self.simulation.state.i_time_step + self.n_prediction_time_steps]
         # add SC scenario specific state info
-        predicted_state = self.add_sc_state_info(predicted_state)
+        predicted_state = self.add_sc_state_info(predicted_state, self.coll_dist)
         return predicted_state
 
 
@@ -1077,7 +1090,7 @@ class SCAgent(commotions.AgentWithGoal):
                     self.simulation.conflict_point, predicted_state))
             predicted_state.long_acc = long_acc_for_this_beh
             sc_scenario_helper.add_entry_exit_times_to_state(
-                predicted_state, SHARED_PARAMS.d_C)
+                predicted_state, self.oth_image.coll_dist)
         return predicted_state
         
 
@@ -1118,9 +1131,9 @@ class SCAgent(commotions.AgentWithGoal):
                 
     
 
-    def __init__(self, name, ctrl_type, simulation, goal_pos, initial_state, 
-                 optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, eff_width = None,
+    def __init__(self, name, ctrl_type, width, length, simulation, goal_pos, 
+                 initial_state, optional_assumptions = get_assumptions_dict(False), 
+                 params = None, params_k = None, 
                  noise_seed = None, kalman_prior = None, const_acc = None, 
                  plot_color = 'k', snapshot_times = None):
 
@@ -1165,11 +1178,6 @@ class SCAgent(commotions.AgentWithGoal):
                             ' time DeltaT and prediction time T_P are equal.')
 
         # parse the optional assumptions
-        if self.assumptions[OptionalAssumption.oVAl]:
-            # looming aversion, so ensure an effective width has been specified
-            if eff_width is None:
-                raise Exception('Optional assumption oVAl enabled, so'
-                                ' need to provide an effective agent width.')
         if ((not self.assumptions[OptionalAssumption.oSNc]) and 
             (not self.assumptions[OptionalAssumption.oSNv])):
             # no sensory noise
@@ -1215,8 +1223,12 @@ class SCAgent(commotions.AgentWithGoal):
         self.n_actions = len(self.params.ctrl_deltas)
         self.i_no_action = np.argwhere(self.params.ctrl_deltas == 0)[0][0]
         
-        # store own "effective width"
-        self.eff_width = eff_width
+        # store own width and length
+        self.width = width
+        self.length = length
+        
+        # store own "effective width" - for simplicity setting to actual width
+        self.eff_width = width
 
         # get and store own free speed
         self.v_free = sc_scenario_helper.get_agent_free_speed(self.params.k)
@@ -1236,14 +1248,6 @@ class SCAgent(commotions.AgentWithGoal):
         self.params.DeltaV_th = (self.squash_value(self.V_free) 
                                  * self.params.DeltaV_th_rel)
         self.params.V_ny = self.V_free * self.params.V_ny_rel
-        
-        # store a (correct) representation of oneself
-        self.self_image = SCAgentImage(ctrl_type = self.ctrl_type, 
-                                       params = self.params, 
-                                       v_free = self.v_free,
-                                       g_free = self.g_free,
-                                       V_free = self.V_free,
-                                       eff_width = self.eff_width)
         
         # set up the object that implements perception of the other agent
         self.perception = sc_scenario_perception.Perception(
@@ -1274,11 +1278,12 @@ class SCAgent(commotions.AgentWithGoal):
 
 class SCSimulation(commotions.Simulation):
 
-    def __init__(self, ctrl_types, goal_positions, initial_positions, 
+    def __init__(self, ctrl_types, widths, lengths,
+                 goal_positions, initial_positions, 
                  initial_speeds = np.array((0, 0)), 
                  start_time = 0, end_time = 10, time_step = 0.1, 
                  optional_assumptions = get_assumptions_dict(False), 
-                 params = None, params_k = None, eff_widths = (None, None), 
+                 params = None, params_k = None,  
                  noise_seeds = (None, None), kalman_priors = (None, None),
                  const_accs = (None, None), agent_names = ('A', 'B'), 
                  plot_colors = ('c', 'm'), snapshot_times = (None, None)):
@@ -1296,7 +1301,8 @@ class SCSimulation(commotions.Simulation):
                     initial_state = initial_state, 
                     optional_assumptions = optional_assumptions, 
                     params = params, params_k = params_k,
-                    eff_width = eff_widths[i_agent],
+                    width = widths[i_agent],
+                    length = lengths[i_agent],
                     noise_seed = noise_seeds[i_agent],
                     kalman_prior = kalman_priors[i_agent],
                     const_acc = const_accs[i_agent],
@@ -1307,7 +1313,7 @@ class SCSimulation(commotions.Simulation):
     def after_simulation(self):
         for agent in self.agents:
             ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0)
-                                    <= SHARED_PARAMS.d_C)[0]
+                                    <= agent.coll_dist)[0]
             if len(ca_entered) == 0:
                 agent.ca_entry_sample = math.inf
                 agent.ca_entry_time = math.inf
@@ -1572,7 +1578,7 @@ class SCSimulation(commotions.Simulation):
                 distance_CPs.append(np.dot(vectors_to_CP, yaw_vector))
                 # - get CS entry/exit times
                 in_CS_idxs = np.nonzero(np.abs(distance_CPs[i_agent]) 
-                                        <= SHARED_PARAMS.d_C)[0]
+                                        <= agent.coll_dist)[0]
                 if len(in_CS_idxs) > 0:
                     t_en = self.time_stamps[in_CS_idxs[0]]
                     t_ex = self.time_stamps[in_CS_idxs[-1]]
@@ -1581,15 +1587,15 @@ class SCSimulation(commotions.Simulation):
                     t_ex = math.nan
                 # - illustrate when agent is in CS
                 axs[2].fill(np.array((t_en, t_ex, t_ex, t_en)), 
-                         np.array((-1, -1, 1, 1)) * SHARED_PARAMS.d_C, 
+                         np.array((-1, -1, 1, 1)) * agent.coll_dist, 
                          color = agent.plot_color, alpha = 0.3,
                          edgecolor = None)
                 # - horizontal lines
+                axs[2].axhline(agent.coll_dist, color=agent.plot_color, 
+                               linestyle='--', lw=0.5, alpha=0.5)
+                axs[2].axhline(-agent.coll_dist, color=agent.plot_color, 
+                               linestyle='--', lw=0.5, alpha=0.5)
                 if i_agent == 0:
-                    axs[2].axhline(SHARED_PARAMS.d_C, 
-                                color='r', linestyle='--', lw=0.5)
-                    axs[2].axhline(-SHARED_PARAMS.d_C, 
-                                color='r', linestyle='--', lw=0.5)
                     axs[2].axhline(0, color='k', linestyle=':')
                 # - plot the distance itself
                 axs[2].plot(self.time_stamps, 
@@ -1605,7 +1611,8 @@ class SCSimulation(commotions.Simulation):
             coll_margins, coll_idxs = \
                 get_sc_agent_collision_margins(distance_CPs[0], 
                                                distance_CPs[1],
-                                               SHARED_PARAMS.d_C)
+                                               self.agents[0].coll_dist, 
+                                               self.agents[1].coll_dist)
             axs[3].plot(self.time_stamps, coll_margins, 'k-')
             axs[3].plot(self.time_stamps[coll_idxs], 
                      coll_margins[coll_idxs], 'r-')
@@ -1655,7 +1662,10 @@ if __name__ == "__main__":
     # scenario basics
     NAMES = ('P', 'V')
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    EFF_WIDTHS = (0.8, 1.8)
+    WIDTHS = (0.8, 1.8)
+    LENGTHS = (0.8, 4.2)
+    # WIDTHS = (2, 2)
+    # LENGTHS = (2, 2)
     
     # scenario
     GOALS = np.array([[0, 5], [-50, 0]])
@@ -1708,11 +1718,10 @@ if __name__ == "__main__":
     #params.sigma_O = 0.1
     # params.thetaDot_1 = 0.005
     #params.beta_V = 60
-    params.T_s = 0
-    params.D_s = 0
+    #params.T_s = 0
+    #params.D_s = 0
     # params.tau = 0.05
     # params.DeltaV_th_rel = 0.005
-    SHARED_PARAMS.d_C = 2
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
@@ -1744,10 +1753,11 @@ if __name__ == "__main__":
     NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
     sc_simulation = SCSimulation(
-            CTRL_TYPES, GOALS, INITIAL_POSITIONS, initial_speeds = SPEEDS, 
+            CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
+            initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
-            eff_widths = EFF_WIDTHS, const_accs = CONST_ACCS, agent_names = NAMES, 
-            params = params, noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
+            const_accs = CONST_ACCS, agent_names = NAMES,  params = params, 
+            noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
             snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
     tic = time.perf_counter()
     sc_simulation.run()
