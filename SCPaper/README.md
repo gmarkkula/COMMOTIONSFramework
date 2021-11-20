@@ -137,8 +137,8 @@ If $\mathscr{C}$ contains an outcome $\Omega \in \{ \Omega_{1st}, \Omega_{2nd} \
 1. Estimating the predicted world state $\tilde{\mathbf{x}}'$ a time $T_\mathrm{P}$ into the future, given the current state $\tilde{\mathbf{x}}(k)$ and $\mathscr{C}$, and some combination of 
     * An action $a$ initiated at time $k$ by the ego agent A
     * A behaviour $b$ exhibited by the other agent B from $k$ onward
-    * A behaviour $c$ exhibited by the ego agent A from time $k + T_\mathrm{P}/\Delta t$ onward (not 100% sure about this last one - isn't really implemented yet).
-2. Calculating the acceleration needed for agent $X$ to achieve outcome $\Omega$, given the position and speed of agent $X$ in $\tilde{\mathbf{x}}'$, and the position, speed, and possibly acceleration of agent $\lnot X$ in $\tilde{\mathbf{x}}'$. Acceleration is considered if `oVAa` is enabled.
+    * A behaviour $c$ exhibited by the ego agent A from time $k' = k + T_\mathrm{P}/\Delta t$ onward (not 100% sure about this last one - isn't really implemented yet).
+2. Calculating the acceleration needed for agent $X$ to achieve outcome $\Omega$, given the position and speed of agent $X$ in $\tilde{\mathbf{x}}'$, and the position, speed, and possibly acceleration of agent $\lnot X$ in $\tilde{\mathbf{x}}'$. Acceleration of the other agent after time $k'$ (as dictated by behaviour $b$) is considered if `oVAa` is enabled.
 3. Calculating the value of the resulting future trajectory of $X$, as described in `COMMOTIONSFramework` diary entry 2021-05-19b (maybe to be described here also later).
 4. If `oVAl` is enabled and the agents are on a collision course at $k + T_\mathrm{P}/\Delta t$, also adding a negative looming aversion term:
 
@@ -163,8 +163,20 @@ V_B[\tilde{\mathbf{x}}(k) | \mathscr{C}] = \max_{\Omega} V_A[\tilde{\mathbf{x}}(
 $$
 
 As mentioned above, the value function is affected by the following optional assumption:
-* `oVAa`, acceleration-aware (affordance-based) value estimation.
+* `oVAa`, acceleration-aware (affordance-based) value estimation (note that this only really makes a difference if also `oBE*` is enabled; see further below).
 * `oVAl`, looming aversion.
+
+
+### Defining the acceleration needed to pass before/after another agent
+
+The estimated acceleration for an agent $X$ to pass first(/second) is the acceleration needed to reach a safety margin distance $D_\mathrm{s}$ past(/before) the conflict space, at a time $T_\mathrm{s}$ before(/after) the other agent $\lnot X$ enters(/exits) the conflict space.
+
+The time at which the other agent $\lnot X$ enters/exits the conflict space can be calculated with or without taking accelerations into account.
+
+When an ego agent $A$ estimates another agent $B$'s acceleration for a behaviour $b$ (i.e., in this case $X = B$), then $A$ assumes that $B$ is not observing $A$'s accelerations, i.e., the calculations of accelerations for $b$ are based on $A$'s position and speed, but not acceleration.
+
+When an ego agent $A$ estimates the own accelerations needed to pass in front of the other agent $B$ from a predicted world state $\tilde{\mathbf{x}}'$, affected by the acceleration associated with a behaviour $b$, $A$ may either disregard acceleration of $B$ beyond the predicted time point $k'$ (`oVA`) or consider acceleration of $B$ also beyond $k'$ (`oVAa`).
+
 
 ### Estimating probabilities of the other agent's possible behaviours
 
@@ -192,6 +204,7 @@ Two optional assumptions defined based on the above:
 
 * `oBEv`, behaviour estimation based on value estimates: $\beta_\mathrm{V} > 0$ 
 * `oBEo`, behaviour estimation based on observation: $\beta_\mathrm{O} = 1$ 
+
 
 As described in the 2021-09-10 diary notes, we may define a parameter $P_\dag$ (the probability of choosing a maximally negative value action over a neutral value action) from which to derive $\beta_\mathrm{V}$.
 
