@@ -1312,6 +1312,12 @@ class SCSimulation(commotions.Simulation):
             
     def after_simulation(self):
         for agent in self.agents:
+            # signed distances to conflict point
+            vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
+            yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
+            yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
+            agent.signed_CP_dists = np.dot(vectors_to_CP, yaw_vector)
+            # entry time/sample
             ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0)
                                     <= agent.coll_dist)[0]
             if len(ca_entered) == 0:
@@ -1320,6 +1326,7 @@ class SCSimulation(commotions.Simulation):
             else:
                 agent.ca_entry_sample = ca_entered[0]
                 agent.ca_entry_time = self.time_stamps[ca_entered[0]]
+        # who passed first?
         i_first_passer = np.argmin((self.agents[0].ca_entry_time, 
                                     self.agents[1].ca_entry_time))
         if math.isinf(self.agents[i_first_passer].ca_entry_time):
@@ -1552,7 +1559,6 @@ class SCSimulation(commotions.Simulation):
                 if i_agent == 0:
                     plt.ylabel('a (m/s^2)') """
             N_PLOTROWS = 4
-            distance_CPs = []
             axs = fig.subplots(N_PLOTROWS, 1)
             for i_agent, agent in enumerate(self.agents):
                 
@@ -1571,13 +1577,8 @@ class SCSimulation(commotions.Simulation):
                 axs[1].set_ylabel('v (m/s)') 
                 
                 # distance to conflict point
-                # - get signed distances to CP
-                vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
-                yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
-                yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
-                distance_CPs.append(np.dot(vectors_to_CP, yaw_vector))
                 # - get CS entry/exit times
-                in_CS_idxs = np.nonzero(np.abs(distance_CPs[i_agent]) 
+                in_CS_idxs = np.nonzero(np.abs(agent.signed_CP_dists) 
                                         <= agent.coll_dist)[0]
                 if len(in_CS_idxs) > 0:
                     t_en = self.time_stamps[in_CS_idxs[0]]
@@ -1601,7 +1602,7 @@ class SCSimulation(commotions.Simulation):
                 axs[2].plot(self.time_stamps, 
                             agent.other_agent.perception.states.x_perceived[0, :], 
                             '-' + agent.plot_color, lw=1, alpha=0.3)
-                axs[2].plot(self.time_stamps, distance_CPs[i_agent], 
+                axs[2].plot(self.time_stamps, agent.signed_CP_dists, 
                          '-' + agent.plot_color)
                 axs[2].set_ylim(-5, 5)
                 axs[2].set_ylabel('$d_{CP}$ (m)') 
@@ -1609,8 +1610,8 @@ class SCSimulation(commotions.Simulation):
             # distance margin to agent collision
             axs[3].axhline(0, color='k', linestyle=':')
             coll_margins, coll_idxs = \
-                get_sc_agent_collision_margins(distance_CPs[0], 
-                                               distance_CPs[1],
+                get_sc_agent_collision_margins(self.agents[0].signed_CP_dists, 
+                                               self.agents[1].signed_CP_dists,
                                                self.agents[0].coll_dist, 
                                                self.agents[1].coll_dist)
             axs[3].plot(self.time_stamps, coll_margins, 'k-')
