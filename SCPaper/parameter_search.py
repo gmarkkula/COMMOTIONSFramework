@@ -183,11 +183,11 @@ class ParameterSearch:
         assert(i_repetition < self.n_repetitions)
         metrics_dict = results_tuple[2]
         if self.n_repetitions == 1:
-            self.report(f'Received results for parameterisation #{i_parameterisation}'
+            self.report(f'Received results for parameterisation #{i_parameterisation+1}'
                         f' of {self.n_parameterisations}.')
         else:
             self.report(f'Received results for rep #{i_repetition+1} of'
-                        f' {self.n_repetitions} for parameterisation #{i_parameterisation}'
+                        f' {self.n_repetitions} for parameterisation #{i_parameterisation+1}'
                         f' of {self.n_parameterisations}.')
         if self.n_repetitions == 1:
             self.results.metrics_matrix[
