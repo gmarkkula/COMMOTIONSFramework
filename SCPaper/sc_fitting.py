@@ -40,7 +40,7 @@ AGENT_WIDTHS = (0.8, 1.8)
 AGENT_LENGTHS = (0.8, 4.2)
 AGENT_FREE_SPEEDS = np.array([1.3, 50 / 3.6]) # m/s 
 AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
-COLLISION_MARGIN = 0.5 # m
+COLLISION_MARGIN = 1 # m
 TIME_STEP = 0.1 # s
 END_TIME = 8 # s
 V_NY_REL = -1.5
@@ -60,10 +60,14 @@ class ModelWithParams:
 # deterministic fitting
 class SCPaperScenario:
     
+    def get_full_metric_name(self, short_metric_name):
+        return self.name + '_' + short_metric_name
+    
     def __init__(self, name, initial_ttcas, ped_prio=False,
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
-                 veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN):
+                 veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN,
+                 metric_names = None):
         self.name = name
         self.ped_prio = ped_prio
         self.initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
@@ -83,37 +87,116 @@ class SCPaperScenario:
                          - AGENT_COLL_DISTS[i_VEH_AGENT] - veh_yielding_margin)
             self.const_accs[i_VEH_AGENT] = (
                 -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
+        self.short_metric_names = metric_names
+        self.full_metric_names = []
+        for short_metric_name in self.short_metric_names:
+            self.full_metric_names.append(
+                self.get_full_metric_name(short_metric_name))
         
     
-DET1S_SCENARIOS = {}
-DET1S_SCENARIOS['ActVehStatPed'] = SCPaperScenario('ActVehStatPed', 
+# scenarios
+# - one-agent scenarios
+ONE_AG_SCENARIOS = {}
+ONE_AG_SCENARIOS['VehPrioAssert'] = SCPaperScenario('VehPrioAssert', 
                                                    initial_ttcas=(math.nan, 2),  
                                                    ped_start_standing=True, 
-                                                   ped_const_speed=True)
-DET1S_SCENARIOS['ActVehStatPedPrio'] = SCPaperScenario('ActVehStatPedPrio', 
-                                                       initial_ttcas=(math.nan, 4),  
-                                                       ped_prio = True,
-                                                       ped_start_standing=True, 
-                                                       ped_const_speed=True)
-DET1S_SCENARIOS['ActPedLeading'] = SCPaperScenario('ActPedLeading', 
-                                                   initial_ttcas=(3, 7), 
-                                                   veh_const_speed=True)
-DET1S_SCENARIOS['ActPedPrioEncounter'] = SCPaperScenario('ActPedPrioEncounter', 
+                                                   ped_const_speed=True,
+                                                   metric_names = ('veh_av_speed',))
+ONE_AG_SCENARIOS['VehShortStop'] = SCPaperScenario('VehShortStop', 
+                                                  initial_ttcas=(math.nan, 4),
+                                                  ped_prio = True,
+                                                  ped_start_standing=True, 
+                                                  ped_const_speed=True,
+                                                  metric_names = ('veh_av_surpl_dec',))
+ONE_AG_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
+                                                          initial_ttcas=(3, 8), 
+                                                          veh_const_speed=True,
+                                                          metric_names = ('ped_av_speed',))
+ONE_AG_SCENARIOS['PedHesitateVehYield'] = SCPaperScenario('PedHesitateVehYield', 
                                                          initial_ttcas=(3, 3), 
                                                          ped_prio=True,
-                                                         veh_yielding=True)
-DET1S_METRICS_PER_SCEN = ['ped_entered', 'veh_entered', 'ped_1st', 'veh_1st', 
-                         'ped_min_speed_before', 'ped_max_speed_after', 
-                         'veh_min_speed_before', 'veh_mean_speed_early_before',
-                         'veh_max_surplus_dec_before', 'veh_speed_at_ped_start']
-DET1S_METRIC_NAMES = []
-for scenario in DET1S_SCENARIOS.values():
-    for metric_name in DET1S_METRICS_PER_SCEN:
-        DET1S_METRIC_NAMES.append(scenario.name + '_' + metric_name)
+                                                         veh_yielding=True,
+                                                         metric_names = ('ped_av_speed',))
+ONE_AG_SCENARIOS['PedCrossVehYield'] = SCPaperScenario('PedCrossVehYield', 
+                                                       initial_ttcas=(math.nan, 2), 
+                                                       ped_prio=True,
+                                                       ped_start_standing=True, 
+                                                       veh_yielding=True,
+                                                       metric_names = ('veh_speed_at_ped_start',))
+# - two-agent scenarios
+TWO_AG_METRIC_NAMES = ('collision', 'ped_exit_time', 'veh_exit_time')
+TWO_AG_SCENARIOS = {}
+TWO_AG_SCENARIOS['Encounter'] = SCPaperScenario('Encounter', 
+                                                initial_ttcas=(3, 3), 
+                                                metric_names = TWO_AG_METRIC_NAMES)
+TWO_AG_SCENARIOS['EncounterPedPrio'] = SCPaperScenario('EncounterPedPrio', 
+                                                       initial_ttcas=(3, 3), 
+                                                       ped_prio=True,
+                                                       metric_names = TWO_AG_METRIC_NAMES)
+TWO_AG_SCENARIOS['PedLead'] = SCPaperScenario('PedLead', 
+                                              initial_ttcas=(3, 8), 
+                                              metric_names = TWO_AG_METRIC_NAMES)
+
+
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
+METRIC_FCN_PREFIX = 'metric_'
 
 
-class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
+def get_halfway_to_cs_sample(sim, i_agent):
+    agent = sim.agents[i_agent]
+    halfway_dist = (agent.signed_CP_dists[0] - agent.coll_dist) / 2
+    beyond_halfway_samples = np.nonzero(sim.agents[i_agent].signed_CP_dists
+                                        <= halfway_dist)[0]
+    if len(beyond_halfway_samples) == 0:
+        return math.nan
+    else:
+        return beyond_halfway_samples[0]
+
+def metric_agent_av_speed(sim, i_agent):
+    idx_halfway = get_halfway_to_cs_sample(sim, i_agent)
+    return np.mean(sim.agents[i_agent].trajectory.long_speed[:idx_halfway])
+
+def metric_ped_av_speed(sim):
+    return metric_agent_av_speed(sim, i_PED_AGENT)
+
+def metric_veh_av_speed(sim):
+    return metric_agent_av_speed(sim, i_VEH_AGENT)
+
+def metric_veh_av_surpl_dec(sim):
+    idx_halfway = get_halfway_to_cs_sample(sim, i_VEH_AGENT)
+    veh_agent = sim.agents[i_VEH_AGENT]
+    # get the decelerations needed to stop
+    stop_dists = (veh_agent.signed_CP_dists[:idx_halfway] 
+                  - veh_agent.coll_dist - COLLISION_MARGIN)
+    stop_decs = (veh_agent.trajectory.long_speed[:idx_halfway] ** 2 
+                 / (2 * stop_dists))
+    # compare to actual decelerations
+    actual_decs = -veh_agent.trajectory.long_acc[:idx_halfway]
+    return np.mean(actual_decs - stop_decs)
+
+def metric_veh_speed_at_ped_start(sim):
+    idx_halfway = get_halfway_to_cs_sample(sim, i_PED_AGENT)
+    if math.isnan(idx_halfway):
+        return math.nan
+    else:
+        return sim.agents[i_VEH_AGENT].trajectory.long_speed[idx_halfway]
+
+def metric_collision(sim):
+    raise NotImplementedError
+
+def metric_agent_exit_time(sim, i_agent):
+    raise NotImplementedError
+
+def metric_ped_exit_time(sim):
+    return metric_agent_exit_time(sim, i_PED_AGENT)
+
+def metric_veh_exit_time(sim):
+    return metric_agent_exit_time(sim, i_VEH_AGENT)
+
+
+
+# class for searching/testing parameterisations of sc_scenario.SCSimulation
+class SCPaperParameterSearch(parameter_search.ParameterSearch):
     
     def set_params(self, params_dict):
         """
@@ -199,7 +282,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         
         # loop through the scenarios, simulate them, and calculate metrics
         metrics = {}
-        for scenario in DET1S_SCENARIOS.values():
+        for scenario in self.scenarios.values():
             
             self.verbosity_push()
             self.report(f'Simulating scenario "{scenario.name}"...')
@@ -209,6 +292,14 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             
             # calculate metric(s) for this scenario
             self.verbosity_push() 
+            for short_metric_name in scenario.short_metric_names:
+                metric_value = globals()[
+                    METRIC_FCN_PREFIX + short_metric_name](sc_simulation)
+                full_metric_name = scenario.get_full_metric_name(short_metric_name)
+                metrics[full_metric_name] = metric_value
+                self.report(f'Metric {full_metric_name} = {metrics[full_metric_name]}')
+                
+            """
             def store_metric(metric_name, value):
                 full_metric_name = scenario.name + '_' + metric_name
                 metrics[full_metric_name] = value
@@ -298,6 +389,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
                         veh_speed_at_ped_start = veh_agent.trajectory.long_speed[
                             acc_samples_after_last_dec[0]+1]
             store_metric('veh_speed_at_ped_start', veh_speed_at_ped_start)
+            """
             
             # plot simulation results?
             # (this will only work nicely if run with %matplotlib inline)
@@ -320,9 +412,16 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
         return metrics
             
     
-    def __init__(self, name, optional_assumptions, 
+    def __init__(self, name, scenarios, optional_assumptions, 
                  default_params, default_params_k, param_arrays, 
                  verbosity=0):
+        # build the list of metrics to calculate in this search, from the
+        # scenario information
+        self.scenarios = scenarios
+        metric_names = []
+        for scenario in self.scenarios.values():
+            for metric_name in scenario.full_metric_names:
+                metric_names.append(metric_name)
         # make local copies of the default params objects, to use for
         # parameterising simulations during the fitting
         self.optional_assumptions = copy.copy(optional_assumptions)
@@ -381,7 +480,7 @@ class SCPaperDeterministicOneSidedFitting(parameter_search.ParameterSearch):
             if optional_assumptions[unsupp]:
                 raise Exception(f'Found unsupported assumption: {unsupp}')
         # call inherited constructor
-        super().__init__(tuple(free_param_names), DET1S_METRIC_NAMES, 
+        super().__init__(tuple(free_param_names), tuple(metric_names), 
                          name=name, verbosity=verbosity)
         # run the grid search
         self.search_grid(free_param_arrays)
@@ -407,8 +506,9 @@ if __name__ == "__main__":
     DEFAULT_PARAMS, DEFAULT_PARAMS_K = sc_scenario.get_default_params(
         oVA=OPTIONAL_ASSUMPTIONS[OptionalAssumption.oVA])    
     
-    test_fit = SCPaperDeterministicOneSidedFitting('test', OPTIONAL_ASSUMPTIONS, 
-                                           DEFAULT_PARAMS, DEFAULT_PARAMS_K, 
-                                           PARAM_ARRAYS, verbosity=5)
+    test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                      OPTIONAL_ASSUMPTIONS, 
+                                      DEFAULT_PARAMS, DEFAULT_PARAMS_K, 
+                                      PARAM_ARRAYS, verbosity=5)
     
     

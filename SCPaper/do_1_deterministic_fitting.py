@@ -52,8 +52,8 @@ DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.H_e = 1.5
 DEFAULT_PARAMS.sigma_xdot = 0.1
 DEFAULT_PARAMS.T_P = 0.5
-DEFAULT_PARAMS.T_s = 0.5
-DEFAULT_PARAMS.D_s = 0.5
+DEFAULT_PARAMS.T_s = 1
+DEFAULT_PARAMS.D_s = 1
 DEFAULT_PARAMS.thetaDot_0 = 0.001
 DEFAULT_PARAMS.beta_O = 1 
 DEFAULT_PARAMS.T_O1 = 0.05 
@@ -89,9 +89,9 @@ def run_fit(model_str):
     else:
         default_params_k = DEFAULT_PARAMS_K_NVA
     assumptions = sc_scenario.get_assumptions_dict_from_string(model_str)
-    this_fit = sc_fitting.SCPaperDeterministicOneSidedFitting(
-        model_str, assumptions, DEFAULT_PARAMS, default_params_k,
-        PARAM_ARRAYS, verbosity=2)
+    this_fit = sc_fitting.SCPaperParameterSearch(
+        model_str, sc_fitting.ONE_AG_SCENARIOS, assumptions, 
+        DEFAULT_PARAMS, default_params_k, PARAM_ARRAYS, verbosity=2)
     
 
 if __name__ == "__main__":

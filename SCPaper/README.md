@@ -47,8 +47,15 @@
                 * ~~Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.~~
             * Implement the updated scenarios (see 2021-11-20b diary notes).
                 * Up to date scenario definitions.
-                * Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes.
-            * Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios, with one or more repetitions per scenario, with an option to parallelise individual parameterisations, and also supporting additional simulation stopping criteria. (A lot of this is just to expose the already implemented functionality in `parameter_search.ParameterSearch`.)
+                * Update the metrics being calculated and stored for each scenario.
+            * Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios.
+            * Rewrite in `do_2...` to use the reformulated metrics.
+        * Preparing the fitting class for probabilistic fitting
+            * Add support for multiple repetitions.
+            * Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.
+        * Speedups:
+            * Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.
+            * Add option in `SCAgent` to keep acceleration constant (or zero?) after an agent has exited the conflict space.
         * Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * Maybe first on my own computer...?
