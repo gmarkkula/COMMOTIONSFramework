@@ -20,6 +20,7 @@ import copy
 from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
+import commotions
 import parameter_search
 from sc_scenario import CtrlType, OptionalAssumption
 import sc_scenario
@@ -48,6 +49,38 @@ AGENT_COLL_DISTS = []
 for i_ag in range(2):
     AGENT_COLL_DISTS.append(sc_scenario_helper.get_agent_coll_dist(
         AGENT_LENGTHS[i_ag], AGENT_WIDTHS[1-i_ag]))
+    
+
+# model parameter values kept fixed in these fits
+# - fixed value function gains, affordance-based
+DEFAULT_PARAMS_K_VA = {}
+for ctrl_type in CtrlType:
+    DEFAULT_PARAMS_K_VA[ctrl_type] = commotions.Parameters()
+    DEFAULT_PARAMS_K_VA[ctrl_type]._da = 0.5
+# - fixed value function gains, non-affordance-based
+DEFAULT_PARAMS_K_NVA = {}
+for ctrl_type in CtrlType:
+    DEFAULT_PARAMS_K_NVA[ctrl_type] = commotions.Parameters()
+    DEFAULT_PARAMS_K_NVA[ctrl_type]._e = 0
+    # these two are only really applicable to acceleration-controlling agents, 
+    # but there is no harm in adding them here for both agents
+    DEFAULT_PARAMS_K_NVA[ctrl_type]._da = 0.01
+    DEFAULT_PARAMS_K_NVA[ctrl_type]._sg = 0
+# - other fixed parameters
+DEFAULT_PARAMS = commotions.Parameters()
+DEFAULT_PARAMS.H_e = 1.5
+DEFAULT_PARAMS.sigma_xdot = 0.1
+DEFAULT_PARAMS.T_P = 0.5
+DEFAULT_PARAMS.T_s = 1
+DEFAULT_PARAMS.D_s = 1
+DEFAULT_PARAMS.thetaDot_0 = 0.001
+DEFAULT_PARAMS.beta_O = 1 
+DEFAULT_PARAMS.T_O1 = 0.05 
+#DEFAULT_PARAMS.DeltaV_th_rel = 0.001 
+DEFAULT_PARAMS.DeltaT = 0.5 
+DEFAULT_PARAMS.V_0_rel = 4 
+DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1]) 
+#DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]) 
 
 
 @dataclass
