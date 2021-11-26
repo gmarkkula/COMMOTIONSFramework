@@ -66,6 +66,11 @@ for ctrl_type in CtrlType:
     # but there is no harm in adding them here for both agents
     DEFAULT_PARAMS_K_NVA[ctrl_type]._da = 0.01
     DEFAULT_PARAMS_K_NVA[ctrl_type]._sg = 0
+def get_default_params_k(model_str):
+    if 'oVA' in model_str:
+        return DEFAULT_PARAMS_K_VA
+    else:
+        return DEFAULT_PARAMS_K_NVA
 # - other fixed parameters
 DEFAULT_PARAMS = commotions.Parameters()
 DEFAULT_PARAMS.H_e = 1.5

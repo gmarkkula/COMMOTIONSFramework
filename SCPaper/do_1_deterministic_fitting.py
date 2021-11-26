@@ -51,10 +51,7 @@ PARAM_ARRAYS['sigma_O'] = (0.02, 0.05, 0.1, 0.2, 0.5, 1, 2.5)
 
 
 def run_fit(model_str):
-    if 'oVA' in model_str:
-        default_params_k = sc_fitting.DEFAULT_PARAMS_K_VA
-    else:
-        default_params_k = sc_fitting.DEFAULT_PARAMS_K_NVA
+    default_params_k = sc_fitting.get_default_params_k(model_str)
     assumptions = sc_scenario.get_assumptions_dict_from_string(model_str)
     this_fit = sc_fitting.SCPaperParameterSearch(
         model_str, sc_fitting.ONE_AG_SCENARIOS, assumptions, 
