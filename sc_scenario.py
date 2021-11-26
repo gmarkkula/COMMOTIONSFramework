@@ -761,7 +761,7 @@ class SCAgent(commotions.AgentWithGoal):
             if self.do_snapshot_now:
                 snapshot_str = ''
                 for access_order in AccessOrder:
-                    snapshot_str += ('(%.1f m/s^2, %.1f s, %.1f s)' %
+                    snapshot_str += ('(%.1f m/s^2, %.2f s, %.1f s)' %
                                     (implications[access_order].acc,
                                      implications[access_order].T_acc,
                                      implications[access_order].T_dw) + '\n'

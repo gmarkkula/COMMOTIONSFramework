@@ -50,12 +50,18 @@
                 * Update the metrics being calculated and stored for each scenario.
             * Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios.
             * Rewrite in `do_2...` to use the reformulated metrics.
-        * Preparing the fitting class for probabilistic fitting
+        * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
+            * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
             * Add support for multiple repetitions.
             * Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.
         * Speedups:
             * Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.
-            * Add option in `SCAgent` to keep acceleration constant (or zero?) after an agent has exited the conflict space.
+                * Modify `commotions.Simulation.run()` to end each time step by running `self.after_time_step()`, and then checking `self.stop_now`. 
+                * Add a new Enum class `sc_scenario.SimStopCriterion`, with members `OneAgentHalfWayToCS`, `BothAgentsStopped`, `BothAgentsExited`.
+                * Add functionality in `SCAgent.prepare_for_action_update()` for setting `self.signed_CP_dists[i_time_step]` (move from `SCSimulation.after_simulation()`)
+                * Add an init argument `stop_criteria` to `SCSimulation`, default empty tuple ().
+                * Override `after_time_step()` in `sc_scenario.SCSimulation` and check stopping criteria. 
+            * Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.
         * Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * Maybe first on my own computer...?

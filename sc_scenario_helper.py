@@ -456,10 +456,13 @@ def get_access_order_values(
             # only count anticipated looming when there is an apparent collision course
             thetaDots[np.logical_not(app_coll_courses)] = 0
             # get the looming value contributions
-            looming_values = (-ego_image.g_free * ANTICIPATION_TIME_STEP
-                              * np.abs(thetaDots - ego_image.params.thetaDot_0)
-                              / (ego_image.params.thetaDot_1
-                                 - ego_image.params.thetaDot_0))
+            if consider_looming:
+                looming_values = (-ego_image.g_free * ANTICIPATION_TIME_STEP
+                                  * np.abs(thetaDots - ego_image.params.thetaDot_0)
+                                  / (ego_image.params.thetaDot_1
+                                     - ego_image.params.thetaDot_0))
+            else:
+                looming_values = np.zeros(n_time_steps)
         else:
             looming_values = np.zeros(n_time_steps)
         
