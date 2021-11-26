@@ -56,11 +56,17 @@ for i_ag in range(2):
 DEFAULT_PARAMS_K_VA = {}
 for ctrl_type in CtrlType:
     DEFAULT_PARAMS_K_VA[ctrl_type] = commotions.Parameters()
+    sc_scenario_helper.set_val_gains_for_free_speed(
+        DEFAULT_PARAMS_K_VA[ctrl_type], 
+        AGENT_FREE_SPEEDS[AGENT_CTRL_TYPES.index(ctrl_type)])
     DEFAULT_PARAMS_K_VA[ctrl_type]._da = 0.5
 # - fixed value function gains, non-affordance-based
 DEFAULT_PARAMS_K_NVA = {}
 for ctrl_type in CtrlType:
     DEFAULT_PARAMS_K_NVA[ctrl_type] = commotions.Parameters()
+    sc_scenario_helper.set_val_gains_for_free_speed(
+        DEFAULT_PARAMS_K_NVA[ctrl_type], 
+        AGENT_FREE_SPEEDS[AGENT_CTRL_TYPES.index(ctrl_type)])
     DEFAULT_PARAMS_K_NVA[ctrl_type]._e = 0
     # these two are only really applicable to acceleration-controlling agents, 
     # but there is no harm in adding them here for both agents
@@ -477,11 +483,6 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         self.optional_assumptions = copy.copy(optional_assumptions)
         self.params = copy.copy(default_params)
         self.params_k = copy.deepcopy(default_params_k)
-        # make sure the value function gains are correct for the free speeds
-        sc_scenario_helper.set_val_gains_for_free_speed(
-            self.params_k[CtrlType.SPEED], AGENT_FREE_SPEEDS[i_PED_AGENT])
-        sc_scenario_helper.set_val_gains_for_free_speed(
-            self.params_k[CtrlType.ACCELERATION], AGENT_FREE_SPEEDS[i_VEH_AGENT])
         # parse the optional assumptions and get the list of free parameter
         # names for this fit, and build the corresponding list of parameter 
         # value arrays
@@ -543,22 +544,17 @@ if __name__ == "__main__":
         
     plt.close('all')
     
+    MODEL = ''
+    
     PARAM_ARRAYS = {}
     PARAM_ARRAYS['k_c'] = (0.2, 2)
-    
-    OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict(False, 
-                                                            oVA=False,
-                                                            oVAa=False,
-                                                            oBEo=False,
-                                                            oBEv=False, 
-                                                            oAI=False)
-    
-    DEFAULT_PARAMS, DEFAULT_PARAMS_K = sc_scenario.get_default_params(
-        oVA=OPTIONAL_ASSUMPTIONS[OptionalAssumption.oVA])    
-    
+    PARAM_ARRAYS['k_sc'] = (0.2,)
+
+    OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict_from_string(MODEL)
     test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
                                       OPTIONAL_ASSUMPTIONS, 
-                                      DEFAULT_PARAMS, DEFAULT_PARAMS_K, 
+                                      DEFAULT_PARAMS, 
+                                      get_default_params_k(MODEL), 
                                       PARAM_ARRAYS, verbosity=5)
     
     
