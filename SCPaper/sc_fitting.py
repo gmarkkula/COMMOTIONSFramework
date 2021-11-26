@@ -234,6 +234,37 @@ def metric_veh_exit_time(sim):
 
 
 
+def simulate_scenario(scenario, optional_assumptions, params, params_k, 
+                      snapshots=(None, None)):
+    # prepare the simulation
+    # - initial position
+    initial_pos = np.array([[0, -scenario.initial_cp_distances[i_PED_AGENT]],
+                           [scenario.initial_cp_distances[i_VEH_AGENT], 0]])
+    # - pedestrian priority?
+    if scenario.ped_prio:
+        params.V_ny_rel = V_NY_REL
+    else:
+        params.V_ny_rel = 0
+    # - set up the SCSimulation object
+    sc_simulation = sc_scenario.SCSimulation(
+        ctrl_types=AGENT_CTRL_TYPES, 
+        widths=AGENT_WIDTHS, lengths=AGENT_LENGTHS, 
+        goal_positions=AGENT_GOALS, initial_positions=initial_pos, 
+        initial_speeds=scenario.initial_speeds, 
+        const_accs=scenario.const_accs,
+        start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
+        optional_assumptions=optional_assumptions, 
+        params=params, params_k=params_k, 
+        agent_names=AGENT_NAMES, snapshot_times=snapshots)
+    
+    # run the simulation
+    sc_simulation.run()
+    
+    # return the simulation object
+    return sc_simulation
+
+
+
 # class for searching/testing parameterisations of sc_scenario.SCSimulation
 class SCPaperParameterSearch(parameter_search.ParameterSearch):
     
@@ -281,33 +312,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         The resulting sc_scenario.SCSimulation object.
 
         """        
-        
-        # prepare the simulation
-        # - initial position
-        initial_pos = np.array([[0, -scenario.initial_cp_distances[i_PED_AGENT]],
-                               [scenario.initial_cp_distances[i_VEH_AGENT], 0]])
-        # - pedestrian priority?
-        if scenario.ped_prio:
-            self.params.V_ny_rel = V_NY_REL
-        else:
-            self.params.V_ny_rel = 0
-        # - set up the SCSimulation object
-        sc_simulation = sc_scenario.SCSimulation(
-            ctrl_types=AGENT_CTRL_TYPES, 
-            widths=AGENT_WIDTHS, lengths=AGENT_LENGTHS, 
-            goal_positions=AGENT_GOALS, initial_positions=initial_pos, 
-            initial_speeds=scenario.initial_speeds, 
-            const_accs=scenario.const_accs,
-            start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
-            optional_assumptions=self.optional_assumptions, 
-            params=self.params, params_k=self.params_k, 
-            agent_names=AGENT_NAMES, snapshot_times=snapshots)
-        
-        # run the simulation
-        sc_simulation.run()
-        
-        # return the simulation object
-        return sc_simulation
+        return simulate_scenario(scenario, self.optional_assumptions, 
+                                 self.params, self.params_k, snapshots)
         
     
     def get_metrics_for_params(self, params_dict):
