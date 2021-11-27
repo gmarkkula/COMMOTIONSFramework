@@ -1497,24 +1497,28 @@ class SCSimulation(commotions.Simulation):
 
         if beh_probs:
             # - behavior probabilities
-            plt.figure('Behaviour probabilities', figsize = [8, 7])
+            figname = 'Behaviour probabilities'
+            plt.figure(figname)
             plt.clf()
+            fig, axs = plt.subplots(nrows = n_plot_actions, ncols = N_AGENTS,
+                                    sharex = 'col', sharey = 'col',
+                                    num = figname, figsize = (8, 7))
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(n_plot_actions, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
+                    ax = axs[i_action, i_agent]
                     for i_beh in range(n_plot_behaviors):
                         # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-                        plt.plot(self.time_stamps, 
+                        ax.plot(self.time_stamps, 
                                  agent.states.beh_probs_given_actions[
                                          i_beh, i_action, :])
-                        plt.ylim(-.1, 1.1)
+                        ax.set_ylim(-.1, 1.1)
                         if i_action == 0:
-                            plt.title('Agent %s (observing %s)' % 
+                            ax.set_title('Agent %s (observing %s)' % 
                                       (agent.name, agent.other_agent.name))
                     if i_agent == 0:
-                        plt.ylabel('$P_{b|\\Delta v=%.1f}$ (-)' % deltav)
+                        ax.set_ylabel('$P_{b|\\Delta v=%.1f}$ (-)' % deltav)
                     elif i_action == 0:
-                        plt.legend(plot_behaviors)
+                        ax.legend(plot_behaviors)
                     
         if sensory_prob_dens:
             # - sensory probability densities
