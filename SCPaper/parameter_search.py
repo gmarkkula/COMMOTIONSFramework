@@ -77,6 +77,20 @@ class ParameterSearch:
         """
         return (self.curr_verbosity_depth <= self.max_verbosity_depth)
     
+    def get_report_prefix(self):
+        """
+        Return a string with information and indentation suitable as prefix 
+        for a status report at the current depth of processing.
+        """
+        header = datetime.datetime.now().strftime('%x %X') + ' ' + self.name
+        if len(header) > STATUS_REP_HEADER_LEN:
+            header = header[:STATUS_REP_HEADER_LEN]
+        elif len(header) < STATUS_REP_HEADER_LEN:
+            header = header + ' ' * (STATUS_REP_HEADER_LEN - len(header))
+        padding = ('->' * (self.curr_verbosity_depth-1) 
+                   + ' ' * (self.curr_verbosity_depth > 1))
+        return header + padding    
+    
     def report(self, message):
         """
         If the user has requested status reports at the current depth of 
@@ -94,15 +108,7 @@ class ParameterSearch:
 
         """
         if self.verbose_now():
-            header = datetime.datetime.now().strftime('%x %X') + ' ' + self.name
-            if len(header) > STATUS_REP_HEADER_LEN:
-                header = header[:STATUS_REP_HEADER_LEN]
-            elif len(header) < STATUS_REP_HEADER_LEN:
-                header = header + ' ' * (STATUS_REP_HEADER_LEN - len(header))
-            padding = ('->' * (self.curr_verbosity_depth-1) 
-                       + ' ' * (self.curr_verbosity_depth > 1))
-            print(header + ' ' + padding + message)
-                
+            print(self.get_report_prefix() + message)
     
     def get_params_dict(self, params_array):
         """

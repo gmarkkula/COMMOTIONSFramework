@@ -244,6 +244,18 @@ def metric_veh_exit_time(sim):
     return metric_agent_exit_time(sim, i_VEH_AGENT)
 
 
+def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
+    metrics = {}
+    for short_metric_name in scenario.short_metric_names:
+        metric_value = globals()[
+            METRIC_FCN_PREFIX + short_metric_name](sim)
+        full_metric_name = scenario.get_full_metric_name(short_metric_name)
+        metrics[full_metric_name] = metric_value
+        if verbose:
+            print(report_prefix + 
+                  f'Metric {full_metric_name} = {metrics[full_metric_name]}')
+    return metrics
+
 
 def simulate_scenario(scenario, optional_assumptions, params, params_k, 
                       snapshots=(None, None)):
@@ -273,6 +285,41 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
     
     # return the simulation object
     return sc_simulation
+
+
+def get_metrics_for_params(scenarios, optional_assumptions, params, params_k,
+                           verbosity=0, report_prefix=''):
+    # loop through the scenarios, simulate them, and calculate metrics
+    metrics = {}
+    for scenario in scenarios.values():
+        
+        if verbosity >= 1:
+            print(report_prefix + f'Simulating scenario "{scenario.name}"...')
+        
+        # run this scenario with the specified assumptions and parameterisation
+        sc_simulation = simulate_scenario(scenario, optional_assumptions, 
+                                          params, params_k)
+        
+        # calculate metric(s) for this scenario
+        scenario_metrics = get_metrics_for_scenario(scenario, sc_simulation,
+                                                    verbosity >= 2,
+                                                    report_prefix + '-> ')
+        metrics.update(scenario_metrics)
+        
+        # plot simulation results?
+        # (this will only work nicely if run with %matplotlib inline)
+        if verbosity >= 3:
+            sc_simulation.do_plots(trajs=False, action_val_ests = False, 
+                                   surplus_action_vals = False,
+                                   kinem_states = True, beh_accs = False, 
+                                   beh_probs = True, action_vals = False, 
+                                   sensory_prob_dens = False, 
+                                   beh_activs = False)
+            print('Showing plots, press [Enter] to continue...')
+            input()
+            
+    # return the dict of metrics
+    return metrics
 
 
 
@@ -336,135 +383,12 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         # set the model parameters as specified
         self.set_params(params_dict)
         
-        # loop through the scenarios, simulate them, and calculate metrics
-        metrics = {}
-        for scenario in self.scenarios.values():
-            
-            self.verbosity_push()
-            self.report(f'Simulating scenario "{scenario.name}"...')
-            
-            # run this scenario with the specified parameterisation
-            sc_simulation = self.simulate_scenario(scenario)
-            
-            # calculate metric(s) for this scenario
-            self.verbosity_push() 
-            for short_metric_name in scenario.short_metric_names:
-                metric_value = globals()[
-                    METRIC_FCN_PREFIX + short_metric_name](sc_simulation)
-                full_metric_name = scenario.get_full_metric_name(short_metric_name)
-                metrics[full_metric_name] = metric_value
-                self.report(f'Metric {full_metric_name} = {metrics[full_metric_name]}')
-                
-            """
-            def store_metric(metric_name, value):
-                full_metric_name = scenario.name + '_' + metric_name
-                metrics[full_metric_name] = value
-                self.report(f'Metric {full_metric_name} = {metrics[full_metric_name]}')
-            # - basic prep and entry into conflict area metrics
-            # -- pedestrian
-            ped_agent = sc_simulation.agents[i_PED_AGENT]
-            ped_entry_sample = ped_agent.ca_entry_sample
-            ped_entered_ca = not math.isinf(ped_entry_sample)
-            if not ped_entered_ca:
-                ped_entry_sample = len(sc_simulation.time_stamps)
-            store_metric('ped_entered', int(ped_entered_ca))
-            # -- vehicle
-            veh_agent = sc_simulation.agents[i_VEH_AGENT]
-            veh_entry_sample = veh_agent.ca_entry_sample
-            veh_entered_ca = not math.isinf(veh_entry_sample)
-            if not veh_entered_ca:
-                veh_entry_sample = len(sc_simulation.time_stamps)
-            store_metric('veh_entered', int(veh_entered_ca))
-            # - first passer metrics
-            if sc_simulation.first_passer is None:
-                ped_1st = False
-                veh_1st = False
-            else:
-                first_passer_name = sc_simulation.first_passer.name
-                ped_1st = (first_passer_name == PED_NAME)
-                veh_1st = not ped_1st
-            store_metric('ped_1st', int(ped_1st))
-            store_metric('veh_1st', int(veh_1st))
-            # - min ped speed before conflict area
-            ped_min_speed_before_ca = np.min(
-                ped_agent.trajectory.long_speed[:ped_entry_sample])
-            store_metric('ped_min_speed_before', ped_min_speed_before_ca)
-            # - max ped speed after entering the conflict area
-            if ped_entered_ca:
-                ped_max_speed_after_entry = np.max(
-                    ped_agent.trajectory.long_speed[ped_entry_sample:])
-            else:
-                ped_max_speed_after_entry = math.nan
-            store_metric('ped_max_speed_after', ped_max_speed_after_entry)
-            # - min veh speed before conflict area
-            veh_min_speed_before_ca = np.min(
-                veh_agent.trajectory.long_speed[:veh_entry_sample])
-            store_metric('veh_min_speed_before', veh_min_speed_before_ca)
-            # - mean veh speed before conflict area
-            veh_mean_speed_early_before_ca = np.mean(
-                veh_agent.trajectory.long_speed[:math.ceil(veh_entry_sample/2)])
-            store_metric('veh_mean_speed_early_before', 
-                         veh_mean_speed_early_before_ca)
-            # - max veh dec in multiples of the deceleration needed to stop
-            # - just before conflict area
-            # -- get the required deceleration to stop just at the conflict
-            # -- area
-            ca_dist_before_ca = veh_agent.trajectory.pos[
-                0,:veh_entry_sample] - AGENT_COLL_DISTS[i_VEH_AGENT]
-            stop_dec_before_ca = veh_agent.trajectory.long_speed[
-                :veh_entry_sample] ** 2 / (2 * ca_dist_before_ca)
-            # -- get the vehicle agent's actual deceleration before the
-            # -- conflict area
-            dec_before_ca = -veh_agent.trajectory.long_acc[:veh_entry_sample]
-            # -- get the max relative deceleration
-            veh_max_surplus_dec_before = np.max(dec_before_ca - stop_dec_before_ca)
-            store_metric('veh_max_surplus_dec_before', veh_max_surplus_dec_before)
-            # - veh speed at first sample where pedestrian increases speed
-            # - before entering the conflict area, after the last time the 
-            # - pedestrian decreases its speed before the vehicle reaches 
-            # - zero speed (if it does)
-            veh_zero_spd_samples = np.nonzero(
-                veh_agent.trajectory.long_speed == 0)[0]
-            veh_speed_at_ped_start = math.nan
-            if ped_entered_ca and len(veh_zero_spd_samples) > 0:
-                # first find the last speed decrease before vehicle zero speed
-                veh_zero_spd_sample = veh_zero_spd_samples[0]
-                ped_speed_diff_before_vzs = np.diff(
-                    ped_agent.trajectory.long_speed[:veh_zero_spd_sample])
-                dec_samples = np.nonzero(ped_speed_diff_before_vzs < 0)[0]
-                # any speed decreases at all?
-                if len(dec_samples) > 0:
-                    last_dec_sample = dec_samples[-1]
-                    ped_speed_diff_before_ca = np.diff(
-                        ped_agent.trajectory.long_speed[:ped_entry_sample])
-                    acc_samples_after_last_dec = np.nonzero(
-                        (np.arange(ped_entry_sample-1) > last_dec_sample)
-                        & (ped_speed_diff_before_ca > 0))[0]
-                    # were there any speed increases after the last speed decrease?
-                    if len(acc_samples_after_last_dec) > 0:
-                        veh_speed_at_ped_start = veh_agent.trajectory.long_speed[
-                            acc_samples_after_last_dec[0]+1]
-            store_metric('veh_speed_at_ped_start', veh_speed_at_ped_start)
-            """
-            
-            # plot simulation results?
-            # (this will only work nicely if run with %matplotlib inline)
-            self.verbosity_push()
-            if self.verbose_now():
-                sc_simulation.do_plots(trajs=False, action_val_ests = False, 
-                                       surplus_action_vals = False,
-                                       kinem_states = True, beh_accs = False, 
-                                       beh_probs = True, action_vals = False, 
-                                       sensory_prob_dens = False, 
-                                       beh_activs = False)
-                self.report('Showing plots, press [Enter] to continue...')
-                input()
-                    
-            self.verbosity_pop(3)
-    
+        # get and return the dict of metrics
+        metrics = get_metrics_for_params(
+            self.scenarios, self.optional_assumptions, self.params, self.params_k,
+            verbosity=self.max_verbosity_depth - self.curr_verbosity_depth,
+            report_prefix=self.get_report_prefix())
         self.verbosity_pop()
-                
-        # return the dict of metrics
         return metrics
             
     
