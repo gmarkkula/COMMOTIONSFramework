@@ -774,7 +774,7 @@ class SCAgent(commotions.AgentWithGoal):
                             snapshot_str += f'{kinem_value:.1f}, '
                         looming_value = np.sum(deets.phase_looming_values)
                         snapshot_str += f'{deets.inh_access_value:.1f}, '
-                        snapshot_str += f'{looming_value:.1f})\n'
+                        snapshot_str += f'{looming_value:.2f})\n'
                         if plot_snapshot_deets:
                             if access_order == AccessOrder.EGOFIRST:
                                 color = 'g'
@@ -1445,34 +1445,37 @@ class SCSimulation(commotions.Simulation):
         if beh_activs:
             # - behavior activations
             for i_agent, agent in enumerate(self.agents):
-                plt.figure('Behaviour activations - Agent %s (observing %s)' %
-                           (agent.name, agent.other_agent.name), 
-                           figsize = [7, 7])
+                figname = ('Behaviour activations - Agent %s (observing %s)' %
+                           (agent.name, agent.other_agent.name))
+                plt.figure(figname)
                 plt.clf()
+                fig, axs = plt.subplots(nrows = agent.n_actions+1, 
+                                        ncols = n_plot_behaviors,
+                                        sharex = 'col', sharey = 'col',
+                                        num = figname, figsize = (7, 7))
                 for i_beh in range(n_plot_behaviors):
                     # action observation contribution
-                    plt.subplot(agent.n_actions+1, n_plot_behaviors, i_beh + 1)
-                    plt.plot(self.time_stamps, agent.params.beta_O 
+                    ax = axs[0, i_beh]
+                    ax.plot(self.time_stamps, agent.params.beta_O 
                              * agent.states.beh_activ_O[i_beh, :])
-                    plt.title(BEHAVIORS[i_beh])
+                    ax.set_title(BEHAVIORS[i_beh])
                     if i_beh == n_plot_behaviors-1:
-                        plt.legend(('$\\beta_O A_{O,b}$',))
+                        ax.legend(('$\\beta_O A_{O,b}$',))
                     # value contribution and total activation - both per action
                     for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                        plt.subplot(agent.n_actions+1, n_plot_behaviors, 
-                                    (i_action+1) * n_plot_behaviors + i_beh + 1)
-                        plt.plot(self.time_stamps, 
+                        ax = axs[i_action+1, i_beh]
+                        ax.plot(self.time_stamps, 
                                  agent.params.beta_V 
                                  * agent.states.beh_activ_V_given_actions[
                                          i_beh, i_action,  :])
-                        plt.plot(self.time_stamps, 
+                        ax.plot(self.time_stamps, 
                                  agent.states.beh_activations_given_actions[
                                          i_beh, i_action, :])
                         #plt.ylim(-2, 5)
                         if i_beh == n_plot_behaviors-1 and i_action == 0:
-                            plt.legend(('$\\beta_V A_{V,b|a}$', '$A_{b|a}$'))
+                            ax.legend(('$\\beta_V A_{V,b|a}$', '$A_{b|a}$'))
                         if i_beh == 0:
-                            plt.ylabel('$\\Delta v=%.1f$' % deltav)
+                            ax.set_ylabel('$\\Delta v=%.1f$' % deltav)
 
         if beh_accs:
             # - expected vs observed accelerations for behaviors
