@@ -1074,12 +1074,21 @@ class SCAgent(commotions.AgentWithGoal):
             # predicted_state.long_acc = long_acc_for_this_beh
             # # add SC scenario specific state info
             # predicted_state = self.add_sc_state_info(predicted_state)
-            pred_CP_dist = (self.perception.perc_oth_state.signed_CP_dist
-                            - self.perception.perc_oth_state.long_speed 
-                            * self.params.T_P
-                            - (long_acc_for_this_beh * self.params.T_P ** 2) / 2)
             pred_speed = (self.perception.perc_oth_state.long_speed 
                           + long_acc_for_this_beh * self.params.T_P)
+            # make sure not to predict reversing
+            if pred_speed >= 0:
+                dist_pred_time = self.params.T_P
+            else:
+                pred_speed = 0
+                assert(long_acc_for_this_beh < 0)
+                dist_pred_time = (self.perception.perc_oth_state.long_speed 
+                                  / (-long_acc_for_this_beh))
+            pred_CP_dist = (self.perception.perc_oth_state.signed_CP_dist
+                            - self.perception.perc_oth_state.long_speed 
+                            * dist_pred_time
+                            - (long_acc_for_this_beh * dist_pred_time ** 2) / 2)
+            
             pred_yaw_angle = self.perception.perc_oth_state.yaw_angle
             predicted_state = commotions.KinematicState(pos=None, 
                                                         long_speed=pred_speed,
@@ -1722,11 +1731,11 @@ if __name__ == "__main__":
     #params.T_delta = 30
     #params.V_ny_rel = -1.5
     #params.T_P = 1
-    #params.T_O1 = 0.05
-    #params.T_Of = math.inf
-    #params.sigma_O = 0.1
-    # params.thetaDot_1 = 0.005
-    #params.beta_V = 60
+    params.T_O1 = 0.1
+    params.T_Of = 0.5
+    params.sigma_O = 0.01
+    params.thetaDot_1 = 0.04
+    params.beta_V = 160
     params.T_s = 0
     params.D_s = 0
     # params.tau = 0.05
@@ -1738,10 +1747,10 @@ if __name__ == "__main__":
                                                 oSNc = False,
                                                 oSNv = False,
                                                 oPF = False,
-                                                oBEo = False,
-                                                oBEv = False,
+                                                oBEo = True,
+                                                oBEv = True,
                                                 oBEc = False,
-                                                oAI = False,
+                                                oAI = True,
                                                 oEA = False, 
                                                 oAN = False)  
     

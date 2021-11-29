@@ -35,7 +35,7 @@ i_WAIT = AnticipationPhase.WAIT.value
 i_REGAIN_SPD = AnticipationPhase.REGAIN_SPD.value
 i_CONTINUE = AnticipationPhase.CONTINUE.value
 N_ANTICIPATION_PHASES = len(AnticipationPhase)
-ANTICIPATION_TIME_STEP = 0.1
+ANTICIPATION_TIME_STEP = 0.025
 ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
@@ -175,21 +175,28 @@ def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop
         
 
 
-def get_time_to_dist_with_acc(state, target_dist):
+def get_time_to_dist_with_acc(state, target_dist, consider_acc=True):
+    # negative speeds not supported
+    assert(state.long_speed >= 0)
+    # consider acceleration info in state?
+    if consider_acc:
+        long_acc = state.long_acc
+    else:
+        long_acc = 0
     # already past the target distance?
     if target_dist <= 0:
         return -math.inf
     # standing still?
-    if state.long_speed == 0 and state.long_acc <= 0:
+    if state.long_speed == 0 and long_acc <= 0:
         return math.inf
     # acceleration status?
-    if state.long_acc == 0:
+    if long_acc == 0:
         # no acceleration
         return target_dist / state.long_speed
-    elif state.long_acc < 0:
+    elif long_acc < 0:
         # decelerating
         # will stop before target distance?
-        stop_dist = state.long_speed ** 2 / (-2 * state.long_acc)
+        stop_dist = state.long_speed ** 2 / (-2 * long_acc)
         if stop_dist <= target_dist:
             return math.inf
         # no, so get time of passing target distance as first root of the
@@ -197,8 +204,8 @@ def get_time_to_dist_with_acc(state, target_dist):
     # accelerating (or decelerating) past, so get second (or first - controlled
     # by the sign of acceleration in denominator) root of the quadratic equation
     return (-state.long_speed + 
-            math.sqrt(state.long_speed ** 2 + 2 * state.long_acc * target_dist)
-            ) / state.long_acc
+            math.sqrt(state.long_speed ** 2 + 2 * long_acc * target_dist)
+            ) / long_acc
     
     
 
@@ -229,35 +236,18 @@ def get_entry_exit_times(state, coll_dist, consider_acc = True):
         
         If consider_acc = True: Consider agent at 
         state.signed_CP_dist to conflict point and travelling toward it at 
-        speed state.long_speed and acceleration state.long_acc. Return zero
-        if entry/exit has happened already. Return inf if speed is zero, or 
-        if the acceleration will have the agent stop before entry/exit.
+        speed state.long_speed >=0 and acceleration state.long_acc. Return -inf
+        if entry/exit has happened already. Return inf if speed is zero and long
+        acc is <=0, or if the acceleration will have the agent stop before entry/exit.
         
         If consider_acc = False: As above, but disregard
-        acceleration, and give entry/exit apparently in the past returned
-        as negative times. Return inf if speed is zero. 
+        acceleration.
     """
-    # is the agent moving?
-    if state.long_speed == 0:
-        if abs(state.signed_CP_dist) < coll_dist:
-            return (-math.inf, math.inf)
-        else:
-            return (math.inf, math.inf)
-    else:
-        # get the time to reach the entry/exit edge of the conflict space
-        if consider_acc:
-            entry_time = get_time_to_dist_with_acc(
-                state, state.signed_CP_dist - coll_dist)
-            exit_time = get_time_to_dist_with_acc(
-                state, state.signed_CP_dist + coll_dist)
-        else:
-            # taking into account the speed when defining which edge is entry vs exit
-            sp_sign = np.sign(state.long_speed)
-            entry_time = (state.signed_CP_dist 
-                          - sp_sign * coll_dist) / state.long_speed
-            exit_time = (state.signed_CP_dist 
-                         + sp_sign * coll_dist) / state.long_speed
-        return (entry_time, exit_time)
+    entry_time = get_time_to_dist_with_acc(
+        state, state.signed_CP_dist - coll_dist, consider_acc)
+    exit_time = get_time_to_dist_with_acc(
+        state, state.signed_CP_dist + coll_dist, consider_acc)
+    return (entry_time, exit_time)
     
     
 def add_entry_exit_times_to_state(state, coll_dist):
