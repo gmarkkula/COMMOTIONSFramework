@@ -622,7 +622,7 @@ def get_access_order_implications(ego_image, ego_state, oth_image, oth_state,
     # get acceleration needed to pass first
     # - other agent already entered conflict space? 
     # (note less than, not less than or equal)
-    if oth_state.signed_CP_dist < oth_image.coll_dist + ego_image.params.D_s:
+    if oth_state.signed_CP_dist < oth_image.coll_dist:
         # yes, so not possible for ego agent to pass first
         if return_nans:
             accs[AccessOrder.EGOFIRST] = math.nan
@@ -652,14 +652,14 @@ def get_access_order_implications(ego_image, ego_state, oth_image, oth_state,
         
     # get acceleration needed to pass second
     # - has the other agent already exited the conflict space?
-    if oth_state.signed_CP_dist <= -oth_image.coll_dist - ego_image.params.D_s:
+    if oth_state.signed_CP_dist <= -oth_image.coll_dist:
         # yes, so just accelerate to free speed
         accs[AccessOrder.EGOSECOND] = ego_free_acc
         T_accs[AccessOrder.EGOSECOND] = T_acc_free
         T_dws[AccessOrder.EGOSECOND] = 0
     else:
         # no, the other agent hasn't already exited the conflict space
-        # has the ego agent already entered conflict space?
+        # has the ego agent already passed its safety distance wrt the conflict space?
         # (note less than, not less than or equal)
         if ego_state.signed_CP_dist < ego_image.coll_dist + ego_image.params.D_s:
             # yes, so passing in second is no longer an option
