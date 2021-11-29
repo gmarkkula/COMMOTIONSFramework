@@ -45,11 +45,17 @@
             * ~~Define updated scenarios:~~
                 * ~~Break up the pedestrian scenarios in two parts, one per phenomenon of interest.~~
                 * ~~Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.~~
-            * Implement the updated scenarios (see 2021-11-20b diary notes).
-                * Up to date scenario definitions.
-                * Update the metrics being calculated and stored for each scenario.
-            * Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios.
-            * Rewrite in `do_2...` to use the reformulated metrics.
+            * ~~Implement the updated scenarios (see 2021-11-20b diary notes).~~
+                * ~~Up to date scenario definitions.~~
+                * ~~Update the metrics being calculated and stored for each scenario.~~
+            * ~~Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios.~~
+            * ~~Rewrite in `do_2...` to use the reformulated metrics.~~
+            * Actions identified 2021-11-27:
+                * Set `sc_scenario_helper.ANTICIPATION_TIME_STEP` = 0.025 s.
+                * Protect against predicted reversing in `SCAgent.get_predicted_other_state()`, and also deal gracefully with negative speeds in `sc_scenario.get_entry_exit_times()`.
+                * To think about: 
+                    * ~~Should the estimated entry/exit times take sfaety margins into account, to prevent the kinds of problems discussed below under "`oVAaoVAl[oBEo]BEv`..." in the 2021-11-27 notes?~~
+                    * Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent.
         * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
             * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
             * Add support for multiple repetitions.
@@ -73,7 +79,9 @@
     * ~~Parallelisation in `parameter_search.py`?~~ 
     
 
-
+## Model imperfections to think about / keep an eye on
+* Assuming pedestrians apply constant deceleration rather than constant speed to achieve interaction outcomes.
+* The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
 
 
 ## Model formulations
@@ -187,13 +195,11 @@ As mentioned above, the value function is affected by the following optional ass
 
 ### Defining the acceleration needed to pass before/after another agent
 
-The estimated acceleration for an agent $X$ to pass first(/second) is the acceleration needed to reach a safety margin distance $D_\mathrm{s}$ past(/before) the conflict space, at a time $T_\mathrm{s}$ before(/after) the other agent $\lnot X$ enters(/exits) the conflict space.
+The estimated acceleration for an agent $X$ to pass first(/second) is the acceleration needed to reach a safety margin distance $D_\mathrm{s}$ past(/before) the conflict space, at a time $T_\mathrm{s}$ before(/after) the other agent $\lnot X$ enters(/exits) the conflict space. Note that the conflict space is defined physically by the dimensions of the two agents.
 
-The time at which the other agent $\lnot X$ enters/exits the conflict space can be calculated with or without taking accelerations into account.
-
-When an ego agent $A$ estimates another agent $B$'s acceleration for a behaviour $b$ (i.e., in this case $X = B$), then $A$ assumes that $B$ is not observing $A$'s accelerations, i.e., the calculations of accelerations for $b$ are based on $A$'s position and speed, but not acceleration.
-
-When an ego agent $A$ estimates the own accelerations needed to pass in front of the other agent $B$ from a predicted world state $\tilde{\mathbf{x}}'$, affected by the acceleration associated with a behaviour $b$, $A$ may either disregard acceleration of $B$ beyond the predicted time point $k'$ (`oVA`) or consider acceleration of $B$ also beyond $k'$ (`oVAa`).
+The time at which the other agent $\lnot X$ enters/exits the conflict space can be calculated with or without taking accelerations into account:
+* When an ego agent $A$ estimates another agent $B$'s acceleration for a behaviour $b$ (i.e., in this case $X = B$), then $A$ assumes that $B$ is not observing $A$'s accelerations, i.e., the calculations of accelerations for $b$ are based on $A$'s position and speed, but not acceleration.
+* When an ego agent $A$ estimates the own accelerations needed to pass in front of the other agent $B$ from a predicted world state $\tilde{\mathbf{x}}'$, affected by the acceleration associated with a behaviour $b$, $A$ may either disregard acceleration of $B$ beyond the predicted time point $k'$ (`oVA`) or consider acceleration of $B$ also beyond $k'$ (`oVAa`).
 
 
 ### Estimating probabilities of the other agent's possible behaviours
