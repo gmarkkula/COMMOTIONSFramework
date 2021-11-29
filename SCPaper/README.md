@@ -54,8 +54,8 @@
                 * Set `sc_scenario_helper.ANTICIPATION_TIME_STEP` = 0.025 s.
                 * Protect against predicted reversing in `SCAgent.get_predicted_other_state()`, and also deal gracefully with negative speeds in `sc_scenario.get_entry_exit_times()`.
                 * To think about: 
-                    * ~~Should the estimated entry/exit times take sfaety margins into account, to prevent the kinds of problems discussed below under "`oVAaoVAl[oBEo]BEv`..." in the 2021-11-27 notes?~~
-                    * Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent.
+                    * ~~Should the estimated entry/exit times take safety margins into account, to prevent the kinds of problems discussed below under "`oVAaoVAl[oBEo]BEv`..." in the 2021-11-27 notes?~~
+                    * ~~Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent. ... I have looked at this now and it seems to create some unintended knock-on effects, so leaving as is at least for now.~~
         * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
             * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
             * Add support for multiple repetitions.
