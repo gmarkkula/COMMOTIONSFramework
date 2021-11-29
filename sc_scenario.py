@@ -1452,7 +1452,8 @@ class SCSimulation(commotions.Simulation):
                 fig, axs = plt.subplots(nrows = agent.n_actions+1, 
                                         ncols = n_plot_behaviors,
                                         sharex = 'col', sharey = 'col',
-                                        num = figname, figsize = (7, 7))
+                                        num = figname, figsize = (7, 7),
+                                        squeeze = False)
                 for i_beh in range(n_plot_behaviors):
                     # action observation contribution
                     ax = axs[0, i_beh]
@@ -1670,10 +1671,10 @@ if __name__ == "__main__":
     # scenario basics
     NAMES = ('P', 'V')
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    WIDTHS = (0.8, 1.8)
-    LENGTHS = (0.8, 4.2)
-    # WIDTHS = (2, 2)
-    # LENGTHS = (2, 2)
+    #WIDTHS = (0.8, 1.8)
+    #LENGTHS = (0.8, 4.2)
+    WIDTHS = (2, 2)
+    LENGTHS = (2, 2)
     
     # scenario
     GOALS = np.array([[0, 5], [-50, 0]])
@@ -1726,8 +1727,8 @@ if __name__ == "__main__":
     #params.sigma_O = 0.1
     # params.thetaDot_1 = 0.005
     #params.beta_V = 60
-    #params.T_s = 0
-    #params.D_s = 0
+    params.T_s = 0
+    params.D_s = 0
     # params.tau = 0.05
     # params.DeltaV_th_rel = 0.005
     optional_assumptions = get_assumptions_dict(default_value = False,
