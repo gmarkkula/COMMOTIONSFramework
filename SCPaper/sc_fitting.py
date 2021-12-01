@@ -210,18 +210,19 @@ def metric_veh_av_speed(sim):
     return metric_agent_av_speed(sim, i_VEH_AGENT)
 
 def metric_veh_av_surpl_dec(sim):
+    idx_RT = np.nonzero(sim.time_stamps > DEFAULT_PARAMS.DeltaT)[0][0]
     idx_halfway = get_halfway_to_cs_sample(sim, i_VEH_AGENT)
     if math.isnan(idx_halfway):
         return math.nan
     else:
         veh_agent = sim.agents[i_VEH_AGENT]
         # get the decelerations needed to stop
-        stop_dists = (veh_agent.signed_CP_dists[:idx_halfway] 
+        stop_dists = (veh_agent.signed_CP_dists[idx_RT:idx_halfway] 
                       - veh_agent.coll_dist - COLLISION_MARGIN)
-        stop_decs = (veh_agent.trajectory.long_speed[:idx_halfway] ** 2 
+        stop_decs = (veh_agent.trajectory.long_speed[idx_RT:idx_halfway] ** 2 
                      / (2 * stop_dists))
         # compare to actual decelerations
-        actual_decs = -veh_agent.trajectory.long_acc[:idx_halfway]
+        actual_decs = -veh_agent.trajectory.long_acc[idx_RT:idx_halfway]
         return np.mean(actual_decs - stop_decs)
 
 def metric_veh_speed_at_ped_start(sim):
