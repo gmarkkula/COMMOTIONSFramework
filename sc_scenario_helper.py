@@ -638,6 +638,19 @@ def get_access_order_implications(ego_image, ego_state, oth_image, oth_state,
         if ego_free_acc > accs[AccessOrder.EGOFIRST]:
             accs[AccessOrder.EGOFIRST] = ego_free_acc
             T_accs[AccessOrder.EGOFIRST] = T_acc_free
+        # # the test above overlooks the fact that sometimes just accelerating
+        # # to free speed and then keeping it may not be enough to pass first,
+        # # even if that inequality holds; the test below should work better,
+        # # but would need further testing to make sure it doesn't introduce
+        # # other problems
+        # dist_during_free_acc = (ego_state.long_speed * T_acc_free 
+        #                         + ego_free_acc * (T_acc_free ** 2) / 2)
+        # free_dist_to_exit = (ego_dist_to_exit - dist_during_free_acc 
+        #                      + ego_image.params.D_s)
+        # free_time_to_exit = T_acc_free + free_dist_to_exit / ego_image.v_free
+        # if free_time_to_exit < oth_state.cs_entry_time[oth_pred] - ego_image.params.T_s:
+        #     accs[AccessOrder.EGOFIRST] = ego_free_acc
+        #     T_accs[AccessOrder.EGOFIRST] = T_acc_free        
             
         
     # get acceleration needed to pass second
