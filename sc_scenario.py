@@ -1351,7 +1351,7 @@ class SCSimulation(commotions.Simulation):
                  action_val_ests = False, surplus_action_vals = False, 
                  beh_activs = False, beh_accs = False, beh_probs = False, 
                  sensory_prob_dens = False, kinem_states = False, 
-                 times_to_ca = False, looming = False):
+                 veh_stop_dec = False, times_to_ca = False, looming = False):
 
         n_plot_actions = max(self.agents[0].n_actions, self.agents[1].n_actions)
         
@@ -1580,6 +1580,12 @@ class SCSimulation(commotions.Simulation):
             for i_agent, agent in enumerate(self.agents):
                 
                 # acceleration
+                if veh_stop_dec and agent.ctrl_type == CtrlType.ACCELERATION:
+                    stop_dists = (agent.signed_CP_dists - agent.coll_dist 
+                                  - agent.params.D_s)
+                    stop_accs = -(agent.trajectory.long_speed ** 2 / (2 * stop_dists))
+                    axs[0].plot(self.time_stamps, stop_accs, 
+                                '--' + agent.plot_color, alpha = 0.5)
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
                          '-' + agent.plot_color)
                 axs[0].set_ylabel('a (m/s^2)') 
