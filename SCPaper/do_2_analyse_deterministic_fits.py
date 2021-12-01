@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Created on Sun Oct  3 19:37:11 2021
@@ -31,8 +32,8 @@ DO_PLOTS = False
 N_MAIN_CRIT_FOR_PLOT = 3
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
-SPEEDUP_FRACT = 1.01
-SURPLUS_DEC_THRESH = 1 # m/s^2
+SPEEDUP_FRACT = 1.005
+SURPLUS_DEC_THRESH = 0.5 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
 MAIN_CRITERIA = ('veh_prio_assert', 'veh_short_stop', 
