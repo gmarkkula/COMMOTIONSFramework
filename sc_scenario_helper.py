@@ -74,6 +74,13 @@ def get_agent_free_speed(k):
     return k._g / (2 * k._dv)
 
 
+def get_agent_halfway_to_CS_CP_dist(agent):
+    """ Return the signed distance to conflict point at which the agent will be
+        halfway from its initial position to entering the conflict space.
+    """
+    return (agent.signed_CP_dists[0] - agent.coll_dist) / 2
+
+
 def set_val_gains_for_free_speed(k, v_free):
     """ Set properties _g and _dv of k to yield the free speed v_free, and 
         a normalised value at free speed equal to 1. 

@@ -316,6 +316,16 @@ class SimulationState:
 
 class Simulation:
     
+    def after_time_step(self):
+        """
+        Called at the end of each time step in the simulation loop in the 
+        run() method. Can be overridden by descendant classes to do any 
+        post-time-step processing, for example to set self.stop_now if
+        simulation should be terminated.
+
+        """
+        pass
+    
     def after_simulation(self):
         """
         Called at the end of the run() method. Can be overridden by descendant 
@@ -340,6 +350,7 @@ class Simulation:
         for agent in self.agents:
             agent.prepare_for_simulation()
 
+        self.stop_now = False
         for i_time_step in range(self.settings.n_time_steps):
             self.state.set_time_step(i_time_step)
             if i_time_step > 0:
@@ -349,7 +360,12 @@ class Simulation:
                 agent.prepare_for_action_update()
             for agent in self.agents:
                 agent.do_action_update()
-                
+            self.after_time_step()
+            if self.stop_now:
+                break
+            
+        self.actual_end_time = self.state.time
+            
         self.after_simulation()
 
     

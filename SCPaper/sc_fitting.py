@@ -188,7 +188,7 @@ METRIC_FCN_PREFIX = 'metric_'
 
 def get_halfway_to_cs_sample(sim, i_agent):
     agent = sim.agents[i_agent]
-    halfway_dist = (agent.signed_CP_dists[0] - agent.coll_dist) / 2
+    halfway_dist = sc_scenario_helper.get_agent_halfway_to_CS_CP_dist(agent)
     beyond_halfway_samples = np.nonzero(sim.agents[i_agent].signed_CP_dists
                                         <= halfway_dist)[0]
     if len(beyond_halfway_samples) == 0:

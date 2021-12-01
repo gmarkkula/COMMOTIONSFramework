@@ -67,6 +67,13 @@ def get_assumptions_dict_from_string(string):
 
 class DerivedAssumption(Enum):
     dBE = 'dBE'
+    
+
+class SimStopCriterion(Enum):
+    ONE_AGENT_HALFWAY_TO_CS = 'one agent halfway to conflict space'
+    BOTH_AGENTS_STOPPED = 'both agents stopped'
+    BOTH_AGENTS_EXITED_CS = 'both agents exited conflict space'
+    
 
 N_AGENTS = 2 # this implementation supports only 2
 
@@ -240,6 +247,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.beh_activ_V_given_actions[:, :, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
         self.states.beh_activ_O[i_CONSTANT, -1] = 0
+        # prepare a separate array for storing distances to the conflict point
+        self.signed_CP_dists = np.full(n_time_steps, math.nan)
         
         # calculate where the two agents' paths intersect, if it has not already 
         # been done
@@ -302,6 +311,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.curr_state.long_acc = \
             self.trajectory.long_acc[self.simulation.state.i_time_step-1]
         self.curr_state = self.add_sc_state_info(self.curr_state, self.coll_dist)
+        self.signed_CP_dists[self.simulation.state.i_time_step] = \
+            self.curr_state.signed_CP_dist
 
 
     def do_action_update(self):
@@ -1295,7 +1306,8 @@ class SCSimulation(commotions.Simulation):
                  params = None, params_k = None,  
                  noise_seeds = (None, None), kalman_priors = (None, None),
                  const_accs = (None, None), agent_names = ('A', 'B'), 
-                 plot_colors = ('c', 'm'), snapshot_times = (None, None)):
+                 plot_colors = ('c', 'm'), snapshot_times = (None, None),
+                 stop_criteria = ()):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -1317,15 +1329,52 @@ class SCSimulation(commotions.Simulation):
                     const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
+        
+        self.stop_criteria = stop_criteria
             
             
+    def after_time_step(self):
+        for stop_crit in self.stop_criteria:
+            
+            if stop_crit == SimStopCriterion.ONE_AGENT_HALFWAY_TO_CS:
+                for agent in self.agents:
+                    halfway_dist = \
+                        sc_scenario_helper.get_agent_halfway_to_CS_CP_dist(agent)
+                    if agent.curr_state.signed_CP_dist < halfway_dist:
+                        self.stop_now = True
+                        return
+                    
+            elif stop_crit == SimStopCriterion.BOTH_AGENTS_STOPPED:
+                found_moving_agent = False
+                for agent in self.agents:
+                    if agent.curr_state.long_speed > 0:
+                        found_moving_agent = True
+                        break
+                if not found_moving_agent:
+                    self.stop_now = True
+                    return
+                
+            elif stop_crit == SimStopCriterion.BOTH_AGENTS_EXITED_CS:
+                found_non_exited_agent = False
+                for agent in self.agents:
+                    if agent.curr_state.signed_CP_dist >= -agent.coll_dist:
+                        found_non_exited_agent = True
+                        break
+                    if not found_non_exited_agent:
+                        self.stop_now = True
+                        return
+                
+            else:
+                raise Exception(f'Unexpected simulation stop criterion: {stop_crit}')
+    
+    
     def after_simulation(self):
         for agent in self.agents:
-            # signed distances to conflict point
-            vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
-            yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
-            yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
-            agent.signed_CP_dists = np.dot(vectors_to_CP, yaw_vector)
+            ## signed distances to conflict point
+            #vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
+            #yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
+            #yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
+            #agent.signed_CP_dists = np.dot(vectors_to_CP, yaw_vector)
             # entry time/sample
             ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0)
                                     <= agent.coll_dist)[0]
@@ -1776,13 +1825,15 @@ if __name__ == "__main__":
     # run simulation
     NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
+    STOP_CRITERIA = (SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
     sc_simulation = SCSimulation(
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
             initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
             const_accs = CONST_ACCS, agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
+            snapshot_times = SNAPSHOT_TIMES, time_step=0.1,
+            stop_criteria = STOP_CRITERIA)
     tic = time.perf_counter()
     sc_simulation.run()
     toc = time.perf_counter()
