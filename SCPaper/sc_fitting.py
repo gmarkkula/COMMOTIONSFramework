@@ -111,7 +111,7 @@ class SCPaperScenario:
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
                  veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN,
-                 metric_names = None):
+                 stop_criteria = (), metric_names = None):
         self.name = name
         self.ped_prio = ped_prio
         self.initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
@@ -131,6 +131,7 @@ class SCPaperScenario:
                          - AGENT_COLL_DISTS[i_VEH_AGENT] - veh_yielding_margin)
             self.const_accs[i_VEH_AGENT] = (
                 -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
+        self.stop_criteria = stop_criteria
         self.short_metric_names = metric_names
         self.full_metric_names = []
         for short_metric_name in self.short_metric_names:
@@ -139,33 +140,42 @@ class SCPaperScenario:
         
     
 # scenarios
+# - just defining some shorter names for the simulation stopping criteria
+HALFWAY_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_HALFWAY_TO_CS,)
+MOVED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,)
+EXITED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
 # - one-agent scenarios
 ONE_AG_SCENARIOS = {}
 ONE_AG_SCENARIOS['VehPrioAssert'] = SCPaperScenario('VehPrioAssert', 
                                                    initial_ttcas=(math.nan, 2),  
                                                    ped_start_standing=True, 
                                                    ped_const_speed=True,
+                                                   stop_criteria = HALFWAY_STOP,
                                                    metric_names = ('veh_av_speed',))
 ONE_AG_SCENARIOS['VehShortStop'] = SCPaperScenario('VehShortStop', 
                                                   initial_ttcas=(math.nan, 4),
                                                   ped_prio = True,
                                                   ped_start_standing=True, 
                                                   ped_const_speed=True,
+                                                  stop_criteria = HALFWAY_STOP,
                                                   metric_names = ('veh_av_surpl_dec',))
 ONE_AG_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
                                                           initial_ttcas=(3, 8), 
                                                           veh_const_speed=True,
+                                                          stop_criteria = HALFWAY_STOP,
                                                           metric_names = ('ped_av_speed',))
 ONE_AG_SCENARIOS['PedHesitateVehYield'] = SCPaperScenario('PedHesitateVehYield', 
                                                          initial_ttcas=(3, 3), 
                                                          ped_prio=True,
                                                          veh_yielding=True,
+                                                         stop_criteria = HALFWAY_STOP,
                                                          metric_names = ('ped_av_speed',))
 ONE_AG_SCENARIOS['PedCrossVehYield'] = SCPaperScenario('PedCrossVehYield', 
                                                        initial_ttcas=(math.nan, 2), 
                                                        ped_prio=True,
                                                        ped_start_standing=True, 
                                                        veh_yielding=True,
+                                                       stop_criteria = HALFWAY_STOP,
                                                        metric_names = ('veh_speed_at_ped_start',))
 # - two-agent scenarios
 TWO_AG_METRIC_NAMES = ('collision', 'ped_exit_time', 'veh_exit_time')
@@ -279,7 +289,8 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
         optional_assumptions=optional_assumptions, 
         params=params, params_k=params_k, 
-        agent_names=AGENT_NAMES, snapshot_times=snapshots)
+        agent_names=AGENT_NAMES, snapshot_times=snapshots,
+        stop_criteria=scenario.stop_criteria)
     
     # run the simulation
     sc_simulation.run()
