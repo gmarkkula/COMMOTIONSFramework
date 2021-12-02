@@ -78,7 +78,7 @@ def get_agent_halfway_to_CS_CP_dist(agent):
     """ Return the signed distance to conflict point at which the agent will be
         halfway from its initial position to entering the conflict space.
     """
-    return (agent.signed_CP_dists[0] - agent.coll_dist) / 2
+    return agent.coll_dist + (agent.signed_CP_dists[0] - agent.coll_dist) / 2
 
 
 def set_val_gains_for_free_speed(k, v_free):
