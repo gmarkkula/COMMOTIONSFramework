@@ -324,12 +324,12 @@ def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
 
 
 def simulate_scenario(scenario, optional_assumptions, params, params_k, 
-                      i_scenario_variation=None, snapshots=(None, None)):
+                      i_variation=None, snapshots=(None, None)):
     # prepare the simulation
     # - get initial distances and constant accelerations for this scenario variation
-    if scenario.n_variations > 1 and i_scenario_variation == None:
+    if scenario.n_variations > 1 and i_variation == None:
         raise Exception('Need to specify scenario variation to run.')
-    initial_cp_dists, const_accs = scenario.get_dists_and_accs(i_scenario_variation)
+    initial_cp_dists, const_accs = scenario.get_dists_and_accs(i_variation)
     # - initial position
     initial_pos = np.array([[0, -initial_cp_dists[i_PED_AGENT]],
                            [initial_cp_dists[i_VEH_AGENT], 0]])
@@ -426,7 +426,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                 setattr(self.params, param_name, param_value)
     
     
-    def simulate_scenario(self, scenario, snapshots=(None, None)):
+    def simulate_scenario(self, scenario, i_variation='all', snapshots=(None, None)):
         """
         Run a given scenario for the model parameterisation currently
         specified by self.params and self.params_k.
@@ -441,9 +441,25 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         The resulting sc_scenario.SCSimulation object.
 
         """        
-        return simulate_scenario(scenario, self.optional_assumptions, 
-                                 self.params, self.params_k, snapshots)
-        
+        if self.n_scenario_variations == 1:
+            return simulate_scenario(scenario, self.optional_assumptions, 
+                                     self.params, self.params_k, 
+                                     snapshots=snapshots)
+        else:
+            if i_variation == 'all':
+                sims = []
+                for i_var in range(self.n_scenario_variations):
+                    sims.append(simulate_scenario(scenario, 
+                                                  self.optional_assumptions, 
+                                                  self.params, self.params_k, 
+                                                  i_variation=i_var, 
+                                                  snapshots=snapshots))
+                return sims
+            else:
+                return simulate_scenario(scenario, self.optional_assumptions, 
+                                         self.params, self.params_k, 
+                                         i_variation=i_variation, 
+                                         snapshots=snapshots)
     
     def get_metrics_for_params(self, params_dict, i_parameterisation, 
                                i_repetition):
@@ -521,7 +537,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         # metric information
         self.scenarios = scenarios
         metric_names = []
-        n_ind_scenario_variations = np.full(len(scenarios), math.nan)
+        n_ind_scenario_variations = np.full(len(scenarios), -1)
         for i_scenario, scenario in enumerate(self.scenarios.values()):
             n_ind_scenario_variations[i_scenario] = scenario.n_variations
             for metric_name in scenario.full_metric_names:

@@ -51,7 +51,7 @@ SCENARIO = sc_fitting.ONE_AG_SCENARIOS['PedCrossVehYield']
 # simulate and plot
 tic = time.perf_counter()
 sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
-                                   i_scenario_variation=0, snapshots=(None, None)
+                                   i_variation=0, snapshots=(None, None)
                                    )
 toc = time.perf_counter()
 print('Initialising and running simulation took %.3f s.' % (toc - tic,))

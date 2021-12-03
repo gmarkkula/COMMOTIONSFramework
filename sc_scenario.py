@@ -1612,7 +1612,7 @@ class SCSimulation(commotions.Simulation):
 
         if kinem_states:
             # - kinematic/action states
-            fig = plt.figure('Kinematic and action states', figsize = (7, 8))
+            fig = plt.figure('Kinematic and action states', figsize = (5, 6))
             plt.clf()
             """             N_PLOTROWS = 3
             for i_agent, agent in enumerate(self.agents):

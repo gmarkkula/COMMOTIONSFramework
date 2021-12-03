@@ -316,12 +316,19 @@ class ParameterSearch:
         Returns
         -------
         numpy array
-            A view of the 1D numpy array for the metric, from 
-            self.results.metrics_matrix.
+            If self.n_repetitions=1: A view of the 1D numpy array for the 
+            metric, from self.results.metrics_matrix.
+            If self.n_repetitions>1: A vnew 2D numpy array for the 
+            metric, from self.results.metrics_matrix, with parameterisations
+            as first dimension and repetitions as the second.
 
         """
-        return self.results.metrics_matrix[
-            :, self.metric_names.index(metric_name)]
+        if self.n_repetitions == 1:
+            return self.results.metrics_matrix[
+                :, self.metric_names.index(metric_name)]
+        else:
+            return np.squeeze(self.results.metrics_matrix[
+                :, self.metric_names.index(metric_name), :])
         
     
     def save(self, file_name):
