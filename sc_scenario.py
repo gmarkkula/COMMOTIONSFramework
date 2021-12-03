@@ -1612,7 +1612,7 @@ class SCSimulation(commotions.Simulation):
 
         if kinem_states:
             # - kinematic/action states
-            fig = plt.figure('Kinematic and action states')
+            fig = plt.figure('Kinematic and action states', figsize = (7, 8))
             plt.clf()
             """             N_PLOTROWS = 3
             for i_agent, agent in enumerate(self.agents):
@@ -1636,7 +1636,7 @@ class SCSimulation(commotions.Simulation):
                 plt.ylim(-6, 6)
                 if i_agent == 0:
                     plt.ylabel('a (m/s^2)') """
-            N_PLOTROWS = 4
+            N_PLOTROWS = 5
             axs = fig.subplots(N_PLOTROWS, 1)
             for i_agent, agent in enumerate(self.agents):
                 
@@ -1691,19 +1691,28 @@ class SCSimulation(commotions.Simulation):
                 axs[2].set_ylim(-5, 5)
                 axs[2].set_ylabel('$d_{CP}$ (m)') 
                 
+                # apparent time to conflict space entry
+                if i_agent == 0:
+                    axs[3].axhline(0, color='k', linestyle=':')
+                axs[3].plot(self.time_stamps, 
+                            (agent.signed_CP_dists - agent.coll_dist) 
+                            / agent.trajectory.long_speed, '-' + agent.plot_color)
+                axs[3].set_ylim(-1, 8)
+                axs[3].set_ylabel('$TTCS_{app}$ (s)')
+                
             # distance margin to agent collision
-            axs[3].axhline(0, color='k', linestyle=':')
+            axs[4].axhline(0, color='k', linestyle=':')
             coll_margins, coll_idxs = \
                 get_sc_agent_collision_margins(self.agents[0].signed_CP_dists, 
                                                self.agents[1].signed_CP_dists,
                                                self.agents[0].coll_dist, 
                                                self.agents[1].coll_dist)
-            axs[3].plot(self.time_stamps, coll_margins, 'k-')
-            axs[3].plot(self.time_stamps[coll_idxs], 
+            axs[4].plot(self.time_stamps, coll_margins, 'k-')
+            axs[4].plot(self.time_stamps[coll_idxs], 
                      coll_margins[coll_idxs], 'r-')
-            axs[3].set_ylim(-1, 10)
-            axs[3].set_ylabel('$d_{coll}$ (m)')
-            axs[3].set_xlabel('t (s)')      
+            axs[4].set_ylim(-1, 10)
+            axs[4].set_ylabel('$d_{coll}$ (m)')
+            axs[4].set_xlabel('t (s)')      
             
 
         if times_to_ca:
