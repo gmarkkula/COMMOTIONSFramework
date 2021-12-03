@@ -160,10 +160,10 @@ class ParameterSearch:
             param_names as keys.
         i_parameterisation : int, optional
             The index number of the parameterisation being tested. Only needed
-            if self.parallel is True. Default is None.
+            if self.parallel is True or self.n_repetitions > 1. Default is None.
         i_repetition : int, optional
             The index number of the repetition for the parameterisation being
-            tested. Only needed if self.parallel is True and 
+            tested. Only needed if self.parallel is True or 
             self.n_repetitions is > 1.
 
         Returns
@@ -188,13 +188,12 @@ class ParameterSearch:
         i_repetition = results_tuple[1]
         assert(i_repetition < self.n_repetitions)
         metrics_dict = results_tuple[2]
-        if self.n_repetitions == 1:
-            self.report(f'Received results for parameterisation #{i_parameterisation+1}'
-                        f' of {self.n_parameterisations}.')
+        if self.n_repetitions > 1:
+            rep_str = f'rep. #{i_repetition+1}/{self.n_repetitions} for '
         else:
-            self.report(f'Received results for rep #{i_repetition+1} of'
-                        f' {self.n_repetitions} for parameterisation #{i_parameterisation+1}'
-                        f' of {self.n_parameterisations}.')
+            rep_str = ''
+        self.report(f'Received results for {rep_str}params #{i_parameterisation+1}'
+                    f'/{self.n_parameterisations}.')
         if self.n_repetitions == 1:
             self.results.metrics_matrix[
                 i_parameterisation, :] = self.get_metrics_array(metrics_dict)
@@ -236,10 +235,9 @@ class ParameterSearch:
                                               n_repetitions = self.n_repetitions,
                                               params_matrix = params_matrix)
         if self.parallel:
-            n_workers = mp.cpu_count()-1
-            self.report(f'Starting a pool of {n_workers} workers for parallel'
+            self.report(f'Starting a pool of {self.n_workers} workers for parallel'
                         ' evaluation of parameterisations...')
-            self.pool = mp.Pool()
+            self.pool = mp.Pool(self.n_workers)
             self.report('Pool of workers initialised.')
         self.report(f'Searching {self.n_parameterisations} parameterisations for'
                     f' parameter set {self.param_names}...')
@@ -254,7 +252,12 @@ class ParameterSearch:
                     self.get_metrics_for_params(params_dict, i_parameterisation, 
                                                 i_repetition)
                 else:
-                    metrics_dict = self.get_metrics_for_params(params_dict)
+                    if self.n_repetitions == 1:
+                        metrics_dict = self.get_metrics_for_params(params_dict)
+                    else:
+                        metrics_dict = self.get_metrics_for_params(params_dict,
+                                                                   i_parameterisation,
+                                                                   i_repetition)
                     self.receive_metrics_for_params((i_parameterisation, 
                                                      i_repetition, metrics_dict))
         if self.parallel:
@@ -332,7 +335,8 @@ class ParameterSearch:
         
     
     def __init__(self, param_names, metric_names, name='Unnamed', 
-                 n_repetitions=1, parallel=False, verbosity=0):
+                 n_repetitions=1, parallel=False, n_workers=mp.cpu_count()-1, 
+                 verbosity=0):
         """
         Constructor.
 
@@ -351,6 +355,9 @@ class ParameterSearch:
             If True, a multiprocessing.Pool will be created, for each parameter
             search, to evaluate parameterisations in parallel. The default is 
             False.
+        n_workers : int, optional
+            The number of parallel processes to run across if parallel is True.
+            The default is the number of available CPU cores minus one.
         verbosity : int, optional
             The deepest level of processing at which to provide status report
             information. The default is 0, i.e., no status reports at all.
@@ -367,6 +374,7 @@ class ParameterSearch:
         self.metric_names = metric_names
         self.n_repetitions = n_repetitions
         self.parallel = parallel
+        self.n_workers = n_workers
         self.max_verbosity_depth = verbosity
         self.curr_verbosity_depth = 0
         

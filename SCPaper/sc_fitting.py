@@ -107,31 +107,85 @@ class SCPaperScenario:
     def get_full_metric_name(self, short_metric_name):
         return self.name + '_' + short_metric_name
     
+    def get_dists_and_accs(self, i_variation=None, force_calc=False):
+        if self.n_variations == 1 and not force_calc:
+            # should already have been calculated in call from the constructor
+            return self.initial_cp_distances, self.const_accs
+        # we need to do the calculations
+        # - get the initial TTCAs for the two agents, in this scenario variation
+        initial_ttcas = []
+        for i_agent in range(2):
+            if i_agent == self.i_varied_agent:
+                if i_variation == None:
+                    raise Exception('Need to specify scenario variation.')
+                initial_ttcas.append(self.initial_ttcas[i_agent][i_variation])
+            else:
+                initial_ttcas.append(self.initial_ttcas[i_agent])
+        # - get the corresponding initial distances
+        initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
+                                + np.array(AGENT_COLL_DISTS))
+        # - get any constant accelerations
+        const_accs = [None, None]
+        if self.ped_start_standing:
+            initial_cp_distances[i_PED_AGENT] = (
+                AGENT_COLL_DISTS[i_PED_AGENT] + self.ped_standing_margin)
+        if self.ped_const_speed:
+            const_accs[i_PED_AGENT] = 0
+        if self.veh_const_speed:
+            const_accs[i_VEH_AGENT] = 0
+        elif self.veh_yielding:
+            stop_dist = (initial_cp_distances[i_VEH_AGENT] 
+                         - AGENT_COLL_DISTS[i_VEH_AGENT] - self.veh_yielding_margin)
+            const_accs[i_VEH_AGENT] = (
+                -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
+        return initial_cp_distances, const_accs
+        
+    
     def __init__(self, name, initial_ttcas, ped_prio=False,
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
                  veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN,
                  stop_criteria = (), metric_names = None):
+        """ Construct a scenario. 
+            
+            initial_ttcas should be a tuple defining the initial times to
+            the conflict space (conflict area) for the two agents. Each element
+            in the tuple can either be a single numerical value, or math.nan
+            for the pedestrian if ped_start_standing=True. For one of the agents,
+            instead of a numerical value, a tuple of numerical values can be
+            provided; if so these define different variations to the scenario.  
+            
+        """
+        # store scenario info
         self.name = name
         self.ped_prio = ped_prio
-        self.initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
-                                     + np.array(AGENT_COLL_DISTS))
-        self.initial_speeds = np.copy(AGENT_FREE_SPEEDS)
-        self.const_accs = [None, None]
-        if ped_start_standing:
-            self.initial_cp_distances[i_PED_AGENT] = (
-                AGENT_COLL_DISTS[i_PED_AGENT] + ped_standing_margin)
-            self.initial_speeds[i_PED_AGENT] = 0
-        if ped_const_speed:
-            self.const_accs[i_PED_AGENT] = 0
-        if veh_const_speed:
-            self.const_accs[i_VEH_AGENT] = 0
-        elif veh_yielding:
-            stop_dist = (self.initial_cp_distances[i_VEH_AGENT] 
-                         - AGENT_COLL_DISTS[i_VEH_AGENT] - veh_yielding_margin)
-            self.const_accs[i_VEH_AGENT] = (
-                -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
+        self.ped_start_standing = ped_start_standing
+        self.ped_standing_margin = ped_standing_margin
+        self.ped_const_speed = ped_const_speed
+        self.veh_const_speed = veh_const_speed
+        self.veh_yielding = veh_yielding
+        self.veh_yielding_margin = veh_yielding_margin
         self.stop_criteria = stop_criteria
+        # figure out if there are any kinematic variations to consider
+        self.initial_ttcas = initial_ttcas
+        self.n_variations = 1
+        self.i_varied_agent = None
+        for i_agent in range(2):
+            if type(initial_ttcas[i_agent]) == tuple:
+                if not (self.i_varied_agent == None):
+                    raise Exception('Kinematic variations for more than one agent not supported.')
+                self.i_varied_agent = i_agent
+                self.n_variations = len(initial_ttcas[i_agent])  
+        # get and store initial speeds
+        self.initial_speeds = np.copy(AGENT_FREE_SPEEDS)
+        if ped_start_standing:
+            self.initial_speeds[i_PED_AGENT] = 0       
+        # set initial distances and constant accelerations here only if 
+        # scenario has just a single variation
+        if self.n_variations == 1:
+            self.initial_cp_distances, self.const_accs = \
+                self.get_dists_and_accs(i_variation=1, force_calc=True)
+        # store metric info
         self.short_metric_names = metric_names
         self.full_metric_names = []
         for short_metric_name in self.short_metric_names:
@@ -145,33 +199,34 @@ HALFWAY_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_HALFWAY_TO_CS,)
 MOVED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,)
 EXITED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
 # - one-agent scenarios
+N_ONE_AG_SCEN_VARIATIONS = 3
 ONE_AG_SCENARIOS = {}
 ONE_AG_SCENARIOS['VehPrioAssert'] = SCPaperScenario('VehPrioAssert', 
-                                                   initial_ttcas=(math.nan, 2),  
+                                                   initial_ttcas=(math.nan, (1.5, 2, 2.5)),  
                                                    ped_start_standing=True, 
                                                    ped_const_speed=True,
                                                    stop_criteria = HALFWAY_STOP,
                                                    metric_names = ('veh_av_speed',))
 ONE_AG_SCENARIOS['VehShortStop'] = SCPaperScenario('VehShortStop', 
-                                                  initial_ttcas=(math.nan, 4),
+                                                  initial_ttcas=(math.nan, (3.5, 4, 4.5)),
                                                   ped_prio = True,
                                                   ped_start_standing=True, 
                                                   ped_const_speed=True,
                                                   stop_criteria = HALFWAY_STOP,
                                                   metric_names = ('veh_av_surpl_dec',))
 ONE_AG_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
-                                                          initial_ttcas=(3, 8), 
+                                                          initial_ttcas=(3, (7.5, 8, 8.5)), 
                                                           veh_const_speed=True,
                                                           stop_criteria = HALFWAY_STOP,
                                                           metric_names = ('ped_av_speed',))
 ONE_AG_SCENARIOS['PedHesitateVehYield'] = SCPaperScenario('PedHesitateVehYield', 
-                                                         initial_ttcas=(3, 3), 
+                                                         initial_ttcas=(3, (2.5, 3, 3.5)), 
                                                          ped_prio=True,
                                                          veh_yielding=True,
                                                          stop_criteria = HALFWAY_STOP,
                                                          metric_names = ('ped_av_speed',))
 ONE_AG_SCENARIOS['PedCrossVehYield'] = SCPaperScenario('PedCrossVehYield', 
-                                                       initial_ttcas=(math.nan, 2), 
+                                                       initial_ttcas=(math.nan, (1.5, 2, 2.5)), 
                                                        ped_prio=True,
                                                        ped_start_standing=True, 
                                                        veh_yielding=True,
@@ -269,11 +324,15 @@ def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
 
 
 def simulate_scenario(scenario, optional_assumptions, params, params_k, 
-                      snapshots=(None, None)):
+                      i_scenario_variation=None, snapshots=(None, None)):
     # prepare the simulation
+    # - get initial distances and constant accelerations for this scenario variation
+    if scenario.n_variations > 1 and i_scenario_variation == None:
+        raise Exception('Need to specify scenario variation to run.')
+    initial_cp_dists, const_accs = scenario.get_dists_and_accs(i_scenario_variation)
     # - initial position
-    initial_pos = np.array([[0, -scenario.initial_cp_distances[i_PED_AGENT]],
-                           [scenario.initial_cp_distances[i_VEH_AGENT], 0]])
+    initial_pos = np.array([[0, -initial_cp_dists[i_PED_AGENT]],
+                           [initial_cp_dists[i_VEH_AGENT], 0]])
     # - pedestrian priority?
     if scenario.ped_prio:
         params.V_ny_rel = V_NY_REL
@@ -285,7 +344,7 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         widths=AGENT_WIDTHS, lengths=AGENT_LENGTHS, 
         goal_positions=AGENT_GOALS, initial_positions=initial_pos, 
         initial_speeds=scenario.initial_speeds, 
-        const_accs=scenario.const_accs,
+        const_accs=const_accs,
         start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
         optional_assumptions=optional_assumptions, 
         params=params, params_k=params_k, 
@@ -300,7 +359,7 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
 
 
 def get_metrics_for_params(scenarios, optional_assumptions, params, params_k,
-                           verbosity=0, report_prefix=''):
+                           i_scenario_variation=None, verbosity=0, report_prefix=''):
     # loop through the scenarios, simulate them, and calculate metrics
     metrics = {}
     for scenario in scenarios.values():
@@ -310,7 +369,7 @@ def get_metrics_for_params(scenarios, optional_assumptions, params, params_k,
         
         # run this scenario with the specified assumptions and parameterisation
         sc_simulation = simulate_scenario(scenario, optional_assumptions, 
-                                          params, params_k)
+                                          params, params_k, i_scenario_variation)
         
         # calculate metric(s) for this scenario
         scenario_metrics = get_metrics_for_scenario(scenario, sc_simulation,
@@ -386,18 +445,32 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                                  self.params, self.params_k, snapshots)
         
     
-    def get_metrics_for_params(self, params_dict):
+    def get_metrics_for_params(self, params_dict, i_parameterisation, 
+                               i_repetition):
         
         self.verbosity_push()
-        self.report('Running simulations for parameterisation'
+        if self.n_repetitions > 1:
+            rep_str = f'rep. #{i_repetition+1}/{self.n_repetitions} for '
+        else:
+            rep_str = ''
+        self.report(f'Simulating {rep_str}params'
+                    f' #{i_parameterisation+1}/{self.n_parameterisations}:'
                     f' {params_dict}...')
         
         # set the model parameters as specified
         self.set_params(params_dict)
         
+        # specify which of any scenario variations we are running
+        if self.n_scenario_variations > 1:
+            i_scenario_variation = i_repetition
+        else:
+            i_scenario_variation = None
+        
         # get and return the dict of metrics
         metrics = get_metrics_for_params(
-            self.scenarios, self.optional_assumptions, self.params, self.params_k,
+            self.scenarios, self.optional_assumptions, 
+            self.params, self.params_k,
+            i_scenario_variation=i_scenario_variation,
             verbosity=self.max_verbosity_depth - self.curr_verbosity_depth,
             report_prefix=self.get_report_prefix())
         self.verbosity_pop()
@@ -406,14 +479,58 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
     
     def __init__(self, name, scenarios, optional_assumptions, 
                  default_params, default_params_k, param_arrays, 
-                 verbosity=0):
-        # build the list of metrics to calculate in this search, from the
-        # scenario information
+                 n_repetitions=1, verbosity=0):
+        """
+        Construct and run a parameter search for the SCPaper project.
+
+        Parameters
+        ----------
+        name : str
+            A name for the parameter search.
+        scenarios : dict with values of SCPaperScenario type
+            The scenarios to simulate for each parameterisation. If these have
+            kinematical variations, the number of variations must be the same 
+            for all scenarios, and must equal the n_repetitions parameter.
+        optional_assumptions : dict with keys of sc_scenario.OptionalAssumption 
+                               and bool values.
+            The optional assumptions for the model to be searched.
+        default_params : commotions.Parameters
+            Default parameter values, except value function gains.
+        default_params_k : dict of commotions.Parameters with 
+                           sc_scenario_helper.CtrlType as keys
+            Deafult value function gain parameters.
+        param_arrays : dict with str keys and iterable values
+            Definition of the parameter grid to search. Only those parameters 
+            relevant given optional_assumptions will be included in the grid.
+        n_repetitions : int, optional
+            The number of times to test each parameterisation. If the scenarios
+            have kinematical variations, this number must equal the number of
+            variations, which has to be the same across scenarios. The default is 1.
+        verbosity : int, optional
+            Verbosity - see parameter_search.ParameterSearch. The default is 0.
+
+        Returns
+        -------
+        None.
+
+        """
+        # go through the list of scenarios to (1) check whether there are 
+        # kinematic variations, and if so that the number of variations is
+        # shared across scenarios, equal to n_repetitions, and (2) build the 
+        # list of metrics to calculate in this search, from the scenario 
+        # metric information
         self.scenarios = scenarios
         metric_names = []
-        for scenario in self.scenarios.values():
+        n_ind_scenario_variations = np.full(len(scenarios), math.nan)
+        for i_scenario, scenario in enumerate(self.scenarios.values()):
+            n_ind_scenario_variations[i_scenario] = scenario.n_variations
             for metric_name in scenario.full_metric_names:
                 metric_names.append(metric_name)
+        self.n_scenario_variations = np.amax(n_ind_scenario_variations)
+        if self.n_scenario_variations > 1:
+            if not np.all(n_ind_scenario_variations == n_repetitions):
+                raise Exception('If there are scenario variations, the number has' 
+                                'to be equal across scenarios, and equal to n_repetitions.')
         # make local copies of the default params objects, to use for
         # parameterising simulations during the fitting
         self.optional_assumptions = copy.copy(optional_assumptions)
@@ -468,7 +585,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                 raise Exception(f'Found unsupported assumption: {unsupp}')
         # call inherited constructor
         super().__init__(tuple(free_param_names), tuple(metric_names), 
-                         name=name, verbosity=verbosity)
+                         name=name, n_repetitions=n_repetitions, 
+                         verbosity=verbosity)
         # run the grid search
         self.search_grid(free_param_arrays)
         # save the results
@@ -491,6 +609,8 @@ if __name__ == "__main__":
                                       OPTIONAL_ASSUMPTIONS, 
                                       DEFAULT_PARAMS, 
                                       get_default_params_k(MODEL), 
-                                      PARAM_ARRAYS, verbosity=5)
+                                      PARAM_ARRAYS, 
+                                      n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                      verbosity=4)
     
     
