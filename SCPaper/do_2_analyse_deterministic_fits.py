@@ -29,7 +29,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_PLOTS = True
+DO_PLOTS = False
 N_MAIN_CRIT_FOR_PLOT = 2
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
@@ -181,8 +181,8 @@ for det_fit_file in det_fit_files:
         print(f'\t\t{main_crit_dict}')
         print(f'\t\t{sec_crit_dict}')
         det_fit.set_params(params_dict)
-        warnings.warn('Next line here to be removed, will not be needed when do_1... has been rerun again.')
-        det_fit.n_scenario_variations = round(det_fit.n_scenario_variations)
+        #warnings.warn('Next line here to be removed, will not be needed when do_1... has been rerun again.')
+        #det_fit.n_scenario_variations = round(det_fit.n_scenario_variations)
         for scenario in det_fit.scenarios.values():
             print(f'\n\n\t\t\tScenario "{scenario.name}"')
             sc_simulations = det_fit.simulate_scenario(scenario)

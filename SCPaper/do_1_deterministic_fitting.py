@@ -58,11 +58,14 @@ def run_fit(model_str):
     this_fit = sc_fitting.SCPaperParameterSearch(
         model_str, sc_fitting.ONE_AG_SCENARIOS, assumptions, 
         sc_fitting.DEFAULT_PARAMS, default_params_k, PARAM_ARRAYS, 
-        n_repetitions=sc_fitting.N_ONE_AG_SCEN_VARIATIONS, verbosity=2)
+        n_repetitions=sc_fitting.N_ONE_AG_SCEN_VARIATIONS, parallel=True,
+        verbosity=2)
     
 
 if __name__ == "__main__":
     # get full list of models to fit
+    run_fit('oVAaoVAloBEooBEvoAI')
+    quit()
     models_to_fit = []
     for base_model in BASE_MODELS:
         for model_variant in MODEL_VARIANTS:

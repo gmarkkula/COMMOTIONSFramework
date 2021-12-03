@@ -261,8 +261,12 @@ class ParameterSearch:
                     self.receive_metrics_for_params((i_parameterisation, 
                                                      i_repetition, metrics_dict))
         if self.parallel:
+            # close pool for further calls
             self.pool.close()
+            # wait for pool workers to complete
             self.pool.join()
+            # get rid of pool object (can't be pickled/saved with the rest)
+            self.pool = None 
         self.report('Parameter search complete.')
         self.verbosity_pop()
             

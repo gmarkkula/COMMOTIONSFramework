@@ -18,6 +18,7 @@ import os
 import math
 import copy
 from dataclasses import dataclass
+import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 import commotions
@@ -393,6 +394,14 @@ def get_metrics_for_params(scenarios, optional_assumptions, params, params_k,
     return metrics
 
 
+def get_metrics_for_params_parallel(i_parameterisation, i_repetition, 
+                                    scenarios, optional_assumptions, params, params_k,
+                                    i_scenario_variation=None, verbosity=0, report_prefix=''):
+    metrics = get_metrics_for_params(
+        scenarios, optional_assumptions, params, params_k,
+        i_scenario_variation, verbosity, report_prefix)
+    return(i_parameterisation, i_repetition, metrics)
+
 
 # class for searching/testing parameterisations of sc_scenario.SCSimulation
 class SCPaperParameterSearch(parameter_search.ParameterSearch):
@@ -473,8 +482,10 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                     f' #{i_parameterisation+1}/{self.n_parameterisations}:'
                     f' {params_dict}...')
         
-        # set the model parameters as specified
+        # set the model parameters as specified and copy objects for parallelisation
         self.set_params(params_dict)
+        params = copy.deepcopy(self.params)
+        params_k = copy.deepcopy(self.params_k)
         
         # specify which of any scenario variations we are running
         if self.n_scenario_variations > 1:
@@ -483,19 +494,33 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
             i_scenario_variation = None
         
         # get and return the dict of metrics
-        metrics = get_metrics_for_params(
-            self.scenarios, self.optional_assumptions, 
-            self.params, self.params_k,
-            i_scenario_variation=i_scenario_variation,
-            verbosity=self.max_verbosity_depth - self.curr_verbosity_depth,
-            report_prefix=self.get_report_prefix())
-        self.verbosity_pop()
-        return metrics
+        self.verbosity_push()
+        verbosity = self.max_verbosity_depth - self.curr_verbosity_depth + 1
+        if self.parallel:
+            self.pool.apply_async(get_metrics_for_params_parallel, 
+                                  args=(i_parameterisation, i_repetition,
+                                        self.scenarios, self.optional_assumptions, 
+                                        params, params_k),
+                                  kwds={'i_scenario_variation': i_scenario_variation,
+                                        'verbosity': verbosity,
+                                        'report_prefix': self.get_report_prefix()},
+                                  callback = self.receive_metrics_for_params)
+            self.verbosity_pop(2)
+        else:
+            metrics = get_metrics_for_params(
+                self.scenarios, self.optional_assumptions, 
+                self.params, self.params_k,
+                i_scenario_variation=i_scenario_variation,
+                verbosity=verbosity,
+                report_prefix=self.get_report_prefix())
+            self.verbosity_pop(2)
+            return metrics
             
     
     def __init__(self, name, scenarios, optional_assumptions, 
                  default_params, default_params_k, param_arrays, 
-                 n_repetitions=1, verbosity=0):
+                 n_repetitions=1, parallel=False, n_workers=mp.cpu_count()-1,
+                 verbosity=0):
         """
         Construct and run a parameter search for the SCPaper project.
 
@@ -602,6 +627,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         # call inherited constructor
         super().__init__(tuple(free_param_names), tuple(metric_names), 
                          name=name, n_repetitions=n_repetitions, 
+                         parallel=parallel, n_workers=n_workers,
                          verbosity=verbosity)
         # run the grid search
         self.search_grid(free_param_arrays)
@@ -627,6 +653,7 @@ if __name__ == "__main__":
                                       get_default_params_k(MODEL), 
                                       PARAM_ARRAYS, 
                                       n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
-                                      verbosity=4)
+                                      parallel=True,
+                                      verbosity=3)
     
     
