@@ -36,12 +36,12 @@
         * ~~Document implementation in this README~~
         * ~~Make a diary entry showing example results for some various model alternatives.~~
     * ~~Implement `oAN` as actual accumulator noise rather than value noise.~~
-    * Get to the point where I am ready to run probabilistic fits (but don't really run them yet):
+    * ~~et to the point where I am ready to run probabilistic fits (but don't really run them yet):~~
         * ~~Identify models and parameterisations from the deterministic fits, to use as starting points.~~
-        * Code modifications
+        * ~~Code modifications~~
             * ~~Add support for agent width and length.~~
             * ~~Modify parameter search classes to support parallelising individual parameterisations~~
-        * Scenario modifications (branch splitting-scenarios)
+        * ~~Scenario modifications (branch splitting-scenarios)~~
             * ~~Define updated scenarios:~~
                 * ~~Break up the pedestrian scenarios in two parts, one per phenomenon of interest.~~
                 * ~~Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.~~
@@ -56,6 +56,13 @@
                 * ~~To think about:~~
                     * ~~Should the estimated entry/exit times take safety margins into account, to prevent the kinds of problems discussed below under "`oVAaoVAl[oBEo]BEv`..." in the 2021-11-27 notes?~~
                     * ~~Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent. ... I have looked at this now and it seems to create some unintended knock-on effects, so leaving as is at least for now.~~
+    * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
+        * ~~Maybe first on my own computer...?~~
+        * ... And then on a faster computer, with an expanded grid?
+            * Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.
+    * Run probabilistic fits
+        * Make sure scenarios and metrics are in order.
+        * Decide on a parameter grid.
         * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
             * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
             * ~~Add support for multiple repetitions.~~
@@ -64,11 +71,7 @@
             * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
             * Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.
         * Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.
-    * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
-        * Maybe first on my own computer...?
-        * ... And then on a faster computer, with an expanded grid?
-            * Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.
-    * Run the actual probabilistic fits - probably again in multiple stages with expanding grid.
+        * Run the actual probabilistic fits - probably again in multiple stages with expanding grid.
 * Idea: Test the best model candidates on the Keio or HIKER pedestrian crossing data - without fitting.
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
