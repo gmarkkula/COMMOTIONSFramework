@@ -25,8 +25,10 @@ import multiprocessing as mp
 # set constants
 
 # - models 
-BASE_MODELS = ('', 'oVA', 'oVAa', 'oVAaoBEc', 'oVAoVAl', 'oVAaoVAl')  
-MODEL_VARIANTS = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
+# BASE_MODELS = ('', 'oVA', 'oVAa', 'oVAaoBEc', 'oVAoVAl', 'oVAaoVAl')  
+# MODEL_VARIANTS = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
+BASE_MODELS = ('', 'oVA', 'oVAaoVAl')  
+MODEL_VARIANTS = ('', 'oBEvoAI')
 
 
 # - free parameter values
@@ -53,11 +55,19 @@ PARAM_ARRAYS['sigma_O'] = (0.02, 0.05, 0.1, 0.2, 0.5, 1, 2.5)
 def run_fit(model_str):
     default_params_k = sc_fitting.get_default_params_k(model_str)
     assumptions = sc_scenario.get_assumptions_dict_from_string(model_str)
+    if os.name == 'nt':
+        # running on my own computer
+        n_workers = mp.cpu_count()-1
+        verbosity = 2
+    else:
+        # running on cluster, so use all cores, and limit status output
+        n_workers = mp.cpu_count()
+        verbosity = 1
     this_fit = sc_fitting.SCPaperParameterSearch(
         model_str, sc_fitting.ONE_AG_SCENARIOS, assumptions, 
         sc_fitting.DEFAULT_PARAMS, default_params_k, PARAM_ARRAYS, 
         n_repetitions=sc_fitting.N_ONE_AG_SCEN_VARIATIONS, parallel=True,
-        verbosity=2)
+        n_workers=n_workers, verbosity=verbosity)
     
 
 if __name__ == "__main__":
