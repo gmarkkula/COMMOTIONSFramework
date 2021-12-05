@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Created on Sun Oct  3 19:37:11 2021
@@ -21,6 +22,7 @@ import numpy as np
 import collections
 import parameter_search
 import sc_fitting
+import warnings
 
 ExampleParameterisation = collections.namedtuple(
     'ExampleParameterisation',['i_parameterisation', 'params_array', 
@@ -29,15 +31,22 @@ ExampleParameterisation = collections.namedtuple(
 # constants
 DO_PLOTS = True
 N_MAIN_CRIT_FOR_PLOT = 4
-MODELS_TO_ANALYSE = 'all' #('oVAoVAloBEvoAI',)
+MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
 SURPLUS_DEC_THRESH = 2 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
-MAIN_CRITERIA = ('veh_assert_prio', 'veh_short_stop', 
-                 'ped_hesitate_dec', 'ped_start_bef_veh_stop')
-SEC_CRITERIA = ('ped_hesitate_const', 'ped_fast_crossing')
+CRITERION_GROUPS = ('Main criteria', 'Secondary criteria')
+i_MAIN = 0
+i_SEC = 1
+N_CRIT_GROUPS = len(CRITERION_GROUPS)
+CRITERIA = (('Vehicle asserting priority', 'Vehicle short-stopping', 
+             'Pedestrian hesitation in deceleration scenario', 
+             'Pedestrian starting before vehicle at full stop'),
+            ('Pedestrian hesitation in constant-speed scenario',)
+            )
+assert(N_CRIT_GROUPS == len(CRITERIA))
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 N_MAIN_CRIT_FOR_RETAINING = 3
@@ -66,76 +75,51 @@ for det_fit_file in det_fit_files:
           f' {n_parameterisations} parameterisations...')
     
     # calculate criterion vectors
-    
-    print('\tMain criteria:')
-    
-    # - "ActVehStatPed": vehicle asserting priority
-    veh_1st = det_fit.get_metric_results('ActVehStatPed_veh_1st') == 1
-    veh_min_speed_before = det_fit.get_metric_results(
-        'ActVehStatPed_veh_min_speed_before')
-    veh_never_slowing = veh_min_speed_before >= VEH_FREE_SPEED
-    veh_mean_speed_early_before = det_fit.get_metric_results(
-        'ActVehStatPed_veh_mean_speed_early_before')
-    veh_on_av_faster = veh_mean_speed_early_before > SPEEDUP_FRACT * VEH_FREE_SPEED
-    veh_assert_prio = veh_1st & veh_never_slowing & veh_on_av_faster
-    n_veh_assert_prio = np.count_nonzero(veh_assert_prio)
-    print(f'\t\tVehicle asserting priority: Found {n_veh_assert_prio}'
-          f' ({100 * n_veh_assert_prio / n_parameterisations:.1f} %) parameterisations.') 
-    
-    # - "ActVehPrioPed": vehicle short-stopping
-    veh_max_surplus_dec_before = det_fit.get_metric_results(
-        'ActVehStatPedPrio_veh_max_surplus_dec_before')
-    veh_short_stop = veh_max_surplus_dec_before > SURPLUS_DEC_THRESH
-    n_veh_short_stop = np.count_nonzero(veh_short_stop)
-    print(f'\t\tVehicle short-stopping: Found {n_veh_short_stop}'
-          f' ({100 * n_veh_short_stop / n_parameterisations:.1f} %) parameterisations.') 
-    
-    # - "ActPedPrioEncounter": pedestrian decelerating, then crossing before 
-    # -                        vehicle has come to a full stop 
-    ped_min_speed_before = det_fit.get_metric_results(
-        'ActPedPrioEncounter_ped_min_speed_before')
-    ped_hesitate_dec = ped_min_speed_before < HESITATION_SPEED_FRACT * PED_FREE_SPEED
-    n_ped_hesitate_dec = np.count_nonzero(ped_hesitate_dec)
-    print(f'\t\tPedestrian hesitation in deceleration scenario:'
-          f' Found {n_ped_hesitate_dec}'
-          f' ({100 * n_ped_hesitate_dec / n_parameterisations:.1f} %) parameterisations.') 
-    ped_1st = det_fit.get_metric_results('ActPedPrioEncounter_ped_1st')
-    veh_speed_at_ped_start = det_fit.get_metric_results(
-        'ActPedPrioEncounter_veh_speed_at_ped_start')
-    ped_start_bef_veh_stop = ((ped_1st.astype(bool) 
-                                & np.isnan(veh_speed_at_ped_start)) 
-                              | (veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH))
-    # ped_start_bef_veh_stop = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
-    n_ped_start_bef_veh_stop = np.count_nonzero(ped_start_bef_veh_stop)
-    print(f'\t\tPedestrian starting before vehicle at full stop (or never stopping):'
-          f' Found {n_ped_start_bef_veh_stop}'
-          f' ({100 * n_ped_start_bef_veh_stop / n_parameterisations:.1f} %) parameterisations.') 
-    
-    print('\tSecondary criteria:')
-    
-    # - "ActPedLeading": pedestrian decelerating, then crossing before vehicle 
-    # -                  at higher than free speed
-    ped_1st = det_fit.get_metric_results('ActPedLeading_ped_1st') == 1
-    ped_min_speed_before = det_fit.get_metric_results(
-        'ActPedLeading_ped_min_speed_before')
-    ped_hesitate_const = (ped_1st & (ped_min_speed_before 
-                                     < HESITATION_SPEED_FRACT * PED_FREE_SPEED))
-    n_ped_hesitate_const = np.count_nonzero(ped_hesitate_const)
-    print(f'\t\tPedestrian hesitation in constant-speed scenario:'
-          f' Found {n_ped_hesitate_const}'
-          f' ({100 * n_ped_hesitate_const / n_parameterisations:.1f} %) parameterisations.') 
-    ped_max_speed_after = det_fit.get_metric_results(
-        'ActPedLeading_ped_max_speed_after')
-    ped_fast_crossing = ped_1st & (ped_max_speed_after > PED_FREE_SPEED)
-    n_ped_fast_crossing = np.count_nonzero(ped_fast_crossing)
-    print(f'\t\tPedestrian crossing fast in front of constant-speed vehicle:'
-          f' Found {n_ped_fast_crossing}'
-          f' ({100 * n_ped_fast_crossing / n_parameterisations:.1f} %) parameterisations.') 
+    criteria_matrices = []
+    for i_crit_grp in range(N_CRIT_GROUPS):
+        print(f'\t{CRITERION_GROUPS[i_crit_grp]}:')
+        criteria_matrices.append(
+            np.full((len(CRITERIA[i_crit_grp]), n_parameterisations), False))
+        for i_crit, crit in enumerate(CRITERIA[i_crit_grp]):
+            
+            # criterion-specific calculations
+            if crit == 'Vehicle asserting priority':
+                veh_av_speed = det_fit.get_metric_results('VehPrioAssert_veh_av_speed')
+                crit_met_all = veh_av_speed > SPEEDUP_FRACT * VEH_FREE_SPEED
+                
+            elif crit == 'Vehicle short-stopping':
+                veh_av_surplus_dec = det_fit.get_metric_results(
+                    'VehShortStop_veh_av_surpl_dec')
+                crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
+                
+            elif crit == 'Pedestrian hesitation in constant-speed scenario':
+                ped_av_speed = det_fit.get_metric_results('PedHesitateVehConst_ped_av_speed')
+                crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
+            
+            elif crit == 'Pedestrian hesitation in deceleration scenario':
+                ped_av_speed = det_fit.get_metric_results('PedHesitateVehYield_ped_av_speed')
+                crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
+                
+            elif crit == 'Pedestrian starting before vehicle at full stop':
+                veh_speed_at_ped_start = det_fit.get_metric_results(
+                    'PedCrossVehYield_veh_speed_at_ped_start')
+                crit_met_all = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
+            
+            else:
+                raise Exception(f'Unexpected criterion "{crit}".')
+                
+            # criterion met for model if met for at least one of the kinematic variants
+            crit_met = np.any(crit_met_all, axis=1)
+            criteria_matrices[i_crit_grp][i_crit, :] = crit_met
+            # print some info
+            n_crit_met = np.count_nonzero(crit_met)
+            print(f'\t\t{crit}: Found {n_crit_met}'
+                  f' ({100 * n_crit_met / n_parameterisations:.1f} %) parameterisations.') 
+ 
     
     # - look across multiple criteria
+    main_criteria_matrix = criteria_matrices[i_MAIN]
     # -- main criteria
-    main_criteria_matrix = np.array((veh_assert_prio, veh_short_stop, 
-                                    ped_hesitate_dec, ped_start_bef_veh_stop))
     all_main_criteria_met = np.all(main_criteria_matrix, axis=0)
     n_all_main_criteria_met = np.count_nonzero(all_main_criteria_met)
     print(f'\tAll main criteria met: Found {n_all_main_criteria_met}'
@@ -148,7 +132,7 @@ for det_fit_file in det_fit_files:
     print(f'\tMax no of main criteria met was {n_max_main_criteria_met},'
           f' for {n_met_max_main_criteria} parameterisations.')
     # -- secondary criteria
-    sec_criteria_matrix = np.array((ped_hesitate_const, ped_fast_crossing))
+    sec_criteria_matrix = criteria_matrices[i_SEC]
     n_sec_criteria_met = np.sum(sec_criteria_matrix, axis=0)
     n_sec_criteria_met_among_best = n_sec_criteria_met[met_max_main_criteria]
     n_max_sec_crit_met_among_best = np.max(n_sec_criteria_met_among_best)
@@ -157,6 +141,9 @@ for det_fit_file in det_fit_files:
     print('\t\tOut of these, the max number of secondary criteria met was'
           f' {n_max_sec_crit_met_among_best}, for {n_met_max_sec_crit_among_best}'
           ' parameterisations.')
+    # -- NaNs
+    print(f'\tNaNs in main crit: {np.sum(np.isnan(main_criteria_matrix), axis=1)}'
+          f'; sec crit: {np.sum(np.isnan(sec_criteria_matrix), axis=1)}')
     # -- store these analysis results as object attributes
     det_fit.main_criteria_matrix = main_criteria_matrix
     det_fit.n_main_criteria_met = n_main_criteria_met
@@ -180,9 +167,9 @@ for det_fit_file in det_fit_files:
     params_array = det_fit.results.params_matrix[i_parameterisation, :]
     params_dict = det_fit.get_params_dict(params_array)
     main_crit_dict = {crit : main_criteria_matrix[i_crit, i_parameterisation] 
-                 for i_crit, crit in enumerate(MAIN_CRITERIA)}
+                 for i_crit, crit in enumerate(CRITERIA[i_MAIN])}
     sec_crit_dict = {crit : sec_criteria_matrix[i_crit, i_parameterisation] 
-                 for i_crit, crit in enumerate(SEC_CRITERIA)}
+                 for i_crit, crit in enumerate(CRITERIA[i_SEC])}
     det_fit.example = ExampleParameterisation(
         i_parameterisation=i_parameterisation, params_array=params_array,
         params_dict=params_dict, main_crit_dict=main_crit_dict, 
@@ -193,20 +180,26 @@ for det_fit_file in det_fit_files:
         print(f'\t\t{params_dict}')
         print(f'\t\t{main_crit_dict}')
         print(f'\t\t{sec_crit_dict}')
-        det_fit.set_params(params_array)
-        for scenario in sc_fitting.DET1S_SCENARIOS.values():
+        det_fit.set_params(params_dict)
+        #warnings.warn('Next line here to be removed, will not be needed when do_1... has been rerun again.')
+        #det_fit.n_scenario_variations = round(det_fit.n_scenario_variations)
+        for scenario in det_fit.scenarios.values():
             print(f'\n\n\t\t\tScenario "{scenario.name}"')
-            sc_simulation = det_fit.simulate_scenario(scenario)
+            sc_simulations = det_fit.simulate_scenario(scenario)
             be_plots = 'oBE' in det_fit.name
-            sc_simulation.do_plots(kinem_states=True, 
-                                   beh_probs=be_plots)
+            for sim in sc_simulations:
+                sim.do_plots(kinem_states=True, veh_stop_dec=True, beh_probs=be_plots)
+                sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
         
     
 # provide info on retained models
 print('\n\n*** Retained models ***')
 for ret_model in retained_models:
-    print(f'\nModel {ret_model.model}\nRetaining {ret_model.params_array.shape[0]}'
-          ' parameterisations, across:')
+    n_ret_params = ret_model.params_array.shape[0]
+    n_total = det_fits[ret_model.model].n_parameterisations
+    print(f'\nModel {ret_model.model}\nRetaining {n_ret_params}'
+          f' out of {n_total}'
+          f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
     print(ret_model.param_names)
     print('\n***********************')
     

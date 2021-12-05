@@ -39,12 +39,31 @@
     * Get to the point where I am ready to run probabilistic fits (but don't really run them yet):
         * ~~Identify models and parameterisations from the deterministic fits, to use as starting points.~~
         * Code modifications
-            * Add support for agent width and length.
-            * Modify parameter search classes to support parallelising individual parameterisations
-        * Scenario modifications
-            * Break up the pedestrian scenarios in two parts, one per phenomenon of interest
-            * Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.
-        * Make sure to include tests both with and without `oPF`, to see if it is need for the "pedestrian hesitation and speedup" phenomenon.
+            * ~~Add support for agent width and length.~~
+            * ~~Modify parameter search classes to support parallelising individual parameterisations~~
+        * Scenario modifications (branch splitting-scenarios)
+            * ~~Define updated scenarios:~~
+                * ~~Break up the pedestrian scenarios in two parts, one per phenomenon of interest.~~
+                * ~~Include also one or more scenarios where both agents are active, for example two encounter scenarios, one with pedestrian priority and one without, to verify correct order of access and absence of collisions.~~
+            * ~~Implement the updated scenarios (see 2021-11-20b diary notes).~~
+                * ~~Up to date scenario definitions.~~
+                * ~~Update the metrics being calculated and stored for each scenario.~~
+            * ~~Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios.~~
+            * ~~Rewrite in `do_2...` to use the reformulated metrics.~~
+            * ~~Actions identified 2021-11-27:~~
+                * ~~Set `sc_scenario_helper.ANTICIPATION_TIME_STEP` = 0.025 s.~~
+                * ~~Protect against predicted reversing in `SCAgent.get_predicted_other_state()`, and also deal gracefully with negative speeds in `sc_scenario.get_entry_exit_times()`.~~
+                * ~~To think about:~~
+                    * ~~Should the estimated entry/exit times take safety margins into account, to prevent the kinds of problems discussed below under "`oVAaoVAl[oBEo]BEv`..." in the 2021-11-27 notes?~~
+                    * ~~Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent. ... I have looked at this now and it seems to create some unintended knock-on effects, so leaving as is at least for now.~~
+        * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
+            * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
+            * ~~Add support for multiple repetitions.~~
+            * ~~Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.~~
+        * Speedups:
+            * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
+            * Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.
+        * Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * Maybe first on my own computer...?
         * ... And then on a faster computer, with an expanded grid?
@@ -55,7 +74,14 @@
     * ~~Parallelisation in `parameter_search.py`?~~ 
     
 
-
+## Model/code imperfections to think about / keep an eye on
+* Model:
+    * Assuming pedestrians apply constant deceleration rather than constant speed to achieve interaction outcomes.
+    * The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.) 
+    * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed.
+    * The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
+* Other stuff:
+    * The pedestrian hesitation metrics could return NaN if the pedestrian hesitates itself to a full stop and never gets halfway to the conflict space before the simulation time runs out. I haven't seen that it is a problem, but it might be.
 
 
 ## Model formulations
@@ -137,8 +163,8 @@ If $\mathscr{C}$ contains an outcome $\Omega \in \{ \Omega_{1st}, \Omega_{2nd} \
 1. Estimating the predicted world state $\tilde{\mathbf{x}}'$ a time $T_\mathrm{P}$ into the future, given the current state $\tilde{\mathbf{x}}(k)$ and $\mathscr{C}$, and some combination of 
     * An action $a$ initiated at time $k$ by the ego agent A
     * A behaviour $b$ exhibited by the other agent B from $k$ onward
-    * A behaviour $c$ exhibited by the ego agent A from time $k + T_\mathrm{P}/\Delta t$ onward (not 100% sure about this last one - isn't really implemented yet).
-2. Calculating the acceleration needed for agent $X$ to achieve outcome $\Omega$, given the position and speed of agent $X$ in $\tilde{\mathbf{x}}'$, and the position, speed, and possibly acceleration of agent $\lnot X$ in $\tilde{\mathbf{x}}'$. Acceleration is considered if `oVAa` is enabled.
+    * A behaviour $c$ exhibited by the ego agent A from time $k' = k + T_\mathrm{P}/\Delta t$ onward (not 100% sure about this last one - isn't really implemented yet).
+2. Calculating the acceleration needed for agent $X$ to achieve outcome $\Omega$, given the position and speed of agent $X$ in $\tilde{\mathbf{x}}'$, and the position, speed, and possibly acceleration of agent $\lnot X$ in $\tilde{\mathbf{x}}'$. Acceleration of the other agent after time $k'$ (as dictated by behaviour $b$) is considered if `oVAa` is enabled.
 3. Calculating the value of the resulting future trajectory of $X$, as described in `COMMOTIONSFramework` diary entry 2021-05-19b (maybe to be described here also later).
 4. If `oVAl` is enabled and the agents are on a collision course at $k + T_\mathrm{P}/\Delta t$, also adding a negative looming aversion term:
 
@@ -163,8 +189,18 @@ V_B[\tilde{\mathbf{x}}(k) | \mathscr{C}] = \max_{\Omega} V_A[\tilde{\mathbf{x}}(
 $$
 
 As mentioned above, the value function is affected by the following optional assumption:
-* `oVAa`, acceleration-aware (affordance-based) value estimation.
+* `oVAa`, acceleration-aware (affordance-based) value estimation (note that this only really makes a difference if also `oBE*` is enabled; see further below).
 * `oVAl`, looming aversion.
+
+
+### Defining the acceleration needed to pass before/after another agent
+
+The estimated acceleration for an agent $X$ to pass first(/second) is the acceleration needed to reach a safety margin distance $D_\mathrm{s}$ past(/before) the conflict space, at a time $T_\mathrm{s}$ before(/after) the other agent $\lnot X$ enters(/exits) the conflict space. Note that the conflict space is defined physically by the dimensions of the two agents.
+
+The time at which the other agent $\lnot X$ enters/exits the conflict space can be calculated with or without taking accelerations into account:
+* When an ego agent $A$ estimates another agent $B$'s acceleration for a behaviour $b$ (i.e., in this case $X = B$), then $A$ assumes that $B$ is not observing $A$'s accelerations, i.e., the calculations of accelerations for $b$ are based on $A$'s position and speed, but not acceleration.
+* When an ego agent $A$ estimates the own accelerations needed to pass in front of the other agent $B$ from a predicted world state $\tilde{\mathbf{x}}'$, affected by the acceleration associated with a behaviour $b$, $A$ may either disregard acceleration of $B$ beyond the predicted time point $k'$ (`oVA`) or consider acceleration of $B$ also beyond $k'$ (`oVAa`).
+
 
 ### Estimating probabilities of the other agent's possible behaviours
 
@@ -192,6 +228,7 @@ Two optional assumptions defined based on the above:
 
 * `oBEv`, behaviour estimation based on value estimates: $\beta_\mathrm{V} > 0$ 
 * `oBEo`, behaviour estimation based on observation: $\beta_\mathrm{O} = 1$ 
+
 
 As described in the 2021-09-10 diary notes, we may define a parameter $P_\dag$ (the probability of choosing a maximally negative value action over a neutral value action) from which to derive $\beta_\mathrm{V}$.
 

@@ -67,6 +67,14 @@ def get_assumptions_dict_from_string(string):
 
 class DerivedAssumption(Enum):
     dBE = 'dBE'
+    
+
+class SimStopCriterion(Enum):
+    ACTIVE_AGENT_HALFWAY_TO_CS = 'one actively behaving agent halfway to conflict space'
+    BOTH_AGENTS_HAVE_MOVED = 'both agents have moved since simulation start'
+    BOTH_AGENTS_STOPPED = 'both agents stopped'
+    BOTH_AGENTS_EXITED_CS = 'both agents exited conflict space'
+    
 
 N_AGENTS = 2 # this implementation supports only 2
 
@@ -240,6 +248,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.beh_activ_V_given_actions[:, :, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
         self.states.beh_activ_O[i_CONSTANT, -1] = 0
+        # prepare a separate array for storing distances to the conflict point
+        self.signed_CP_dists = np.full(n_time_steps, math.nan)
         
         # calculate where the two agents' paths intersect, if it has not already 
         # been done
@@ -302,6 +312,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.curr_state.long_acc = \
             self.trajectory.long_acc[self.simulation.state.i_time_step-1]
         self.curr_state = self.add_sc_state_info(self.curr_state, self.coll_dist)
+        self.signed_CP_dists[self.simulation.state.i_time_step] = \
+            self.curr_state.signed_CP_dist
 
 
     def do_action_update(self):
@@ -761,7 +773,7 @@ class SCAgent(commotions.AgentWithGoal):
             if self.do_snapshot_now:
                 snapshot_str = ''
                 for access_order in AccessOrder:
-                    snapshot_str += ('(%.1f m/s^2, %.1f s, %.1f s)' %
+                    snapshot_str += ('(%.1f m/s^2, %.2f s, %.1f s)' %
                                     (implications[access_order].acc,
                                      implications[access_order].T_acc,
                                      implications[access_order].T_dw) + '\n'
@@ -774,7 +786,7 @@ class SCAgent(commotions.AgentWithGoal):
                             snapshot_str += f'{kinem_value:.1f}, '
                         looming_value = np.sum(deets.phase_looming_values)
                         snapshot_str += f'{deets.inh_access_value:.1f}, '
-                        snapshot_str += f'{looming_value:.1f})\n'
+                        snapshot_str += f'{looming_value:.2f})\n'
                         if plot_snapshot_deets:
                             if access_order == AccessOrder.EGOFIRST:
                                 color = 'g'
@@ -1074,12 +1086,21 @@ class SCAgent(commotions.AgentWithGoal):
             # predicted_state.long_acc = long_acc_for_this_beh
             # # add SC scenario specific state info
             # predicted_state = self.add_sc_state_info(predicted_state)
-            pred_CP_dist = (self.perception.perc_oth_state.signed_CP_dist
-                            - self.perception.perc_oth_state.long_speed 
-                            * self.params.T_P
-                            - (long_acc_for_this_beh * self.params.T_P ** 2) / 2)
             pred_speed = (self.perception.perc_oth_state.long_speed 
                           + long_acc_for_this_beh * self.params.T_P)
+            # make sure not to predict reversing
+            if pred_speed >= 0:
+                dist_pred_time = self.params.T_P
+            else:
+                pred_speed = 0
+                assert(long_acc_for_this_beh < 0)
+                dist_pred_time = (self.perception.perc_oth_state.long_speed 
+                                  / (-long_acc_for_this_beh))
+            pred_CP_dist = (self.perception.perc_oth_state.signed_CP_dist
+                            - self.perception.perc_oth_state.long_speed 
+                            * dist_pred_time
+                            - (long_acc_for_this_beh * dist_pred_time ** 2) / 2)
+            
             pred_yaw_angle = self.perception.perc_oth_state.yaw_angle
             predicted_state = commotions.KinematicState(pos=None, 
                                                         long_speed=pred_speed,
@@ -1286,7 +1307,8 @@ class SCSimulation(commotions.Simulation):
                  params = None, params_k = None,  
                  noise_seeds = (None, None), kalman_priors = (None, None),
                  const_accs = (None, None), agent_names = ('A', 'B'), 
-                 plot_colors = ('c', 'm'), snapshot_times = (None, None)):
+                 plot_colors = ('c', 'm'), snapshot_times = (None, None),
+                 stop_criteria = ()):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -1308,10 +1330,64 @@ class SCSimulation(commotions.Simulation):
                     const_acc = const_accs[i_agent],
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
+        
+        self.stop_criteria = stop_criteria
             
             
+    def after_time_step(self):
+        for stop_crit in self.stop_criteria:
+            
+            if stop_crit == SimStopCriterion.ACTIVE_AGENT_HALFWAY_TO_CS:
+                for agent in self.agents:
+                    if agent.const_acc == None:
+                        halfway_dist = \
+                            sc_scenario_helper.get_agent_halfway_to_CS_CP_dist(agent)
+                        if agent.curr_state.signed_CP_dist < halfway_dist:
+                            self.stop_now = True
+                            return
+                    
+            elif stop_crit == SimStopCriterion.BOTH_AGENTS_HAVE_MOVED:
+                found_unmoved_agent = False
+                for agent in self.agents:
+                    if agent.curr_state.signed_CP_dist == agent.signed_CP_dists[0]:
+                        found_unmoved_agent = True
+                        break
+                    if not found_unmoved_agent:
+                        self.stop_now = True
+                        return
+                    
+            elif stop_crit == SimStopCriterion.BOTH_AGENTS_STOPPED:
+                found_moving_agent = False
+                for agent in self.agents:
+                    if agent.curr_state.long_speed > 0:
+                        found_moving_agent = True
+                        break
+                if not found_moving_agent:
+                    self.stop_now = True
+                    return
+                
+            elif stop_crit == SimStopCriterion.BOTH_AGENTS_EXITED_CS:
+                found_non_exited_agent = False
+                for agent in self.agents:
+                    if agent.curr_state.signed_CP_dist >= -agent.coll_dist:
+                        found_non_exited_agent = True
+                        break
+                    if not found_non_exited_agent:
+                        self.stop_now = True
+                        return
+                
+            else:
+                raise Exception(f'Unexpected simulation stop criterion: {stop_crit}')
+    
+    
     def after_simulation(self):
         for agent in self.agents:
+            ## signed distances to conflict point
+            #vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
+            #yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
+            #yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
+            #agent.signed_CP_dists = np.dot(vectors_to_CP, yaw_vector)
+            # entry time/sample
             ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0)
                                     <= agent.coll_dist)[0]
             if len(ca_entered) == 0:
@@ -1320,6 +1396,7 @@ class SCSimulation(commotions.Simulation):
             else:
                 agent.ca_entry_sample = ca_entered[0]
                 agent.ca_entry_time = self.time_stamps[ca_entered[0]]
+        # who passed first?
         i_first_passer = np.argmin((self.agents[0].ca_entry_time, 
                                     self.agents[1].ca_entry_time))
         if math.isinf(self.agents[i_first_passer].ca_entry_time):
@@ -1335,7 +1412,7 @@ class SCSimulation(commotions.Simulation):
                  action_val_ests = False, surplus_action_vals = False, 
                  beh_activs = False, beh_accs = False, beh_probs = False, 
                  sensory_prob_dens = False, kinem_states = False, 
-                 times_to_ca = False, looming = False):
+                 veh_stop_dec = False, times_to_ca = False, looming = False):
 
         n_plot_actions = max(self.agents[0].n_actions, self.agents[1].n_actions)
         
@@ -1438,34 +1515,38 @@ class SCSimulation(commotions.Simulation):
         if beh_activs:
             # - behavior activations
             for i_agent, agent in enumerate(self.agents):
-                plt.figure('Behaviour activations - Agent %s (observing %s)' %
-                           (agent.name, agent.other_agent.name), 
-                           figsize = [7, 7])
+                figname = ('Behaviour activations - Agent %s (observing %s)' %
+                           (agent.name, agent.other_agent.name))
+                plt.figure(figname)
                 plt.clf()
+                fig, axs = plt.subplots(nrows = agent.n_actions+1, 
+                                        ncols = n_plot_behaviors,
+                                        sharex = 'col', sharey = 'col',
+                                        num = figname, figsize = (7, 7),
+                                        squeeze = False)
                 for i_beh in range(n_plot_behaviors):
                     # action observation contribution
-                    plt.subplot(agent.n_actions+1, n_plot_behaviors, i_beh + 1)
-                    plt.plot(self.time_stamps, agent.params.beta_O 
+                    ax = axs[0, i_beh]
+                    ax.plot(self.time_stamps, agent.params.beta_O 
                              * agent.states.beh_activ_O[i_beh, :])
-                    plt.title(BEHAVIORS[i_beh])
+                    ax.set_title(BEHAVIORS[i_beh])
                     if i_beh == n_plot_behaviors-1:
-                        plt.legend(('$\\beta_O A_{O,b}$',))
+                        ax.legend(('$\\beta_O A_{O,b}$',))
                     # value contribution and total activation - both per action
                     for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                        plt.subplot(agent.n_actions+1, n_plot_behaviors, 
-                                    (i_action+1) * n_plot_behaviors + i_beh + 1)
-                        plt.plot(self.time_stamps, 
+                        ax = axs[i_action+1, i_beh]
+                        ax.plot(self.time_stamps, 
                                  agent.params.beta_V 
                                  * agent.states.beh_activ_V_given_actions[
                                          i_beh, i_action,  :])
-                        plt.plot(self.time_stamps, 
+                        ax.plot(self.time_stamps, 
                                  agent.states.beh_activations_given_actions[
                                          i_beh, i_action, :])
                         #plt.ylim(-2, 5)
                         if i_beh == n_plot_behaviors-1 and i_action == 0:
-                            plt.legend(('$\\beta_V A_{V,b|a}$', '$A_{b|a}$'))
+                            ax.legend(('$\\beta_V A_{V,b|a}$', '$A_{b|a}$'))
                         if i_beh == 0:
-                            plt.ylabel('$\\Delta v=%.1f$' % deltav)
+                            ax.set_ylabel('$\\Delta v=%.1f$' % deltav)
 
         if beh_accs:
             # - expected vs observed accelerations for behaviors
@@ -1490,24 +1571,28 @@ class SCSimulation(commotions.Simulation):
 
         if beh_probs:
             # - behavior probabilities
-            plt.figure('Behaviour probabilities', figsize = [8, 7])
+            figname = 'Behaviour probabilities'
+            plt.figure(figname)
             plt.clf()
+            fig, axs = plt.subplots(nrows = n_plot_actions, ncols = N_AGENTS,
+                                    sharex = 'col', sharey = 'col',
+                                    num = figname, figsize = (8, 7))
             for i_agent, agent in enumerate(self.agents):
                 for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(n_plot_actions, N_AGENTS, i_action * N_AGENTS + i_agent + 1)
+                    ax = axs[i_action, i_agent]
                     for i_beh in range(n_plot_behaviors):
                         # plt.subplot(N_BEHAVIORS, N_AGENTS, i_beh * N_AGENTS +  i_agent + 1)
-                        plt.plot(self.time_stamps, 
+                        ax.plot(self.time_stamps, 
                                  agent.states.beh_probs_given_actions[
                                          i_beh, i_action, :])
-                        plt.ylim(-.1, 1.1)
+                        ax.set_ylim(-.1, 1.1)
                         if i_action == 0:
-                            plt.title('Agent %s (observing %s)' % 
+                            ax.set_title('Agent %s (observing %s)' % 
                                       (agent.name, agent.other_agent.name))
                     if i_agent == 0:
-                        plt.ylabel('$P_{b|\\Delta v=%.1f}$ (-)' % deltav)
+                        ax.set_ylabel('$P_{b|\\Delta v=%.1f}$ (-)' % deltav)
                     elif i_action == 0:
-                        plt.legend(plot_behaviors)
+                        ax.legend(plot_behaviors)
                     
         if sensory_prob_dens:
             # - sensory probability densities
@@ -1527,7 +1612,7 @@ class SCSimulation(commotions.Simulation):
 
         if kinem_states:
             # - kinematic/action states
-            fig = plt.figure('Kinematic and action states')
+            fig = plt.figure('Kinematic and action states', figsize = (5, 6))
             plt.clf()
             """             N_PLOTROWS = 3
             for i_agent, agent in enumerate(self.agents):
@@ -1551,12 +1636,17 @@ class SCSimulation(commotions.Simulation):
                 plt.ylim(-6, 6)
                 if i_agent == 0:
                     plt.ylabel('a (m/s^2)') """
-            N_PLOTROWS = 4
-            distance_CPs = []
+            N_PLOTROWS = 5
             axs = fig.subplots(N_PLOTROWS, 1)
             for i_agent, agent in enumerate(self.agents):
                 
                 # acceleration
+                if veh_stop_dec and agent.ctrl_type == CtrlType.ACCELERATION:
+                    stop_dists = (agent.signed_CP_dists - agent.coll_dist 
+                                  - agent.params.D_s)
+                    stop_accs = -(agent.trajectory.long_speed ** 2 / (2 * stop_dists))
+                    axs[0].plot(self.time_stamps, stop_accs, 
+                                '--' + agent.plot_color, alpha = 0.5)
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
                          '-' + agent.plot_color)
                 axs[0].set_ylabel('a (m/s^2)') 
@@ -1571,13 +1661,8 @@ class SCSimulation(commotions.Simulation):
                 axs[1].set_ylabel('v (m/s)') 
                 
                 # distance to conflict point
-                # - get signed distances to CP
-                vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
-                yaw_angle = agent.trajectory.yaw_angle[0] # constant throughout in SC scenario
-                yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
-                distance_CPs.append(np.dot(vectors_to_CP, yaw_vector))
                 # - get CS entry/exit times
-                in_CS_idxs = np.nonzero(np.abs(distance_CPs[i_agent]) 
+                in_CS_idxs = np.nonzero(np.abs(agent.signed_CP_dists) 
                                         <= agent.coll_dist)[0]
                 if len(in_CS_idxs) > 0:
                     t_en = self.time_stamps[in_CS_idxs[0]]
@@ -1601,24 +1686,33 @@ class SCSimulation(commotions.Simulation):
                 axs[2].plot(self.time_stamps, 
                             agent.other_agent.perception.states.x_perceived[0, :], 
                             '-' + agent.plot_color, lw=1, alpha=0.3)
-                axs[2].plot(self.time_stamps, distance_CPs[i_agent], 
+                axs[2].plot(self.time_stamps, agent.signed_CP_dists, 
                          '-' + agent.plot_color)
                 axs[2].set_ylim(-5, 5)
                 axs[2].set_ylabel('$d_{CP}$ (m)') 
                 
+                # apparent time to conflict space entry
+                if i_agent == 0:
+                    axs[3].axhline(0, color='k', linestyle=':')
+                axs[3].plot(self.time_stamps, 
+                            (agent.signed_CP_dists - agent.coll_dist) 
+                            / agent.trajectory.long_speed, '-' + agent.plot_color)
+                axs[3].set_ylim(-1, 8)
+                axs[3].set_ylabel('$TTCS_{app}$ (s)')
+                
             # distance margin to agent collision
-            axs[3].axhline(0, color='k', linestyle=':')
+            axs[4].axhline(0, color='k', linestyle=':')
             coll_margins, coll_idxs = \
-                get_sc_agent_collision_margins(distance_CPs[0], 
-                                               distance_CPs[1],
+                get_sc_agent_collision_margins(self.agents[0].signed_CP_dists, 
+                                               self.agents[1].signed_CP_dists,
                                                self.agents[0].coll_dist, 
                                                self.agents[1].coll_dist)
-            axs[3].plot(self.time_stamps, coll_margins, 'k-')
-            axs[3].plot(self.time_stamps[coll_idxs], 
+            axs[4].plot(self.time_stamps, coll_margins, 'k-')
+            axs[4].plot(self.time_stamps[coll_idxs], 
                      coll_margins[coll_idxs], 'r-')
-            axs[3].set_ylim(-1, 10)
-            axs[3].set_ylabel('$d_{coll}$ (m)')
-            axs[3].set_xlabel('t (s)')      
+            axs[4].set_ylim(-1, 10)
+            axs[4].set_ylabel('$d_{coll}$ (m)')
+            axs[4].set_xlabel('t (s)')      
             
 
         if times_to_ca:
@@ -1662,10 +1756,10 @@ if __name__ == "__main__":
     # scenario basics
     NAMES = ('P', 'V')
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    WIDTHS = (0.8, 1.8)
-    LENGTHS = (0.8, 4.2)
-    # WIDTHS = (2, 2)
-    # LENGTHS = (2, 2)
+    #WIDTHS = (0.8, 1.8)
+    #LENGTHS = (0.8, 4.2)
+    WIDTHS = (2, 2)
+    LENGTHS = (2, 2)
     
     # scenario
     GOALS = np.array([[0, 5], [-50, 0]])
@@ -1713,13 +1807,13 @@ if __name__ == "__main__":
     #params.T_delta = 30
     #params.V_ny_rel = -1.5
     #params.T_P = 1
-    #params.T_O1 = 0.05
-    #params.T_Of = math.inf
-    #params.sigma_O = 0.1
-    # params.thetaDot_1 = 0.005
-    #params.beta_V = 60
-    #params.T_s = 0
-    #params.D_s = 0
+    params.T_O1 = 0.1
+    params.T_Of = 0.5
+    params.sigma_O = 0.01
+    params.thetaDot_1 = 0.04
+    params.beta_V = 160
+    params.T_s = 0
+    params.D_s = 0
     # params.tau = 0.05
     # params.DeltaV_th_rel = 0.005
     optional_assumptions = get_assumptions_dict(default_value = False,
@@ -1729,10 +1823,10 @@ if __name__ == "__main__":
                                                 oSNc = False,
                                                 oSNv = False,
                                                 oPF = False,
-                                                oBEo = False,
-                                                oBEv = False,
+                                                oBEo = True,
+                                                oBEv = True,
                                                 oBEc = False,
-                                                oAI = False,
+                                                oAI = True,
                                                 oEA = False, 
                                                 oAN = False)  
     
@@ -1752,13 +1846,15 @@ if __name__ == "__main__":
     # run simulation
     NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
+    STOP_CRITERIA = (SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
     sc_simulation = SCSimulation(
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
             initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
             const_accs = CONST_ACCS, agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step=0.1)
+            snapshot_times = SNAPSHOT_TIMES, time_step=0.1,
+            stop_criteria = STOP_CRITERIA)
     tic = time.perf_counter()
     sc_simulation.run()
     toc = time.perf_counter()
