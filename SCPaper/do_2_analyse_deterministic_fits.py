@@ -29,12 +29,12 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_PLOTS = False
-N_MAIN_CRIT_FOR_PLOT = 2
+DO_PLOTS = True
+N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
-SPEEDUP_FRACT = 1.005
-SURPLUS_DEC_THRESH = 0.5 # m/s^2
+SPEEDUP_FRACT = 1.01
+SURPLUS_DEC_THRESH = 2 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
 CRITERION_GROUPS = ('Main criteria', 'Secondary criteria')
@@ -195,8 +195,11 @@ for det_fit_file in det_fit_files:
 # provide info on retained models
 print('\n\n*** Retained models ***')
 for ret_model in retained_models:
-    print(f'\nModel {ret_model.model}\nRetaining {ret_model.params_array.shape[0]}'
-          ' parameterisations, across:')
+    n_ret_params = ret_model.params_array.shape[0]
+    n_total = det_fits[ret_model.model].n_parameterisations
+    print(f'\nModel {ret_model.model}\nRetaining {n_ret_params}'
+          f' out of {n_total}'
+          f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
     print(ret_model.param_names)
     print('\n***********************')
     

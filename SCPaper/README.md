@@ -50,23 +50,18 @@
                 * ~~Update the metrics being calculated and stored for each scenario.~~
             * ~~Rewrite the `sc_fitting.SCPaperDeterministicOneSidedFitting` class to instead take a list of scenario names, where those names can include both one-sided and two-sided scenarios.~~
             * ~~Rewrite in `do_2...` to use the reformulated metrics.~~
-            * Actions identified 2021-11-27:
-                * Set `sc_scenario_helper.ANTICIPATION_TIME_STEP` = 0.025 s.
-                * Protect against predicted reversing in `SCAgent.get_predicted_other_state()`, and also deal gracefully with negative speeds in `sc_scenario.get_entry_exit_times()`.
-                * To think about: 
+            * ~~Actions identified 2021-11-27:~~
+                * ~~Set `sc_scenario_helper.ANTICIPATION_TIME_STEP` = 0.025 s.~~
+                * ~~Protect against predicted reversing in `SCAgent.get_predicted_other_state()`, and also deal gracefully with negative speeds in `sc_scenario.get_entry_exit_times()`.~~
+                * ~~To think about:~~
                     * ~~Should the estimated entry/exit times take safety margins into account, to prevent the kinds of problems discussed below under "`oVAaoVAl[oBEo]BEv`..." in the 2021-11-27 notes?~~
                     * ~~Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent. ... I have looked at this now and it seems to create some unintended knock-on effects, so leaving as is at least for now.~~
         * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
             * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
-            * Add support for multiple repetitions.
-            * Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.
+            * ~~Add support for multiple repetitions.~~
+            * ~~Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.~~
         * Speedups:
-            * Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.
-                * Modify `commotions.Simulation.run()` to end each time step by running `self.after_time_step()`, and then checking `self.stop_now`. 
-                * Add a new Enum class `sc_scenario.SimStopCriterion`, with members `OneAgentHalfWayToCS`, `BothAgentsStopped`, `BothAgentsExited`.
-                * Add functionality in `SCAgent.prepare_for_action_update()` for setting `self.signed_CP_dists[i_time_step]` (move from `SCSimulation.after_simulation()`)
-                * Add an init argument `stop_criteria` to `SCSimulation`, default empty tuple ().
-                * Override `after_time_step()` in `sc_scenario.SCSimulation` and check stopping criteria. 
+            * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
             * Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.
         * Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
@@ -79,11 +74,14 @@
     * ~~Parallelisation in `parameter_search.py`?~~ 
     
 
-## Model imperfections to think about / keep an eye on
-* Assuming pedestrians apply constant deceleration rather than constant speed to achieve interaction outcomes.
-* The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.) 
-* The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed.
-* The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
+## Model/code imperfections to think about / keep an eye on
+* Model:
+    * Assuming pedestrians apply constant deceleration rather than constant speed to achieve interaction outcomes.
+    * The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.) 
+    * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed.
+    * The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
+* Other stuff:
+    * The pedestrian hesitation metrics could return NaN if the pedestrian hesitates itself to a full stop and never gets halfway to the conflict space before the simulation time runs out. I haven't seen that it is a problem, but it might be.
 
 
 ## Model formulations
