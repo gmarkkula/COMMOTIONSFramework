@@ -1637,7 +1637,7 @@ class SCSimulation(commotions.Simulation):
                 if i_agent == 0:
                     plt.ylabel('a (m/s^2)') """
             N_PLOTROWS = 5
-            axs = fig.subplots(N_PLOTROWS, 1)
+            axs = fig.subplots(N_PLOTROWS, 1, sharex=True)
             for i_agent, agent in enumerate(self.agents):
                 
                 # acceleration
@@ -1649,6 +1649,7 @@ class SCSimulation(commotions.Simulation):
                                 '--' + agent.plot_color, alpha = 0.5)
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
                          '-' + agent.plot_color)
+                axs[0].set_xlim(self.time_stamps[0], self.actual_end_time)
                 axs[0].set_ylabel('a (m/s^2)') 
                 
                 # speed
@@ -1823,10 +1824,10 @@ if __name__ == "__main__":
                                                 oSNc = False,
                                                 oSNv = False,
                                                 oPF = False,
-                                                oBEo = True,
-                                                oBEv = True,
+                                                oBEo = False,
+                                                oBEv = False,
                                                 oBEc = False,
-                                                oAI = True,
+                                                oAI = False,
                                                 oEA = False, 
                                                 oAN = False)  
     
