@@ -59,7 +59,8 @@
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * ~~Maybe first on my own computer...?~~
         * ... And then on a faster computer, with an expanded grid?
-            * Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.
+            * This would be a good point in time to add use of a yml file to specify the conda environment on ARC4.
+            * ~~Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.~~
     * Run probabilistic fits
         * Make sure scenarios and metrics are in order.
         * Decide on a parameter grid.
