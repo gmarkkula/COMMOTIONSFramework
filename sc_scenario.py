@@ -1761,46 +1761,10 @@ if __name__ == "__main__":
     #LENGTHS = (0.8, 4.2)
     WIDTHS = (2, 2)
     LENGTHS = (2, 2)
-    
-    # scenario
-    GOALS = np.array([[0, 5], [-50, 0]])
-    SCE_BASELINE = 0 # "baseline" kinematics
-    SCE_PEDLEAD = 1 # a scenario where both agents start at speed, with a lead for the pedestrian
-    SCE_KEIODECEL = 2 # a deceleration scenario from the Keio study
-    SCE_PEDATSPEEDDECEL = 3 # a deceleration scenario where the pedestrian is initially walking
-    SCE_PEDSTAT = 4 # pedestrian stationary at kerb
-    SCE_STARTUP = 5 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_BASELINE
-    if SCENARIO == SCE_BASELINE:
-        INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
-        SPEEDS = np.array((0, 10))
-        CONST_ACCS = (None, None)
-    elif SCENARIO == SCE_PEDLEAD:
-        INITIAL_POSITIONS = np.array([[0,-8], [70, 0]])
-        SPEEDS = np.array((1.5, 10))
-        CONST_ACCS = (None, 0)
-    elif SCENARIO == SCE_KEIODECEL:
-        INITIAL_POSITIONS = np.array([[0,-SHARED_PARAMS.d_C-0.5], 
-                                      [13.9*2.29, 0]])
-        SPEEDS = np.array((0, 13.9))
-        stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C
-        # fix car behaviour to yielding, and simplify to only a single speed
-        # increase option for the pedestrian
-        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
-        DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
-    elif SCENARIO == SCE_PEDATSPEEDDECEL:
-        INITIAL_POSITIONS = np.array([[0,-6], [30, 0]])
-        SPEEDS = np.array((1.5, 10))
-        stop_dist = INITIAL_POSITIONS[1][0] - SHARED_PARAMS.d_C - 0.5
-        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
-    elif SCENARIO == SCE_PEDSTAT:
-        INITIAL_POSITIONS = np.array([[0,-SHARED_PARAMS.d_C - 0.5], [40, 0]])
-        SPEEDS = np.array((0, 10))
-        CONST_ACCS = (0, None)
-    elif SCENARIO == SCE_STARTUP:
-        INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
-        SPEEDS = np.array((0, 0))
-        CONST_ACCS = (None, None)
+    COLL_DISTS = []
+    for i_agent in range(N_AGENTS):
+        COLL_DISTS.append(sc_scenario_helper.get_agent_coll_dist(
+            ego_length=LENGTHS[i_agent], oth_width=WIDTHS[1-i_agent]))
     
     # set parameters and optional assumptions
     AFF_VAL_FCN = True
@@ -1815,21 +1779,61 @@ if __name__ == "__main__":
     params.beta_V = 160
     params.T_s = 0
     params.D_s = 0
-    # params.tau = 0.05
+    params.tau = 0.05
     # params.DeltaV_th_rel = 0.005
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
                                                 oVAl = False,
                                                 oSNc = False,
-                                                oSNv = False,
-                                                oPF = False,
-                                                oBEo = False,
+                                                oSNv = True,
+                                                oPF = True,
+                                                oBEo = True,
                                                 oBEv = False,
                                                 oBEc = False,
                                                 oAI = False,
                                                 oEA = False, 
                                                 oAN = False)  
+    
+    # scenario
+    GOALS = np.array([[0, 5], [-50, 0]])
+    SCE_BASELINE = 0 # "baseline" kinematics
+    SCE_PEDLEAD = 1 # a scenario where both agents start at speed, with a lead for the pedestrian
+    SCE_KEIODECEL = 2 # a deceleration scenario from the Keio study
+    SCE_PEDATSPEEDDECEL = 3 # a deceleration scenario where the pedestrian is initially walking
+    SCE_PEDSTAT = 4 # pedestrian stationary at kerb
+    SCE_STARTUP = 5 # a scenario with both agents starting from zero speed, at non-interaction distance
+    SCENARIO = SCE_KEIODECEL
+    if SCENARIO == SCE_BASELINE:
+        INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
+        SPEEDS = np.array((0, 10))
+        CONST_ACCS = (None, None)
+    elif SCENARIO == SCE_PEDLEAD:
+        INITIAL_POSITIONS = np.array([[0,-8], [70, 0]])
+        SPEEDS = np.array((1.5, 10))
+        CONST_ACCS = (None, 0)
+    elif SCENARIO == SCE_KEIODECEL:
+        INITIAL_POSITIONS = np.array([[0,-COLL_DISTS[0] - params.D_s-.01], 
+                                      [13.9*2.29, 0]])
+        SPEEDS = np.array((0, 13.9))
+        stop_dist = INITIAL_POSITIONS[1][0] - COLL_DISTS[1] - params.D_s
+        # fix car behaviour to yielding, and simplify to only a single speed
+        # increase option for the pedestrian
+        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
+        DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
+    elif SCENARIO == SCE_PEDATSPEEDDECEL:
+        INITIAL_POSITIONS = np.array([[0,-6], [30, 0]])
+        SPEEDS = np.array((1.5, 10))
+        stop_dist = INITIAL_POSITIONS[1][0] - COLL_DISTS[1] - params.D_s
+        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
+    elif SCENARIO == SCE_PEDSTAT:
+        INITIAL_POSITIONS = np.array([[0,--COLL_DISTS[0] - params.D_s], [40, 0]])
+        SPEEDS = np.array((0, 10))
+        CONST_ACCS = (0, None)
+    elif SCENARIO == SCE_STARTUP:
+        INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
+        SPEEDS = np.array((0, 0))
+        CONST_ACCS = (None, None)
     
     # initial Kalman estimates
     KALMAN_PRIOR_SD_MULT = 2
@@ -1854,7 +1858,7 @@ if __name__ == "__main__":
             end_time = 8, optional_assumptions = optional_assumptions,
             const_accs = CONST_ACCS, agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step=0.1,
+            snapshot_times = SNAPSHOT_TIMES, time_step=0.025,
             stop_criteria = STOP_CRITERIA)
     tic = time.perf_counter()
     sc_simulation.run()
