@@ -43,7 +43,8 @@ AGENT_LENGTHS = (0.8, 4.2)
 AGENT_FREE_SPEEDS = np.array([1.3, 50 / 3.6]) # m/s 
 AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
 COLLISION_MARGIN = 1 # m
-TIME_STEP = 0.1 # s
+DET_SIM_TIME_STEP = 0.1 # s
+PROB_SIM_TIME_STEP = 0.025 # s
 END_TIME = 8 # s
 V_NY_REL = -1.5
 AGENT_COLL_DISTS = []
@@ -146,6 +147,7 @@ class SCPaperScenario:
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
                  veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN,
+                 time_step=DET_SIM_TIME_STEP,
                  stop_criteria = (), metric_names = None):
         """ Construct a scenario. 
             
@@ -166,6 +168,7 @@ class SCPaperScenario:
         self.veh_const_speed = veh_const_speed
         self.veh_yielding = veh_yielding
         self.veh_yielding_margin = veh_yielding_margin
+        self.time_step = time_step
         self.stop_criteria = stop_criteria
         # figure out if there are any kinematic variations to consider
         self.initial_ttcas = initial_ttcas
@@ -199,7 +202,7 @@ class SCPaperScenario:
 HALFWAY_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_HALFWAY_TO_CS,)
 MOVED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,)
 EXITED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
-# - one-agent scenarios
+# - one-agent scenarios for deterministic fits
 N_ONE_AG_SCEN_VARIATIONS = 3
 ONE_AG_SCENARIOS = {}
 ONE_AG_SCENARIOS['VehPrioAssert'] = SCPaperScenario('VehPrioAssert', 
@@ -233,22 +236,33 @@ ONE_AG_SCENARIOS['PedCrossVehYield'] = SCPaperScenario('PedCrossVehYield',
                                                        veh_yielding=True,
                                                        stop_criteria = HALFWAY_STOP,
                                                        metric_names = ('veh_speed_at_ped_start',))
-# - two-agent scenarios
+# - scenarios for the probabilistic fits
+N_PROB_SCEN_REPETITIONS = 5
 TWO_AG_METRIC_NAMES = ('collision', 'ped_exit_time', 'veh_exit_time')
-TWO_AG_SCENARIOS = {}
-TWO_AG_SCENARIOS['Encounter'] = SCPaperScenario('Encounter', 
-                                                initial_ttcas=(3, 3), 
-                                                metric_names = TWO_AG_METRIC_NAMES)
-TWO_AG_SCENARIOS['EncounterPedPrio'] = SCPaperScenario('EncounterPedPrio', 
-                                                       initial_ttcas=(3, 3), 
-                                                       ped_prio=True,
-                                                       metric_names = TWO_AG_METRIC_NAMES)
-TWO_AG_SCENARIOS['PedLead'] = SCPaperScenario('PedLead', 
-                                              initial_ttcas=(3, 8), 
-                                              metric_names = TWO_AG_METRIC_NAMES)
+PROB_FIT_SCENARIOS = {}
+PROB_FIT_SCENARIOS['Encounter'] = SCPaperScenario('Encounter', 
+                                                  initial_ttcas=(3, 3), 
+                                                  metric_names = TWO_AG_METRIC_NAMES,
+                                                  time_step = PROB_SIM_TIME_STEP)
+PROB_FIT_SCENARIOS['EncounterPedPrio'] = SCPaperScenario('EncounterPedPrio', 
+                                                         initial_ttcas=(3, 3), 
+                                                         ped_prio=True,
+                                                         metric_names = TWO_AG_METRIC_NAMES,
+                                                         time_step = PROB_SIM_TIME_STEP)
+PROB_FIT_SCENARIOS['PedLead'] = SCPaperScenario('PedLead', 
+                                                initial_ttcas=(3, 8), 
+                                                metric_names = TWO_AG_METRIC_NAMES,
+                                                time_step = PROB_SIM_TIME_STEP)
+PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
+                                                            initial_ttcas=(3, 8), 
+                                                            veh_const_speed=True,
+                                                            stop_criteria = HALFWAY_STOP,
+                                                            metric_names = ('ped_av_speed',),
+                                                            time_step = PROB_SIM_TIME_STEP)
 
 
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
+PROB_FIT_FILE_NAME_FMT = 'ProbFit_%s.pkl'
 METRIC_FCN_PREFIX = 'metric_'
 
 
@@ -346,7 +360,7 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         goal_positions=AGENT_GOALS, initial_positions=initial_pos, 
         initial_speeds=scenario.initial_speeds, 
         const_accs=const_accs,
-        start_time=0, end_time=END_TIME, time_step=TIME_STEP, 
+        start_time=0, end_time=END_TIME, time_step=scenario.time_step, 
         optional_assumptions=optional_assumptions, 
         params=params, params_k=params_k, 
         agent_names=AGENT_NAMES, snapshot_times=snapshots,
@@ -520,7 +534,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
     def __init__(self, name, scenarios, optional_assumptions, 
                  default_params, default_params_k, param_arrays, 
                  n_repetitions=1, parallel=False, n_workers=mp.cpu_count()-1,
-                 verbosity=0):
+                 verbosity=0, file_name_format=DET_FIT_FILE_NAME_FMT):
         """
         Construct and run a parameter search for the SCPaper project.
 
@@ -632,7 +646,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         # run the grid search
         self.search_grid(free_param_arrays)
         # save the results
-        self.save(FIT_RESULTS_FOLDER + (DET_FIT_FILE_NAME_FMT % name))
+        self.save(FIT_RESULTS_FOLDER + (file_name_format % name))
         
         
 # unit testing
