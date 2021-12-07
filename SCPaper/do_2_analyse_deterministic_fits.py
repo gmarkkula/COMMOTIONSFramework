@@ -19,6 +19,7 @@ import glob
 import pickle
 import copy
 import numpy as np
+import matplotlib.pyplot as plt
 import collections
 import parameter_search
 import sc_fitting
@@ -29,7 +30,8 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_PLOTS = True
+DO_TIME_SERIES_PLOTS = False
+DO_PARAMS_PLOTS = True
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
@@ -174,22 +176,63 @@ for det_fit_file in det_fit_files:
         i_parameterisation=i_parameterisation, params_array=params_array,
         params_dict=params_dict, main_crit_dict=main_crit_dict, 
         sec_crit_dict=sec_crit_dict)
-    if DO_PLOTS and (np.sum(main_crit_met_somewhere) >= N_MAIN_CRIT_FOR_PLOT):
-        print('\tLooking at one of the parameterisations meeting'
-              f' {n_main_criteria_met[i_parameterisation]} criteria:')
-        print(f'\t\t{params_dict}')
-        print(f'\t\t{main_crit_dict}')
-        print(f'\t\t{sec_crit_dict}')
-        det_fit.set_params(params_dict)
-        #warnings.warn('Next line here to be removed, will not be needed when do_1... has been rerun again.')
-        #det_fit.n_scenario_variations = round(det_fit.n_scenario_variations)
-        for scenario in det_fit.scenarios.values():
-            print(f'\n\n\t\t\tScenario "{scenario.name}"')
-            sc_simulations = det_fit.simulate_scenario(scenario)
-            be_plots = 'oBE' in det_fit.name
-            for sim in sc_simulations:
-                sim.do_plots(kinem_states=True, veh_stop_dec=True, beh_probs=be_plots)
-                sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
+    if (DO_TIME_SERIES_PLOTS or DO_PARAMS_PLOTS) and (
+            np.sum(main_crit_met_somewhere) >= N_MAIN_CRIT_FOR_PLOT):
+        if DO_TIME_SERIES_PLOTS:
+            print('\tLooking at one of the parameterisations meeting'
+                  f' {n_main_criteria_met[i_parameterisation]} criteria:')
+            print(f'\t\t{params_dict}')
+            print(f'\t\t{main_crit_dict}')
+            print(f'\t\t{sec_crit_dict}')
+            det_fit.set_params(params_dict)
+            #warnings.warn('Next line here to be removed, will not be needed when do_1... has been rerun again.')
+            #det_fit.n_scenario_variations = round(det_fit.n_scenario_variations)
+            for scenario in det_fit.scenarios.values():
+                print(f'\n\n\t\t\tScenario "{scenario.name}"')
+                sc_simulations = det_fit.simulate_scenario(scenario)
+                be_plots = 'oBE' in det_fit.name
+                for sim in sc_simulations:
+                    sim.do_plots(kinem_states=True, veh_stop_dec=True, beh_probs=be_plots)
+                    sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
+        if DO_PARAMS_PLOTS:
+            COLORS = 'rgbc'
+            fig, axs = plt.subplots(det_fit.n_params, det_fit.n_params, 
+                                    figsize=(8,8))
+            for i_x_param in range(det_fit.n_params):
+                for i_y_param in range(det_fit.n_params):
+                    ax = axs[i_y_param, i_x_param]
+                    xmin = np.amin(det_fit.results.params_matrix[:, i_x_param])
+                    xmax = np.amax(det_fit.results.params_matrix[:, i_x_param])
+                    if np.isinf(xmax):
+                        xmax = 10
+                    if i_x_param > i_y_param:
+                        continue
+                    elif i_x_param == i_y_param:
+                        all_crit_param_vals = det_fit.results.params_matrix[
+                            all_main_criteria_met, i_x_param]
+                        all_crit_param_vals[np.isinf(all_crit_param_vals)] = 10
+                        ax.hist(all_crit_param_vals, range=(xmin, xmax))
+                    else:
+                        for i_crit in range(len(CRITERIA[i_MAIN])):
+                            ax.plot(det_fit.results.params_matrix[
+                                main_criteria_matrix[i_crit, :], i_x_param],
+                                det_fit.results.params_matrix[
+                                main_criteria_matrix[i_crit, :], i_y_param],
+                                'o' + COLORS[i_crit], alpha=0.1)
+                        ymin = np.amin(det_fit.results.params_matrix[:, i_y_param])
+                        ymax = np.amax(det_fit.results.params_matrix[:, i_y_param])
+                        if np.isinf(ymax):
+                            ymax = 10
+                        ax.set_ylim(ymin, ymax)
+                    ax.set_xlim(xmin, xmax)
+                    if i_x_param == 0:
+                        ax.set_ylabel(det_fit.param_names[i_y_param])
+                    if i_y_param == det_fit.n_params-1:
+                        ax.set_xlabel(det_fit.param_names[i_x_param])
+            plt.show()
+                            
+                        
+            
         
     
 # provide info on retained models
