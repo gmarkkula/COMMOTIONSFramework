@@ -96,7 +96,9 @@ i_PASS2ND = 2
 
 # default parameters
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.tau = 1 # std dev of sensory observation noise; in m or rad depending on whether oSNc or oSNv is enabled
+DEFAULT_PARAMS.tau_d = 1 # m; std dev of sensory observation noise (for oSNc)
+DEFAULT_PARAMS.tau_theta = 0.05 # rad; std dev of sensory observation noise (for oSNc)
+DEFAULT_PARAMS.c_tau = 0.01 # scale factor for tau if oPF is not enabled
 DEFAULT_PARAMS.H_e = 1.5 # m; height over ground of the eyes of an observed doing oSNv perception
 DEFAULT_PARAMS.sigma_xdot = 0.1 # m/s; std dev of speed process noise in Kalman filtering (oPF)
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
@@ -1202,7 +1204,7 @@ class SCAgent(commotions.AgentWithGoal):
         if ((not self.assumptions[OptionalAssumption.oSNc]) and 
             (not self.assumptions[OptionalAssumption.oSNv])):
             # no sensory noise
-            self.params.tau = 0
+            pos_obs_noise_stddev = 0
             if self.assumptions[OptionalAssumption.oPF]:
                 raise Exception('Cannot enable oPF without oSNc or oSNv.')
         else:
@@ -1210,6 +1212,13 @@ class SCAgent(commotions.AgentWithGoal):
             if self.assumptions[OptionalAssumption.oAN]:
                 raise Exception('Simultaneous sensory noise (oSN*) and'
                                 'accumulator noise (oAN) not supported.')
+            # get sensory noise magnitude
+            if self.assumptions[OptionalAssumption.oSNc]:
+                pos_obs_noise_stddev = self.params.tau_d
+            else:
+                pos_obs_noise_stddev = self.params.tau_theta
+            if not self.assumptions[OptionalAssumption.oPF]:
+                pos_obs_noise_stddev *= self.params.c_tau
         if not self.assumptions[OptionalAssumption.oEA]:
             # no evidence accumulation, implemented by value accumulation 
             # reaching input value in one time step...
@@ -1273,7 +1282,7 @@ class SCAgent(commotions.AgentWithGoal):
         # set up the object that implements perception of the other agent
         self.perception = sc_scenario_perception.Perception(
             simulation = simulation,
-            pos_obs_noise_stddev = self.params.tau,
+            pos_obs_noise_stddev = pos_obs_noise_stddev,
             noise_seed = noise_seed,
             angular_perception = self.assumptions[OptionalAssumption.oSNv],
             ego_eye_height = self.params.H_e,
@@ -1372,9 +1381,9 @@ class SCSimulation(commotions.Simulation):
                     if agent.curr_state.signed_CP_dist >= -agent.coll_dist:
                         found_non_exited_agent = True
                         break
-                    if not found_non_exited_agent:
-                        self.stop_now = True
-                        return
+                if not found_non_exited_agent:
+                    self.stop_now = True
+                    return
                 
             else:
                 raise Exception(f'Unexpected simulation stop criterion: {stop_crit}')
@@ -1779,8 +1788,10 @@ if __name__ == "__main__":
     params.beta_V = 160
     params.T_s = 0
     params.D_s = 0
-    params.tau = 0.05
-    # params.DeltaV_th_rel = 0.005
+    params.tau_theta = 0.2
+    params.sigma_xdot = 0.1
+    params.DeltaV_th_rel = 0.001
+    params.T = 0.2
     optional_assumptions = get_assumptions_dict(default_value = False,
                                                 oVA = AFF_VAL_FCN,
                                                 oVAa = False,
@@ -1788,11 +1799,11 @@ if __name__ == "__main__":
                                                 oSNc = False,
                                                 oSNv = True,
                                                 oPF = True,
-                                                oBEo = True,
+                                                oBEo = False,
                                                 oBEv = False,
                                                 oBEc = False,
                                                 oAI = False,
-                                                oEA = False, 
+                                                oEA = True, 
                                                 oAN = False)  
     
     # scenario
@@ -1803,7 +1814,7 @@ if __name__ == "__main__":
     SCE_PEDATSPEEDDECEL = 3 # a deceleration scenario where the pedestrian is initially walking
     SCE_PEDSTAT = 4 # pedestrian stationary at kerb
     SCE_STARTUP = 5 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_KEIODECEL
+    SCENARIO = SCE_PEDLEAD
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
@@ -1841,12 +1852,16 @@ if __name__ == "__main__":
     for i_agent in range(N_AGENTS):
         i_oth = 1 - i_agent
         oth_dist = np.amax(np.abs(INITIAL_POSITIONS[i_oth, :]))
-        oth_speed = SPEEDS[i_oth]
+        #oth_speed = SPEEDS[i_oth]
+        if CTRL_TYPES[i_oth] == CtrlType.SPEED:
+            oth_free_speed = FREE_SPEED_SPEED_CTRL
+        else:
+            oth_free_speed = FREE_SPEED_ACC_CTRL
         KALMAN_PRIORS.append(sc_scenario_perception.KalmanPrior(
             cp_dist_mean = oth_dist, 
             cp_dist_stddev = KALMAN_PRIOR_SD_MULT * oth_dist, 
-            speed_mean = oth_speed,
-            speed_stddev = KALMAN_PRIOR_SD_MULT * oth_speed))
+            speed_mean = oth_free_speed,
+            speed_stddev = 0.5 * oth_free_speed))
     
     # run simulation
     NOISE_SEEDS = (20, None)

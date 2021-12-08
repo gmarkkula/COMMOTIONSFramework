@@ -58,20 +58,23 @@
                     * ~~Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent. ... I have looked at this now and it seems to create some unintended knock-on effects, so leaving as is at least for now.~~
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * ~~Maybe first on my own computer...?~~
-        * ... And then on a faster computer, with an expanded grid?
+        * ... And then on a faster computer, with an expanded grid? Feels like it would be possible to aim for a factor ten increase in parameterisations tested (i.e., about 10<sup>5</sup> parameterisations tested for the most complex models).
             * This would be a good point in time to add use of a yml file to specify the conda environment on ARC4.
             * ~~Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.~~
+        * Sensitivity analysis on the criterion thresholds.
     * Run probabilistic fits
-        * Make sure scenarios and metrics are in order.
-        * Decide on a parameter grid.
+        * ~~Make sure scenarios and metrics are in order.~~
+        * ~~Decide on a parameter grid.~~
+        * Think through `oBEo` in light of the noisy perception -> requires a slightly updated expression for the Bayesian update I think?
         * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
             * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
             * ~~Add support for multiple repetitions.~~
             * ~~Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.~~
+        * Decide in some structured way (based on the updated large deterministic fits?) on a fixed value of $T_\delta$ for the `oVA` fits.
         * Speedups:
             * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
             * Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.
-        * Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.
+        * ~~Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.~~
         * Run the actual probabilistic fits - probably again in multiple stages with expanding grid.
 * Idea: Test the best model candidates on the Keio or HIKER pedestrian crossing data - without fitting.
 * Optional stuff

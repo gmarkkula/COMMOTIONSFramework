@@ -26,12 +26,14 @@ import parameter_search
 from sc_scenario import CtrlType, OptionalAssumption
 import sc_scenario
 import sc_scenario_helper
+import sc_scenario_perception
 
 # expecting a results subfolder in the folder where this file is located
 SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
 FIT_RESULTS_FOLDER = SCPAPER_PATH + 'results/'
 
 # scenario basics
+N_AGENTS = 2
 PED_NAME = 'P'
 VEH_NAME = 'V'
 AGENT_NAMES = (PED_NAME, VEH_NAME)
@@ -45,10 +47,13 @@ AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
 COLLISION_MARGIN = 1 # m
 DET_SIM_TIME_STEP = 0.1 # s
 PROB_SIM_TIME_STEP = 0.025 # s
-END_TIME = 8 # s
+DET_SIM_END_TIME = 8 # s
+PROB_SIM_END_TIME = 12 # s
 V_NY_REL = -1.5
+PRIOR_DIST_SD_MULT = 2
+PRIOR_SPEED_SD_MULT = 0.5
 AGENT_COLL_DISTS = []
-for i_ag in range(2):
+for i_ag in range(N_AGENTS):
     AGENT_COLL_DISTS.append(sc_scenario_helper.get_agent_coll_dist(
         AGENT_LENGTHS[i_ag], AGENT_WIDTHS[1-i_ag]))
     
@@ -81,8 +86,10 @@ def get_default_params_k(model_str):
         return DEFAULT_PARAMS_K_NVA
 # - other fixed parameters
 DEFAULT_PARAMS = commotions.Parameters()
+DEFAULT_PARAMS.T_delta = 30
 DEFAULT_PARAMS.H_e = 1.5
 DEFAULT_PARAMS.sigma_xdot = 0.1
+DEFAULT_PARAMS.c_tau = 0.01
 DEFAULT_PARAMS.T_P = 0.5
 DEFAULT_PARAMS.T_s = 1
 DEFAULT_PARAMS.D_s = 1
@@ -116,7 +123,7 @@ class SCPaperScenario:
         # we need to do the calculations
         # - get the initial TTCAs for the two agents, in this scenario variation
         initial_ttcas = []
-        for i_agent in range(2):
+        for i_agent in range(N_AGENTS):
             if i_agent == self.i_varied_agent:
                 if i_variation == None:
                     raise Exception('Need to specify scenario variation.')
@@ -147,7 +154,7 @@ class SCPaperScenario:
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
                  veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN,
-                 time_step=DET_SIM_TIME_STEP,
+                 time_step=DET_SIM_TIME_STEP, end_time=DET_SIM_END_TIME,
                  stop_criteria = (), metric_names = None):
         """ Construct a scenario. 
             
@@ -169,12 +176,13 @@ class SCPaperScenario:
         self.veh_yielding = veh_yielding
         self.veh_yielding_margin = veh_yielding_margin
         self.time_step = time_step
+        self.end_time = end_time
         self.stop_criteria = stop_criteria
         # figure out if there are any kinematic variations to consider
         self.initial_ttcas = initial_ttcas
         self.n_variations = 1
         self.i_varied_agent = None
-        for i_agent in range(2):
+        for i_agent in range(N_AGENTS):
             if type(initial_ttcas[i_agent]) == tuple:
                 if not (self.i_varied_agent == None):
                     raise Exception('Kinematic variations for more than one agent not supported.')
@@ -242,23 +250,30 @@ TWO_AG_METRIC_NAMES = ('collision', 'ped_exit_time', 'veh_exit_time')
 PROB_FIT_SCENARIOS = {}
 PROB_FIT_SCENARIOS['Encounter'] = SCPaperScenario('Encounter', 
                                                   initial_ttcas=(3, 3), 
+                                                  stop_criteria = EXITED_STOP,
                                                   metric_names = TWO_AG_METRIC_NAMES,
-                                                  time_step = PROB_SIM_TIME_STEP)
+                                                  time_step = PROB_SIM_TIME_STEP,
+                                                  end_time = PROB_SIM_END_TIME)
 PROB_FIT_SCENARIOS['EncounterPedPrio'] = SCPaperScenario('EncounterPedPrio', 
                                                          initial_ttcas=(3, 3), 
                                                          ped_prio=True,
+                                                         stop_criteria = EXITED_STOP,
                                                          metric_names = TWO_AG_METRIC_NAMES,
-                                                         time_step = PROB_SIM_TIME_STEP)
+                                                         time_step = PROB_SIM_TIME_STEP,
+                                                         end_time = PROB_SIM_END_TIME)
 PROB_FIT_SCENARIOS['PedLead'] = SCPaperScenario('PedLead', 
                                                 initial_ttcas=(3, 8), 
+                                                stop_criteria = EXITED_STOP,
                                                 metric_names = TWO_AG_METRIC_NAMES,
-                                                time_step = PROB_SIM_TIME_STEP)
+                                                time_step = PROB_SIM_TIME_STEP,
+                                                end_time = PROB_SIM_END_TIME)
 PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
                                                             initial_ttcas=(3, 8), 
                                                             veh_const_speed=True,
                                                             stop_criteria = HALFWAY_STOP,
                                                             metric_names = ('ped_av_speed',),
-                                                            time_step = PROB_SIM_TIME_STEP)
+                                                            time_step = PROB_SIM_TIME_STEP,
+                                                            end_time = PROB_SIM_END_TIME)
 
 
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
@@ -313,10 +328,19 @@ def metric_veh_speed_at_ped_start(sim):
         return sim.agents[i_VEH_AGENT].trajectory.long_speed[idx_halfway]
 
 def metric_collision(sim):
-    raise NotImplementedError
+    collision_samples = np.full(len(sim.time_stamps), True)
+    for agent in sim.agents:
+        collision_samples = collision_samples & (
+            np.abs(agent.signed_CP_dists) < agent.coll_dist)
+    return np.any(collision_samples)
 
 def metric_agent_exit_time(sim, i_agent):
-    raise NotImplementedError
+    beyond_cs_samples = np.nonzero(sim.agents[i_agent].signed_CP_dists 
+                                   < -sim.agents[i_agent].coll_dist)[0]
+    if len(beyond_cs_samples) == 0:
+        return math.nan
+    else:
+        return sim.time_stamps[beyond_cs_samples[0]]
 
 def metric_ped_exit_time(sim):
     return metric_agent_exit_time(sim, i_PED_AGENT)
@@ -353,6 +377,21 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         params.V_ny_rel = V_NY_REL
     else:
         params.V_ny_rel = 0
+    # - Kalman priors needed?
+    if optional_assumptions[OptionalAssumption.oPF]:
+        kalman_priors = []
+        for i_agent in range(N_AGENTS):
+            i_oth = 1 - i_agent
+            oth_init_dist = initial_cp_dists[i_oth]
+            oth_free_speed = AGENT_FREE_SPEEDS[i_oth]
+            kalman_priors.append(sc_scenario_perception.KalmanPrior(
+                cp_dist_mean = oth_init_dist, 
+                cp_dist_stddev = PRIOR_DIST_SD_MULT * oth_init_dist, 
+                speed_mean = oth_free_speed,
+                speed_stddev = PRIOR_SPEED_SD_MULT * oth_free_speed))
+    else:
+        kalman_priors = (None, None)
+    
     # - set up the SCSimulation object
     sc_simulation = sc_scenario.SCSimulation(
         ctrl_types=AGENT_CTRL_TYPES, 
@@ -360,9 +399,9 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         goal_positions=AGENT_GOALS, initial_positions=initial_pos, 
         initial_speeds=scenario.initial_speeds, 
         const_accs=const_accs,
-        start_time=0, end_time=END_TIME, time_step=scenario.time_step, 
+        start_time=0, end_time=scenario.end_time, time_step=scenario.time_step, 
         optional_assumptions=optional_assumptions, 
-        params=params, params_k=params_k, 
+        params=params, params_k=params_k, kalman_priors=kalman_priors,
         agent_names=AGENT_NAMES, snapshot_times=snapshots,
         stop_criteria=scenario.stop_criteria)
     
@@ -624,6 +663,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         if optional_assumptions[OptionalAssumption.oEA]:
             consider_adding_free_param('T')
             consider_adding_free_param('DeltaV_th_rel')
+        if optional_assumptions[OptionalAssumption.oAN]:
+            consider_adding_free_param('sigma_V')
         # value-based behaviour estimation
         if optional_assumptions[OptionalAssumption.oBEv]:
             consider_adding_free_param('beta_V')
@@ -633,8 +674,20 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
             consider_adding_free_param('T_O1')
             consider_adding_free_param('T_Of')
             consider_adding_free_param('sigma_O')
+        # noisy perception
+        if (optional_assumptions[OptionalAssumption.oSNv] 
+            or optional_assumptions[OptionalAssumption.oSNc]):
+            consider_adding_free_param('c_tau')
+        if optional_assumptions[OptionalAssumption.oSNv]:
+            consider_adding_free_param('H_e')
+            consider_adding_free_param('tau_theta')
+        if optional_assumptions[OptionalAssumption.oSNc]:
+            consider_adding_free_param('tau_d')
+        if optional_assumptions[OptionalAssumption.oPF]:
+            consider_adding_free_param('sigma_xdot')
+            
         # check for unsupported assumptions
-        unsupported_assumptions = (OptionalAssumption.oAN,)
+        unsupported_assumptions = ()
         for unsupp in unsupported_assumptions:
             if optional_assumptions[unsupp]:
                 raise Exception(f'Found unsupported assumption: {unsupp}')
