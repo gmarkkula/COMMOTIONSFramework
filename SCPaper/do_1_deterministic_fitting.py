@@ -50,13 +50,14 @@ PARAM_ARRAYS = {}
 # PARAM_ARRAYS['T_Of'] = (0.5, 1, 2, 4, math.inf)
 # PARAM_ARRAYS['sigma_O'] = (0.02, 0.05, 0.1, 0.2, 0.5, 1, 2.5)
 # -- further expanded grid
-PARAM_ARRAYS['k_c'] = np.logspace(np.log10(0.2), np.log10(2), 10)
-PARAM_ARRAYS['k_sc'] = np.logspace(np.log10(0.02), np.log10(0.2), 10)
-PARAM_ARRAYS['thetaDot_1'] = np.logspace(np.log10(0.005), np.log10(0.3), 10) 
-PARAM_ARRAYS['T_delta'] = np.logspace(np.log10(10), np.log10(100), 10)
-PARAM_ARRAYS['beta_V'] = np.logspace(np.log10(1), np.log10(200), 10)
-PARAM_ARRAYS['T_Of'] = np.logspace(np.log10(0.5), np.log10(10), 10)
-PARAM_ARRAYS['sigma_O'] = np.logspace(np.log10(0.02), np.log10(2), 10)
+N_GRID_SIDE = 10
+PARAM_ARRAYS['k_c'] = np.logspace(np.log10(0.2), np.log10(2), N_GRID_SIDE)
+PARAM_ARRAYS['k_sc'] = np.logspace(np.log10(0.02), np.log10(0.2), N_GRID_SIDE)
+PARAM_ARRAYS['thetaDot_1'] = np.logspace(np.log10(0.005), np.log10(0.3), N_GRID_SIDE) 
+PARAM_ARRAYS['T_delta'] = np.logspace(np.log10(10), np.log10(100), N_GRID_SIDE)
+PARAM_ARRAYS['beta_V'] = np.logspace(np.log10(1), np.log10(200), N_GRID_SIDE)
+PARAM_ARRAYS['T_Of'] = np.logspace(np.log10(0.5), np.log10(10), N_GRID_SIDE)
+PARAM_ARRAYS['sigma_O'] = np.logspace(np.log10(0.02), np.log10(2), N_GRID_SIDE)
 
 
 
