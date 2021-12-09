@@ -363,7 +363,8 @@ def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
 
 
 def simulate_scenario(scenario, optional_assumptions, params, params_k, 
-                      i_variation=None, snapshots=(None, None)):
+                      i_variation=None, snapshots=(None, None), 
+                      apply_stop_criteria=True):
     # prepare the simulation
     # - get initial distances and constant accelerations for this scenario variation
     if scenario.n_variations > 1 and i_variation == None:
@@ -391,6 +392,11 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
                 speed_stddev = PRIOR_SPEED_SD_MULT * oth_free_speed))
     else:
         kalman_priors = (None, None)
+    # - stop criteria?
+    if apply_stop_criteria:
+        stop_criteria = scenario.stop_criteria
+    else:
+        stop_criteria = ()
     
     # - set up the SCSimulation object
     sc_simulation = sc_scenario.SCSimulation(
@@ -403,7 +409,7 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         optional_assumptions=optional_assumptions, 
         params=params, params_k=params_k, kalman_priors=kalman_priors,
         agent_names=AGENT_NAMES, snapshot_times=snapshots,
-        stop_criteria=scenario.stop_criteria)
+        stop_criteria=stop_criteria)
     
     # run the simulation
     sc_simulation.run()
@@ -488,7 +494,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                 setattr(self.params, param_name, param_value)
     
     
-    def simulate_scenario(self, scenario, i_variation='all', snapshots=(None, None)):
+    def simulate_scenario(self, scenario, i_variation='all', 
+                          snapshots=(None, None), apply_stop_criteria=True):
         """
         Run a given scenario for the model parameterisation currently
         specified by self.params and self.params_k.
@@ -515,13 +522,15 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                                                   self.optional_assumptions, 
                                                   self.params, self.params_k, 
                                                   i_variation=i_var, 
-                                                  snapshots=snapshots))
+                                                  snapshots=snapshots,
+                                                  apply_stop_criteria=apply_stop_criteria))
                 return sims
             else:
                 return simulate_scenario(scenario, self.optional_assumptions, 
                                          self.params, self.params_k, 
                                          i_variation=i_variation, 
-                                         snapshots=snapshots)
+                                         snapshots=snapshots,
+                                         apply_stop_criteria=apply_stop_criteria)
     
     def get_metrics_for_params(self, params_dict, i_parameterisation, 
                                i_repetition):
@@ -702,6 +711,59 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         self.save(FIT_RESULTS_FOLDER + (file_name_format % name))
         
         
+        
+def do_parameter_plot(fit, criteria_matrix, log=False):
+    all_criteria_met = np.all(criteria_matrix, axis=0)
+    COLORS = 'rgbc'
+    figsize = min(12, 3 * fit.n_params)
+    fig, axs = plt.subplots(fit.n_params, fit.n_params, 
+                            figsize=(figsize,figsize))
+    for i_x_param in range(fit.n_params):
+        for i_y_param in range(fit.n_params):
+            if fit.n_params > 1:
+                ax = axs[i_y_param, i_x_param]
+            else:
+                ax = axs
+            if log:
+                ax.set_xscale('log')
+            xmin = np.amin(fit.results.params_matrix[:, i_x_param])
+            xmax = np.amax(fit.results.params_matrix[:, i_x_param])
+            if np.isinf(xmax):
+                xmax = 10
+            ax.set_xlim(xmin, xmax)
+            if i_x_param > i_y_param:
+                continue
+            elif i_x_param == i_y_param:
+                all_crit_param_vals = fit.results.params_matrix[
+                    all_criteria_met, i_x_param]
+                all_crit_param_vals[np.isinf(all_crit_param_vals)] = 10
+                if log:
+                    bins = np.logspace(np.log10(xmin), np.log10(xmax), 10)
+                else:
+                    bins = np.linspace(xmin, xmax, 10)
+                ax.hist(all_crit_param_vals, bins=bins)
+            else:
+                for i_crit in range(criteria_matrix.shape[0]):
+                    if log:
+                        ax.set_yscale('log')
+                    ax.plot(fit.results.params_matrix[
+                        criteria_matrix[i_crit, :], i_x_param],
+                        fit.results.params_matrix[
+                        criteria_matrix[i_crit, :], i_y_param],
+                        'o' + COLORS[i_crit], alpha=0.1)
+                ymin = np.amin(fit.results.params_matrix[:, i_y_param])
+                ymax = np.amax(fit.results.params_matrix[:, i_y_param])
+                if np.isinf(ymax):
+                    ymax = 10
+                ax.set_ylim(ymin, ymax)
+            if i_x_param == 0:
+                ax.set_ylabel(fit.param_names[i_y_param])
+            if i_y_param == fit.n_params-1:
+                ax.set_xlabel(fit.param_names[i_x_param])
+    plt.show()    
+   
+     
+    
 # unit testing
 if __name__ == "__main__":
         
