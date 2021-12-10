@@ -150,13 +150,19 @@ for det_fit_file in det_fit_files:
     det_fit.sec_criteria_matrix = sec_criteria_matrix
     
     # did the model meet all main criteria at least somewhere, even if not in
-    # a single parameterisation?
+    # a single parameterisation? 
     main_crit_met_somewhere = np.amax(main_criteria_matrix, axis=1)
     all_main_crit_met_somewhere = np.all(main_crit_met_somewhere)
     if all_main_crit_met_somewhere:
+        # yes, so retain this model for further analysis
         retained_params = (n_main_criteria_met == N_MAIN_CRIT_FOR_RETAINING)
+        param_ranges = []
+        for i_param in range(det_fit.n_params):
+            param_ranges.append((np.amin(det_fit.results.params_matrix[:, i_param]),
+                                 np.amax(det_fit.results.params_matrix[:, i_param])))
         retained_models.append(sc_fitting.ModelWithParams(
             model=det_fit.name, param_names=copy.copy(det_fit.param_names), 
+            param_ranges=param_ranges,
             params_array=np.copy(det_fit.results.params_matrix[retained_params])))
     
     # pick a maximally sucessful parameterisations, and provide simulation 
@@ -192,7 +198,7 @@ for det_fit_file in det_fit_files:
                     sim.do_plots(kinem_states=True, veh_stop_dec=True, beh_probs=be_plots)
                     sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
         if DO_PARAMS_PLOTS:
-            sc_fitting.do_parameter_plot(det_fit, main_criteria_matrix)
+            sc_fitting.do_crit_params_plot(det_fit, main_criteria_matrix, log=True)
                             
                         
             
@@ -207,6 +213,8 @@ for ret_model in retained_models:
           f' out of {n_total}'
           f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
     print(ret_model.param_names)
+    sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
+                              ret_model.param_ranges, log=True)
     print('\n***********************')
     
 

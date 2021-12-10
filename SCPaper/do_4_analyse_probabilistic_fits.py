@@ -136,7 +136,7 @@ for prob_fit_file in prob_fit_files:
             sc_simulation.do_plots(kinem_states=True, beh_probs=be_plots)
             sc_fitting.get_metrics_for_scenario(scenario, sc_simulation, verbose=True)
     if n_max_criteria_met >= N_CRIT_FOR_PARAMS_PLOT and DO_PARAMS_PLOTS:
-        sc_fitting.do_parameter_plot(prob_fit, criteria_matrix, log=True)
+        sc_fitting.do_crit_params_plot(prob_fit, criteria_matrix, log=True)
 
                             
                         

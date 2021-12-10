@@ -107,6 +107,7 @@ DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1])
 class ModelWithParams:
     model: str
     param_names: list
+    param_ranges: list
     params_array: np.ndarray
         
 
@@ -712,7 +713,56 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         
         
         
-def do_parameter_plot(fit, criteria_matrix, log=False):
+def do_params_plot(param_names, params_array, param_ranges=None, log=False):
+    n_params = len(param_names)
+    assert(params_array.shape[1] == n_params)
+    figsize = min(12, 3 * n_params)
+    fig, axs = plt.subplots(n_params, n_params, 
+                            figsize=(figsize,figsize))
+    if param_ranges == None:
+        param_ranges = []
+        for i_param in range(n_params):
+            param_ranges.append((np.amin(params_array[:, i_param]),
+                                 np.amax(params_array[:, i_param])))
+    for i_x_param in range(n_params):
+        for i_y_param in range(n_params):
+            if n_params > 1:
+                ax = axs[i_y_param, i_x_param]
+            else:
+                ax = axs
+            if log:
+                ax.set_xscale('log')
+            xmin = param_ranges[i_x_param][0]
+            xmax = param_ranges[i_x_param][1]
+            if np.isinf(xmax):
+                xmax = 10
+            ax.set_xlim(xmin, xmax)
+            if i_x_param > i_y_param:
+                continue
+            elif i_x_param == i_y_param:
+                if log:
+                    bins = np.logspace(np.log10(xmin), np.log10(xmax), 10)
+                else:
+                    bins = np.linspace(xmin, xmax, 10)
+                ax.hist(params_array[:, i_x_param], bins=bins)
+            else:
+                if log:
+                    ax.set_yscale('log')
+                ax.plot(params_array[:, i_x_param], params_array[:, i_y_param],
+                    'ko', alpha=0.1)
+                ymin = param_ranges[i_y_param][0]
+                ymax = param_ranges[i_y_param][1]
+                if np.isinf(ymax):
+                    ymax = 10
+                ax.set_ylim(ymin, ymax)
+            if i_x_param == 0:
+                ax.set_ylabel(param_names[i_y_param])
+            if i_y_param == n_params-1:
+                ax.set_xlabel(param_names[i_x_param]) 
+    plt.show()
+        
+
+def do_crit_params_plot(fit, criteria_matrix, log=False):
     all_criteria_met = np.all(criteria_matrix, axis=0)
     COLORS = 'rgbc'
     figsize = min(12, 3 * fit.n_params)
@@ -759,8 +809,8 @@ def do_parameter_plot(fit, criteria_matrix, log=False):
             if i_x_param == 0:
                 ax.set_ylabel(fit.param_names[i_y_param])
             if i_y_param == fit.n_params-1:
-                ax.set_xlabel(fit.param_names[i_x_param])
-    plt.show()    
+                ax.set_xlabel(fit.param_names[i_x_param])   
+    plt.show()
    
      
     
