@@ -71,6 +71,7 @@ class DerivedAssumption(Enum):
 
 class SimStopCriterion(Enum):
     ACTIVE_AGENT_HALFWAY_TO_CS = 'one actively behaving agent halfway to conflict space'
+    ACTIVE_AGENT_IN_CS = 'one actively behaving agent in conflict space'
     BOTH_AGENTS_HAVE_MOVED = 'both agents have moved since simulation start'
     BOTH_AGENTS_STOPPED = 'both agents stopped'
     BOTH_AGENTS_EXITED_CS = 'both agents exited conflict space'
@@ -1352,6 +1353,13 @@ class SCSimulation(commotions.Simulation):
                         halfway_dist = \
                             sc_scenario_helper.get_agent_halfway_to_CS_CP_dist(agent)
                         if agent.curr_state.signed_CP_dist < halfway_dist:
+                            self.stop_now = True
+                            return
+            
+            if stop_crit == SimStopCriterion.ACTIVE_AGENT_IN_CS:
+                for agent in self.agents:
+                    if agent.const_acc == None:
+                        if agent.curr_state.signed_CP_dist < agent.coll_dist:
                             self.stop_now = True
                             return
                     

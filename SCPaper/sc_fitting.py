@@ -209,6 +209,7 @@ class SCPaperScenario:
 # scenarios
 # - just defining some shorter names for the simulation stopping criteria
 HALFWAY_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_HALFWAY_TO_CS,)
+IN_CS_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_IN_CS,)
 MOVED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,)
 EXITED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
 # - one-agent scenarios for deterministic fits
@@ -271,8 +272,8 @@ PROB_FIT_SCENARIOS['PedLead'] = SCPaperScenario('PedLead',
 PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
                                                             initial_ttcas=(3, 8), 
                                                             veh_const_speed=True,
-                                                            stop_criteria = HALFWAY_STOP,
-                                                            metric_names = ('ped_av_speed',),
+                                                            stop_criteria = IN_CS_STOP,
+                                                            metric_names = ('ped_av_speed_to_CS',),
                                                             time_step = PROB_SIM_TIME_STEP,
                                                             end_time = PROB_SIM_END_TIME)
 
@@ -301,6 +302,14 @@ def metric_agent_av_speed(sim, i_agent):
 
 def metric_ped_av_speed(sim):
     return metric_agent_av_speed(sim, i_PED_AGENT)
+
+def metric_ped_av_speed_to_CS(sim):
+    ped_agent = sim.agents[i_PED_AGENT]
+    idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+    if len(idx_past_CS_entry) == 0:
+        return math.nan
+    else:
+        return np.mean(ped_agent.trajectory.long_speed[:idx_past_CS_entry[0]])
 
 def metric_veh_av_speed(sim):
     return metric_agent_av_speed(sim, i_VEH_AGENT)
@@ -365,7 +374,7 @@ def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
 
 def simulate_scenario(scenario, optional_assumptions, params, params_k, 
                       i_variation=None, snapshots=(None, None), 
-                      apply_stop_criteria=True):
+                      noise_seeds=(None, None), apply_stop_criteria=True):
     # prepare the simulation
     # - get initial distances and constant accelerations for this scenario variation
     if scenario.n_variations > 1 and i_variation == None:
@@ -409,8 +418,8 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         start_time=0, end_time=scenario.end_time, time_step=scenario.time_step, 
         optional_assumptions=optional_assumptions, 
         params=params, params_k=params_k, kalman_priors=kalman_priors,
-        agent_names=AGENT_NAMES, snapshot_times=snapshots,
-        stop_criteria=stop_criteria)
+        noise_seeds=noise_seeds, agent_names=AGENT_NAMES, 
+        snapshot_times=snapshots, stop_criteria=stop_criteria)
     
     # run the simulation
     sc_simulation.run()
@@ -514,7 +523,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         if self.n_scenario_variations == 1:
             return simulate_scenario(scenario, self.optional_assumptions, 
                                      self.params, self.params_k, 
-                                     snapshots=snapshots)
+                                     snapshots=snapshots,
+                                     apply_stop_criteria=apply_stop_criteria)
         else:
             if i_variation == 'all':
                 sims = []

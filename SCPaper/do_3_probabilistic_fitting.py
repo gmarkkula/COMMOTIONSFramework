@@ -23,8 +23,8 @@ import multiprocessing as mp
 
 # - models 
 BASE_MODELS = ('oVA', 'oVAoEA')  
-#MODEL_VARIANTS = ('oAN', 'oSNc', 'oSNv', 'oSNcoPF', 'oSNvoPF')
-MODEL_VARIANTS = ('oSNcoPF', 'oSNvoPF')
+MODEL_VARIANTS = ('oAN', 'oSNc', 'oSNv', 'oSNcoPF', 'oSNvoPF')
+#MODEL_VARIANTS = ('oSNcoPF', 'oSNvoPF')
 
 
 # - free parameter values

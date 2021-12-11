@@ -27,7 +27,7 @@ ExampleParameterisation = collections.namedtuple(
 
 # constants
 DO_TIME_SERIES_PLOTS = True
-N_CRIT_FOR_TS_PLOT = 3
+N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = True
 N_CRIT_FOR_PARAMS_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
@@ -79,7 +79,7 @@ for prob_fit_file in prob_fit_files:
             crit_met = np.all(coll_free_rep, axis=1)
             
         elif crit == 'Pedestrian hesitation in constant-speed scenario':
-            ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed')
+            ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
             crit_met_all = ped_av_speed < 0.95 * PED_FREE_SPEED
             # criterion met for parameterisation if met for enough of the repetitions
             crit_met = np.sum(crit_met_all, axis=1) >= 4
