@@ -17,6 +17,7 @@ if not PARENT_DIR in sys.path:
 import math
 import time
 import copy
+import numpy as np
 import sc_scenario
 import sc_scenario_helper
 import sc_fitting
@@ -32,7 +33,7 @@ params_k = copy.deepcopy(sc_fitting.get_default_params_k(MODEL))
 params.T = 0.2
 params.DeltaV_th_rel = 0.002
 params.sigma_V = 0.1
-#params.tau_theta = 0.02
+params.tau_theta = 0.02
 #params.T_delta = 40
 #params.thetaDot_1 = 0.005
 #params.beta_V = 1
@@ -55,13 +56,22 @@ SCENARIO = sc_fitting.SCPaperScenario('TestScenario',
                                         end_time = sc_fitting.PROB_SIM_END_TIME)
 
 # simulate and plot
-tic = time.perf_counter()
-sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
-                                   i_variation=0, snapshots=(1.675, None),
-                                   noise_seeds=(1, None), apply_stop_criteria=False)
-toc = time.perf_counter()
-print('Initialising and running simulation took %.3f s.' % (toc - tic,))
-sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=True, 
-             action_val_ests=True, surplus_action_vals=True, looming=False,
-             veh_stop_dec=False)
-sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
+n = 1
+vs = np.zeros(n)
+for i in range(n):
+    tic = time.perf_counter()
+    sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
+                                       i_variation=0, snapshots=(1.2, None),
+                                       noise_seeds=(0, None), apply_stop_criteria=True)
+    toc = time.perf_counter()
+    print('Initialising and running simulation took %.3f s.' % (toc - tic,))
+    sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=True, 
+                  action_val_ests=True, surplus_action_vals=True, looming=False,
+                  veh_stop_dec=False)
+    metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
+    vs[i] = metrics['TestScenario_ped_av_speed_to_CS']
+
+mean_v = np.mean(vs)
+ci_radius = 1.96 * np.std(vs)/math.sqrt(n)
+print(f'Average ped_av_speed_to_CS: {mean_v:.3f} m/s\n'
+      f'CI: [{mean_v - ci_radius:.3f}, {mean_v + ci_radius:.3f}] m/s')
