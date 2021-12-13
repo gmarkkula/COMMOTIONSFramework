@@ -48,7 +48,7 @@ params.tau_theta = 0.02
 #SCENARIO = sc_fitting.ONE_AG_SCENARIOS['PedCrossVehYield']
 # SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['PedHesitateVehConst']
 SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
-                                        initial_ttcas=(3, 80), 
+                                        initial_ttcas=(3, 8), 
                                         veh_const_speed=True,
                                         stop_criteria = sc_fitting.IN_CS_STOP,
                                         metric_names = ('ped_av_speed_to_CS',),
@@ -56,18 +56,18 @@ SCENARIO = sc_fitting.SCPaperScenario('TestScenario',
                                         end_time = sc_fitting.PROB_SIM_END_TIME)
 
 # simulate and plot
-n = 1
+n = 100
 vs = np.zeros(n)
 for i in range(n):
     tic = time.perf_counter()
     sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
-                                       i_variation=0, snapshots=(1.2, None),
-                                       noise_seeds=(0, None), apply_stop_criteria=True)
+                                       i_variation=0, snapshots=(None, None),
+                                       noise_seeds=(None, None), apply_stop_criteria=True)
     toc = time.perf_counter()
     print('Initialising and running simulation took %.3f s.' % (toc - tic,))
-    sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=True, 
-                  action_val_ests=True, surplus_action_vals=True, looming=False,
-                  veh_stop_dec=False)
+    # sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=True, 
+    #               action_val_ests=True, surplus_action_vals=True, looming=False,
+    #               veh_stop_dec=False)
     metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
     vs[i] = metrics['TestScenario_ped_av_speed_to_CS']
 

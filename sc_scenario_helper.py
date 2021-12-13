@@ -37,6 +37,8 @@ i_CONTINUE = AnticipationPhase.CONTINUE.value
 N_ANTICIPATION_PHASES = len(AnticipationPhase)
 ANTICIPATION_TIME_STEP = 0.025
 ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
+
+NEW_ACC_IMPL_CALCS = True
     
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
                                                 ['acc', 'T_acc', 'T_dw'])
@@ -513,6 +515,25 @@ def get_access_order_values(
     return access_ord_values
 
 
+def get_free_acc_dist_travelled(long_speed, free_acc, free_acc_time, 
+                                free_speed, travel_time):
+    """ Return the distance travelled over travel_time, by an agent initially
+        at speed long_speed and acceleration free_acc for a time duration
+        free_acc_time, and thereafter at speed free_speed. Written with
+        situations where long_speed + free_acc * free_acc_time = free_speed
+        in mind, but the function does not verify if this equality holds.
+    """
+    if travel_time <= free_acc_time:
+        travel_dist = (long_speed * travel_time 
+                       + free_acc * (travel_time ** 2) / 2)
+    else:
+        free_acc_dist = (long_speed * free_acc_time 
+                         + free_acc * (free_acc_time ** 2) / 2)
+        free_speed_dist = free_speed * (travel_time - free_acc_time)
+        travel_dist = free_acc_dist + free_speed_dist
+    return travel_dist
+
+
 def get_access_order_implications(ego_image, ego_state, oth_image, oth_state, 
                                   consider_oth_acc = True, return_nans = True):
     """ Return a dict over AccessOrder with an AccessOrderImplication for each, 
@@ -629,35 +650,70 @@ def get_access_order_implications(ego_image, ego_state, oth_image, oth_state,
             T_accs[AccessOrder.EGOFIRST] = math.inf
     else:
         # no, so it is theoretically possible to pass in front of it
-        # --> get acceleration that has the ego agent be at exit of the conflict 
-        # space at the same time as the other agent enters it
-        # (need to consider stop as possibility here, in case there is a long
-        # time left until the other agent reaches the conflict space)
-        ego_dist_to_exit = ego_state.signed_CP_dist + ego_image.coll_dist
-        accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
-            get_acc_to_be_at_dist_at_time(
-                ego_state.long_speed, ego_dist_to_exit + ego_image.params.D_s, 
-                oth_state.cs_entry_time[oth_pred] - ego_image.params.T_s, 
-                consider_stop=True)
-        # if the acceleration to free speed is higher than the acceleration
-        # needed to exit just as the other agent enters, there is no need to
-        # assume that the agent will move slower than its free speed
-        if ego_free_acc > accs[AccessOrder.EGOFIRST]:
-            accs[AccessOrder.EGOFIRST] = ego_free_acc
-            T_accs[AccessOrder.EGOFIRST] = T_acc_free
-        # # the test above overlooks the fact that sometimes just accelerating
-        # # to free speed and then keeping it may not be enough to pass first,
-        # # even if that inequality holds; the test below should work better,
-        # # but would need further testing to make sure it doesn't introduce
-        # # other problems
-        # dist_during_free_acc = (ego_state.long_speed * T_acc_free 
-        #                         + ego_free_acc * (T_acc_free ** 2) / 2)
-        # free_dist_to_exit = (ego_dist_to_exit - dist_during_free_acc 
-        #                      + ego_image.params.D_s)
-        # free_time_to_exit = T_acc_free + free_dist_to_exit / ego_image.v_free
-        # if free_time_to_exit < oth_state.cs_entry_time[oth_pred] - ego_image.params.T_s:
-        #     accs[AccessOrder.EGOFIRST] = ego_free_acc
-        #     T_accs[AccessOrder.EGOFIRST] = T_acc_free        
+        if not NEW_ACC_IMPL_CALCS:
+            # --> get acceleration that has the ego agent be at exit of the conflict 
+            # space at the same time as the other agent enters it
+            # (need to consider stop as possibility here, in case there is a long
+            # time left until the other agent reaches the conflict space)
+            ego_dist_to_exit = ego_state.signed_CP_dist + ego_image.coll_dist
+            accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
+                get_acc_to_be_at_dist_at_time(
+                    ego_state.long_speed, ego_dist_to_exit + ego_image.params.D_s, 
+                    oth_state.cs_entry_time[oth_pred] - ego_image.params.T_s, 
+                    consider_stop=True)
+            # if the acceleration to free speed is higher than the acceleration
+            # needed to exit just as the other agent enters, there is no need to
+            # assume that the agent will move slower than its free speed
+            if ego_free_acc > accs[AccessOrder.EGOFIRST]:
+                accs[AccessOrder.EGOFIRST] = ego_free_acc
+                T_accs[AccessOrder.EGOFIRST] = T_acc_free
+            # # the test above overlooks the fact that sometimes just accelerating
+            # # to free speed and then keeping it may not be enough to pass first,
+            # # even if that inequality holds; the test below should work better,
+            # # but would need further testing to make sure it doesn't introduce
+            # # other problems
+            # dist_during_free_acc = (ego_state.long_speed * T_acc_free 
+            #                         + ego_free_acc * (T_acc_free ** 2) / 2)
+            # free_dist_to_exit = (ego_dist_to_exit - dist_during_free_acc 
+            #                      + ego_image.params.D_s)
+            # free_time_to_exit = T_acc_free + free_dist_to_exit / ego_image.v_free
+            # if free_time_to_exit < oth_state.cs_entry_time[oth_pred] - ego_image.params.T_s:
+            #     accs[AccessOrder.EGOFIRST] = ego_free_acc
+            #     T_accs[AccessOrder.EGOFIRST] = T_acc_free  
+        else:
+            oth_time_to_bef_entry = (oth_state.cs_entry_time[oth_pred]
+                                     - ego_image.params.T_s)
+            # we know from above that the other agent hasn't entered the conflict
+            # space yet, but we need to check if there is enough time left before
+            # this happens given the ego agent's safety margin time
+            if oth_time_to_bef_entry <= 0:
+                # not possible to pass before the other agent with safety margin
+                if return_nans:
+                    accs[AccessOrder.EGOFIRST] = math.nan
+                    T_accs[AccessOrder.EGOFIRST] = math.nan
+                else:
+                    accs[AccessOrder.EGOFIRST] = math.inf
+                    T_accs[AccessOrder.EGOFIRST] = math.inf
+            else:
+                # is it enough to just accelerate to and continue at free speed?
+                ego_dist_to_past_exit = (ego_state.signed_CP_dist + ego_image.coll_dist
+                                         + ego_image.params.D_s)
+                free_acc_dist = get_free_acc_dist_travelled(
+                    ego_state.long_speed, ego_free_acc, T_acc_free, ego_image.v_free, 
+                    travel_time=oth_time_to_bef_entry)
+                if free_acc_dist > ego_dist_to_past_exit:
+                    accs[AccessOrder.EGOFIRST] = ego_free_acc
+                    T_accs[AccessOrder.EGOFIRST] = T_acc_free
+                else:
+                    # --> get acceleration that has the ego agent be at exit of the conflict 
+                    # space at the same time as the other agent enters it
+                    # (need to consider stop as possibility here, in case there is a long
+                    # time left until the other agent reaches the conflict space)
+                    ego_dist_to_exit = ego_state.signed_CP_dist + ego_image.coll_dist
+                    accs[AccessOrder.EGOFIRST], T_accs[AccessOrder.EGOFIRST] = \
+                        get_acc_to_be_at_dist_at_time(
+                            ego_state.long_speed, ego_dist_to_past_exit, 
+                            oth_time_to_bef_entry, consider_stop=True)      
             
         
     # get acceleration needed to pass second
@@ -682,28 +738,58 @@ def get_access_order_implications(ego_image, ego_state, oth_image, oth_state,
                 T_accs[AccessOrder.EGOSECOND] = math.inf
                 T_dws[AccessOrder.EGOSECOND] = 0
         else:
-            # not yet reached conflict space, so get acceleration that has the ego 
-            # agent be at entrance to the conflict space at the same time as the 
-            # other agent exits it (possibly by stopping completely, possibly
-            # even before the other agent reaches the conflict space)
-            ego_dist_to_entry = ego_state.signed_CP_dist - ego_image.coll_dist
-            oth_exit_time = oth_state.cs_exit_time[oth_pred]
-            accs[AccessOrder.EGOSECOND], T_accs[AccessOrder.EGOSECOND] = \
-                get_acc_to_be_at_dist_at_time(
-                    ego_state.long_speed, ego_dist_to_entry - ego_image.params.D_s,
-                    oth_exit_time + ego_image.params.T_s, consider_stop=True)
-            if math.isinf(oth_exit_time):
-                T_dws[AccessOrder.EGOSECOND] = math.inf
+            # not yet reached conflict space, still possible to pass second
+            if not NEW_ACC_IMPL_CALCS:
+                # get acceleration that has the ego agent be at entrance to 
+                # the conflict space at the same time as the other agent exits 
+                # it (possibly by stopping completely, possibly
+                # even before the other agent reaches the conflict space)
+                ego_dist_to_entry = ego_state.signed_CP_dist - ego_image.coll_dist
+                oth_exit_time = oth_state.cs_exit_time[oth_pred]
+                accs[AccessOrder.EGOSECOND], T_accs[AccessOrder.EGOSECOND] = \
+                    get_acc_to_be_at_dist_at_time(
+                        ego_state.long_speed, ego_dist_to_entry - ego_image.params.D_s,
+                        oth_exit_time + ego_image.params.T_s, consider_stop=True)
+                if math.isinf(oth_exit_time):
+                    T_dws[AccessOrder.EGOSECOND] = math.inf
+                else:
+                    T_dws[AccessOrder.EGOSECOND] = max(0, oth_exit_time
+                                                    - T_accs[AccessOrder.EGOSECOND])
+                # if the acceleration to free speed is lower than the acceleration
+                # needed to enter just as the other agent exits, there is no need to
+                # assume that the agent will move faster than its free speed
+                if ego_free_acc < accs[AccessOrder.EGOSECOND]:
+                    accs[AccessOrder.EGOSECOND] = ego_free_acc
+                    T_accs[AccessOrder.EGOSECOND] = T_acc_free
+                    T_dws[AccessOrder.EGOSECOND] = 0
             else:
-                T_dws[AccessOrder.EGOSECOND] = max(0, oth_exit_time
-                                                - T_accs[AccessOrder.EGOSECOND])
-            # if the acceleration to free speed is lower than the acceleration
-            # needed to enter just as the other agent exits, there is no need to
-            # assume that the agent will move faster than its free speed
-            if ego_free_acc < accs[AccessOrder.EGOSECOND]:
-                accs[AccessOrder.EGOSECOND] = ego_free_acc
-                T_accs[AccessOrder.EGOSECOND] = T_acc_free
-                T_dws[AccessOrder.EGOSECOND] = 0
+                # is it enough to just accelerate to and continue at free speed?
+                ego_dist_to_bef_entry = (ego_state.signed_CP_dist - ego_image.coll_dist
+                                         - ego_image.params.D_s)
+                oth_exit_time = oth_state.cs_exit_time[oth_pred]
+                oth_time_to_after_exit = oth_exit_time + ego_image.params.T_s
+                free_acc_dist = get_free_acc_dist_travelled(
+                    ego_state.long_speed, ego_free_acc, T_acc_free, ego_image.v_free, 
+                    travel_time=oth_time_to_after_exit)
+                if free_acc_dist < ego_dist_to_bef_entry:
+                    accs[AccessOrder.EGOSECOND] = ego_free_acc
+                    T_accs[AccessOrder.EGOSECOND] = T_acc_free
+                    T_dws[AccessOrder.EGOSECOND] = 0
+                else:
+                    # get acceleration that has the ego agent be at entrance to 
+                    # the conflict space at the same time as the other agent exits 
+                    # it (possibly by stopping completely, possibly
+                    # even before the other agent reaches the conflict space)
+                    accs[AccessOrder.EGOSECOND], T_accs[AccessOrder.EGOSECOND] = \
+                        get_acc_to_be_at_dist_at_time(
+                            ego_state.long_speed, ego_dist_to_bef_entry,
+                            oth_time_to_after_exit, consider_stop=True)
+                    if math.isinf(oth_exit_time):
+                        T_dws[AccessOrder.EGOSECOND] = math.inf
+                    else:
+                        T_dws[AccessOrder.EGOSECOND] = max(0, oth_exit_time
+                                                    - T_accs[AccessOrder.EGOSECOND])
+                
         
             
     # return dict with the full results
