@@ -1712,9 +1712,10 @@ class SCSimulation(commotions.Simulation):
                 # apparent time to conflict space entry
                 if i_agent == 0:
                     axs[3].axhline(0, color='k', linestyle=':')
-                axs[3].plot(self.time_stamps, 
-                            (agent.signed_CP_dists - agent.coll_dist) 
-                            / agent.trajectory.long_speed, '-' + agent.plot_color)
+                with np.errstate(divide='ignore'):
+                    axs[3].plot(self.time_stamps, 
+                                (agent.signed_CP_dists - agent.coll_dist) 
+                                / agent.trajectory.long_speed, '-' + agent.plot_color)
                 axs[3].set_ylim(-1, 8)
                 axs[3].set_ylabel('$TTCS_{app}$ (s)')
                 
@@ -1805,13 +1806,13 @@ if __name__ == "__main__":
                                                 oVAa = False,
                                                 oVAl = False,
                                                 oSNc = False,
-                                                oSNv = True,
-                                                oPF = True,
+                                                oSNv = False,
+                                                oPF = False,
                                                 oBEo = False,
                                                 oBEv = False,
                                                 oBEc = False,
                                                 oAI = False,
-                                                oEA = True, 
+                                                oEA = False, 
                                                 oAN = False)  
     
     # scenario
@@ -1822,7 +1823,7 @@ if __name__ == "__main__":
     SCE_PEDATSPEEDDECEL = 3 # a deceleration scenario where the pedestrian is initially walking
     SCE_PEDSTAT = 4 # pedestrian stationary at kerb
     SCE_STARTUP = 5 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_PEDLEAD
+    SCENARIO = SCE_BASELINE
     if SCENARIO == SCE_BASELINE:
         INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
         SPEEDS = np.array((0, 10))
@@ -1875,13 +1876,14 @@ if __name__ == "__main__":
     NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
     STOP_CRITERIA = (SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
+    #np.seterr(invalid='raise')
     sc_simulation = SCSimulation(
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
             initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
             const_accs = CONST_ACCS, agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step=0.025,
+            snapshot_times = SNAPSHOT_TIMES, time_step=0.1,
             stop_criteria = STOP_CRITERIA)
     tic = time.perf_counter()
     sc_simulation.run()
@@ -1892,7 +1894,7 @@ if __name__ == "__main__":
     sc_simulation.do_plots(
             trajs = True, action_val_ests = True, surplus_action_vals = True, 
             kinem_states = True, beh_accs = True, beh_probs = True, action_vals = True, 
-            sensory_prob_dens = False, beh_activs = True, looming = True)
+            sensory_prob_dens = False, beh_activs = True, looming = False)
     if sc_simulation.first_passer is None:
         print('Neither agent entered the conflict area.')
     else:
