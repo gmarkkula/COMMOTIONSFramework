@@ -331,6 +331,10 @@ class SCAgent(commotions.AgentWithGoal):
         if self.const_acc != None:
             self.trajectory.long_acc[i_time_step] = self.const_acc
             return
+        elif (self.zero_acc_after_exit 
+              and self.curr_state.signed_CP_dist < -self.coll_dist):
+            self.trajectory.long_acc[i_time_step] = 0
+            return
         
         # update this agent's current perception of the other agent
         # - save the percept from the previous time step
@@ -1159,7 +1163,8 @@ class SCAgent(commotions.AgentWithGoal):
                  initial_state, optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, 
                  noise_seed = None, kalman_prior = None, const_acc = None, 
-                 plot_color = 'k', snapshot_times = None):
+                 zero_acc_after_exit = False, plot_color = 'k', 
+                 snapshot_times = None):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -1170,7 +1175,9 @@ class SCAgent(commotions.AgentWithGoal):
             initial_state, can_reverse = False, plot_color = plot_color)
             
         # is this agent to just keep a constant acceleration?
+        # (throughout or after exiting conflict space)
         self.const_acc = const_acc
+        self.zero_acc_after_exit = zero_acc_after_exit
         
         # doing any value function snapshots?
         self.snapshot_times = snapshot_times
@@ -1316,9 +1323,9 @@ class SCSimulation(commotions.Simulation):
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None,  
                  noise_seeds = (None, None), kalman_priors = (None, None),
-                 const_accs = (None, None), agent_names = ('A', 'B'), 
-                 plot_colors = ('c', 'm'), snapshot_times = (None, None),
-                 stop_criteria = ()):
+                 const_accs = (None, None), zero_acc_after_exit = False, 
+                 agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
+                 snapshot_times = (None, None), stop_criteria = ()):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -1338,6 +1345,7 @@ class SCSimulation(commotions.Simulation):
                     noise_seed = noise_seeds[i_agent],
                     kalman_prior = kalman_priors[i_agent],
                     const_acc = const_accs[i_agent],
+                    zero_acc_after_exit = zero_acc_after_exit,
                     plot_color = plot_colors[i_agent],
                     snapshot_times = snapshot_times[i_agent])
         
@@ -1356,7 +1364,7 @@ class SCSimulation(commotions.Simulation):
                             self.stop_now = True
                             return
             
-            if stop_crit == SimStopCriterion.ACTIVE_AGENT_IN_CS:
+            elif stop_crit == SimStopCriterion.ACTIVE_AGENT_IN_CS:
                 for agent in self.agents:
                     if agent.const_acc == None:
                         if agent.curr_state.signed_CP_dist < agent.coll_dist:
@@ -1881,9 +1889,10 @@ if __name__ == "__main__":
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
             initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
-            const_accs = CONST_ACCS, agent_names = NAMES,  params = params, 
+            const_accs = CONST_ACCS, zero_acc_after_exit = False,
+            agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step=0.1,
+            snapshot_times = SNAPSHOT_TIMES, time_step = 0.1,
             stop_criteria = STOP_CRITERIA)
     tic = time.perf_counter()
     sc_simulation.run()
