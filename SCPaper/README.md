@@ -58,33 +58,45 @@
                     * ~~Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent. ... I have looked at this now and it seems to create some unintended knock-on effects, so leaving as is at least for now.~~
     * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
         * ~~Maybe first on my own computer...?~~
-        * ... And then on a faster computer, with an expanded grid? Feels like it would be possible to aim for a factor ten increase in parameterisations tested (i.e., about 10<sup>5</sup> parameterisations tested for the most complex models).
-            * This would be a good point in time to add use of a yml file to specify the conda environment on ARC4.
+        * ~~... And then on a faster computer, with an expanded grid? Feels like it would be possible to aim for a factor ten increase in parameterisations tested (i.e., about 10<sup>5</sup> parameterisations tested for the most complex models).~~
             * ~~Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.~~
+        * Rerun after having verified all steps of the probabilistic fits on small/medium grids.
         * Sensitivity analysis on the criterion thresholds.
-    * Run probabilistic fits
-        * ~~Make sure scenarios and metrics are in order.~~
-        * ~~Decide on a parameter grid.~~
-        * Think through `oBEo` in light of the noisy perception -> requires a slightly updated expression for the Bayesian update I think?
-        * Preparing the fitting class in `sc_fitting.py` for probabilistic fitting
-            * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
+    * Run probabilistic fits       
+        * ~~Preparing the fitting class in `sc_fitting.py` for probabilistic fitting.~~
             * ~~Add support for multiple repetitions.~~
             * ~~Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.~~
-        * Decide in some structured way (based on the updated large deterministic fits?) on a fixed value of $T_\delta$ for the `oVA` fits.
-        * Speedups:
+        * `oVA` only
+            * ~~Make sure scenarios and metrics are in order.~~
+            * ~~Decide on a parameter grid.~~
+            * Run a medium-sized grid for the noisy `oVA` models.
+            * Decide in some structured way (based on the updated large deterministic fits?) on a fixed value of $T_\delta$ for the `oVA` fits.
+        * With `oBE*` etc
+            * Think through `oBEo` in light of the noisy perception -> requires a slightly updated expression for the Bayesian update I think?
+            * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
+            * Run retained `oVAoBE*` models with retained noisy assumptions from the noisy `oVA` fits.
+        * ~~Speedups:~~
             * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
-            * Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.
+            * ~~Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.~~
         * ~~Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.~~
-        * Run the actual probabilistic fits - probably again in multiple stages with expanding grid.
 * Idea: Test the best model candidates on the Keio or HIKER pedestrian crossing data - without fitting.
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
-    
+
+## Overall fitting sequence
+* Fit all deterministic models to the deterministic criteria. 
+    * Retain models achieving all four main deterministic criteria somewhere, retaining parameterisations achieving at least three.
+* Fit all noisy base `oVA` models (assuming the base model and base `oVAa` still don't fare well in the deterministic fits) to the probabilistic criteria.
+    * Retain noisy assumptions and parameterisations that achieve all four probabilistic criteria.
+* Fit all combinations of retained deterministic model parameterisations with all combinations of probabilistic models, across a grid of probabilistic model parameterisations, to the probabilistic criteria.
+    * Retain the models and parameterisations that achieve all four probabilistic criteria.
+* Test the retained model parameterisations on (or fit from them to) the non-eHMI HIKER crossing initiation time data. 
+
 
 ## Model/code imperfections to think about / keep an eye on
 * Model:
     * Assuming pedestrians apply constant deceleration rather than constant speed to achieve interaction outcomes.
-    * The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.) 
+    * ~~The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.)~~ 
     * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed.
     * The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
 * Other stuff:
