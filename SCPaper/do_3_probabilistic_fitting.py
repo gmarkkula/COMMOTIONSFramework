@@ -28,7 +28,7 @@ MODEL_VARIANTS = ('oAN', 'oSNc', 'oSNv', 'oSNcoPF', 'oSNvoPF')
 
 
 # - free parameter values
-N_VALS_PER_PARAM = 3
+N_VALS_PER_PARAM = 5
 PARAM_ARRAYS = {}
 PARAM_ARRAYS['T'] = np.logspace(np.log10(0.1), np.log10(0.5), N_VALS_PER_PARAM)
 PARAM_ARRAYS['DeltaV_th_rel'] = np.logspace(np.log10(0.001), np.log10(0.1), N_VALS_PER_PARAM)
