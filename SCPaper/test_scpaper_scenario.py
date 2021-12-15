@@ -23,18 +23,18 @@ import sc_scenario_helper
 import sc_fitting
 
 # set model
-MODEL = 'oVAoSNvoPFoEA'
+MODEL = 'oVAooEAoAN'
 # get assumptions and default parameters for chosen model
 assumptions = sc_scenario.get_assumptions_dict_from_string(MODEL)
 params = copy.deepcopy(sc_fitting.DEFAULT_PARAMS)
 params_k = copy.deepcopy(sc_fitting.get_default_params_k(MODEL))
 
 # set remaining model parameters
-params.T = 0.2
-params.DeltaV_th_rel = 0.005
-# params.sigma_V = 0.1
-params.tau_theta = 0.05
-params.sigma_xdot = 0.1
+params.T = 0.5
+params.DeltaV_th_rel = 0.003
+params.sigma_V = 0.01
+#params.tau_theta = 0.05
+#params.sigma_xdot = 0.1
 #params.T_delta = 90
 #params.thetaDot_1 = 0.005
 #params.beta_V = 27
@@ -47,14 +47,14 @@ params.sigma_xdot = 0.1
 
 # set scenario to run
 # SCENARIO = sc_fitting.ONE_AG_SCENARIOS['PedCrossVehYield']
-# SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['PedHesitateVehConst']
-SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
-                                        initial_ttcas=(3, 8), 
-                                        veh_const_speed=True,
-                                        stop_criteria = sc_fitting.IN_CS_STOP,
-                                        metric_names = ('ped_av_speed', 'ped_av_speed_to_CS'),
-                                        time_step = sc_fitting.PROB_SIM_TIME_STEP,
-                                        end_time = sc_fitting.PROB_SIM_END_TIME)
+SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['PedHesitateVehConst']
+# SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
+#                                         initial_ttcas=(3, 8), 
+#                                         veh_const_speed=True,
+#                                         stop_criteria = sc_fitting.IN_CS_STOP,
+#                                         metric_names = ('ped_av_speed', 'ped_av_speed_to_CS'),
+#                                         time_step = sc_fitting.PROB_SIM_TIME_STEP,
+#                                         end_time = sc_fitting.PROB_SIM_END_TIME)
 
 # tic = time.perf_counter()
 # sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
@@ -70,7 +70,7 @@ SCENARIO = sc_fitting.SCPaperScenario('TestScenario',
 
 
 
-if True:
+if False:
     for i_var in range(SCENARIO.n_variations):
         print(f'{SCENARIO.name} variation {i_var+1}/{SCENARIO.n_variations}:')
         tic = time.perf_counter()
@@ -86,7 +86,7 @@ if True:
         metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
 
 
-if False:
+if True:
     n = 100
     vs = np.zeros(n)
     for i in range(n):
@@ -100,7 +100,7 @@ if False:
         #               action_val_ests=True, surplus_action_vals=True, looming=False,
         #               veh_stop_dec=False)
         metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
-        vs[i] = metrics['TestScenario_ped_av_speed_to_CS']
+        vs[i] = metrics['PedHesitateVehConst_ped_av_speed_to_CS']
     
     mean_v = np.mean(vs)
     ci_radius = 1.96 * np.std(vs)/math.sqrt(n)

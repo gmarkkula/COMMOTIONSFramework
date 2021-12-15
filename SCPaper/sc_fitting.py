@@ -51,7 +51,7 @@ DET_SIM_END_TIME = 8 # s
 PROB_SIM_END_TIME = 12 # s
 V_NY_REL = -1.5
 PRIOR_DIST_SD_MULT = 2
-PRIOR_SPEED_SD_MULT = 0.5
+PRIOR_SPEED_SD_MULT = 2
 AGENT_COLL_DISTS = []
 for i_ag in range(N_AGENTS):
     AGENT_COLL_DISTS.append(sc_scenario_helper.get_agent_coll_dist(
@@ -86,7 +86,7 @@ def get_default_params_k(model_str):
         return DEFAULT_PARAMS_K_NVA
 # - other fixed parameters
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.T_delta = 30
+DEFAULT_PARAMS.T_delta = 60
 DEFAULT_PARAMS.H_e = 1.5
 DEFAULT_PARAMS.sigma_xdot = 0.1
 DEFAULT_PARAMS.c_tau = 0.01

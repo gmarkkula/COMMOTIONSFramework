@@ -15,6 +15,8 @@ if not PARENT_DIR in sys.path:
 
 # other imports
 import glob
+import pickle
+import copy
 import numpy as np
 import collections
 import parameter_search
@@ -30,6 +32,7 @@ DO_TIME_SERIES_PLOTS = True
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = True
 N_CRIT_FOR_PARAMS_PLOT = 4
+N_CRIT_FOR_RETAINING = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 CRITERIA = ('Collision-free encounter', 
@@ -50,7 +53,7 @@ print(prob_fit_files)
 
 # loop through the deterministic fitting results files
 prob_fits = {}
-#retained_models = []
+retained_models = []
 for prob_fit_file in prob_fit_files:
     print()
     prob_fit = parameter_search.load(prob_fit_file, verbose=True)
@@ -112,6 +115,18 @@ for prob_fit_file in prob_fit_files:
     prob_fit.criteria_matrix = criteria_matrix
     prob_fit.n_criteria_met = n_criteria_met
     
+    # retain models and parameterisations meeting all criteria
+    if n_max_criteria_met == len(CRITERIA):
+        param_ranges = []
+        for i_param in range(prob_fit.n_params):
+            param_ranges.append((np.amin(prob_fit.results.params_matrix[:, i_param]),
+                                 np.amax(prob_fit.results.params_matrix[:, i_param])))
+        retained_models.append(sc_fitting.ModelWithParams(
+            model=prob_fit.name, param_names=copy.copy(prob_fit.param_names), 
+            param_ranges=param_ranges,
+            params_array=np.copy(prob_fit.results.params_matrix[all_criteria_met])))
+    
+    
     # pick a maximally sucessful parameterisations, and provide simulation 
     # plots if requested
     i_parameterisation = np.nonzero(met_max_criteria)[0][0]
@@ -131,7 +146,8 @@ for prob_fit_file in prob_fit_files:
         for scenario in prob_fit.scenarios.values():
             print(f'\n\n\t\t\tScenario "{scenario.name}"')
             sc_simulation = prob_fit.simulate_scenario(scenario, 
-                                                       apply_stop_criteria=False)
+                                                       apply_stop_criteria=False,
+                                                       zero_acc_after_exit=False)
             be_plots = 'oBE' in prob_fit.name
             sc_simulation.do_plots(kinem_states=True, beh_probs=be_plots)
             sc_fitting.get_metrics_for_scenario(scenario, sc_simulation, verbose=True)
@@ -143,20 +159,20 @@ for prob_fit_file in prob_fit_files:
             
         
     
-# # provide info on retained models
-# print('\n\n*** Retained models ***')
-# for ret_model in retained_models:
-#     n_ret_params = ret_model.params_array.shape[0]
-#     n_total = det_fits[ret_model.model].n_parameterisations
-#     print(f'\nModel {ret_model.model}\nRetaining {n_ret_params}'
-#           f' out of {n_total}'
-#           f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
-#     print(ret_model.param_names)
-#     print('\n***********************')
+# provide info on retained models
+print('\n\n*** Retained models ***')
+for ret_model in retained_models:
+    n_ret_params = ret_model.params_array.shape[0]
+    n_total = prob_fits[ret_model.model].n_parameterisations
+    print(f'\nModel {ret_model.model}\nRetaining {n_ret_params}'
+          f' out of {n_total}'
+          f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
+    print(ret_model.param_names)
+    print('\n***********************')
     
 
-# # save the retained models
-# with open(sc_fitting.FIT_RESULTS_FOLDER + '/RetainedDetModels.pkl', 'wb') as file_obj:
-#     pickle.dump(retained_models, file_obj)
+# save the retained models
+with open(sc_fitting.FIT_RESULTS_FOLDER + '/RetainedProbModels.pkl', 'wb') as file_obj:
+    pickle.dump(retained_models, file_obj)
     
     
