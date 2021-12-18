@@ -641,7 +641,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
     
     def __init__(self, name, scenarios, optional_assumptions, 
                  default_params, default_params_k, param_arrays, 
-                 n_repetitions=1, parallel=False, n_workers=mp.cpu_count()-1,
+                 list_search=False, n_repetitions=1, 
+                 parallel=False, n_workers=mp.cpu_count()-1,
                  verbosity=0, file_name_format=DET_FIT_FILE_NAME_FMT):
         """
         Construct and run a parameter search for the SCPaper project.
@@ -663,8 +664,15 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                            sc_scenario_helper.CtrlType as keys
             Deafult value function gain parameters.
         param_arrays : dict with str keys and iterable values
-            Definition of the parameter grid to search. Only those parameters 
-            relevant given optional_assumptions will be included in the grid.
+            Definition of the parameter values to search. If list_search is
+            False (default), the iterables can be of different length, and the
+            values will be used to generate a parameter value grid to search. 
+            If list_search is True, the iterables all need to be of the same
+            length and will be interpreted as defining a list of
+            parameterisations to search. In both cases, only those parameters 
+            relevant given optional_assumptions will be included in the grid/list.
+        list_search : bool, optional
+            If True, param_arrays is not interpreted as 
         n_repetitions : int, optional
             The number of times to test each parameterisation. If the scenarios
             have kinematical variations, this number must equal the number of
@@ -703,11 +711,17 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         # names for this fit, and build the corresponding list of parameter 
         # value arrays
         free_param_names = []
-        free_param_arrays = {}
+        if list_search:
+            free_param_arrays = []
+        else:
+            free_param_arrays = {}
         def consider_adding_free_param(param_name):
             if param_name in param_arrays:
                 free_param_names.append(param_name)
-                free_param_arrays[param_name] = param_arrays[param_name]
+                if list_search:
+                    free_param_arrays.append(param_arrays[param_name])
+                else:
+                    free_param_arrays[param_name] = param_arrays[param_name]
         # action/prediction parameters
         consider_adding_free_param('T_P')
         consider_adding_free_param('DeltaT')
@@ -765,8 +779,12 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                          name=name, n_repetitions=n_repetitions, 
                          parallel=parallel, n_workers=n_workers,
                          verbosity=verbosity)
-        # run the grid search
-        self.search_grid(free_param_arrays)
+        # run the search
+        if list_search:
+            free_params_matrix =  np.array(free_param_arrays).T
+            self.search_list(free_params_matrix)
+        else:
+            self.search_grid(free_param_arrays)
         # save the results
         self.save(FIT_RESULTS_FOLDER + (file_name_format % name))
         
@@ -882,9 +900,11 @@ if __name__ == "__main__":
     
     PARAM_ARRAYS = {}
     PARAM_ARRAYS['k_c'] = (0.2, 2)
-    PARAM_ARRAYS['k_sc'] = (0.2,)
+    PARAM_ARRAYS['k_sc'] = (0.2, 2)
 
     OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict_from_string(MODEL)
+    
+    # as grid
     test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
                                       OPTIONAL_ASSUMPTIONS, 
                                       DEFAULT_PARAMS, 
@@ -893,5 +913,16 @@ if __name__ == "__main__":
                                       n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
                                       parallel=True,
                                       verbosity=3)
+    
+    # as list
+    test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                      OPTIONAL_ASSUMPTIONS, 
+                                      DEFAULT_PARAMS, 
+                                      get_default_params_k(MODEL), 
+                                      PARAM_ARRAYS, list_search=True,
+                                      n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                      parallel=True,
+                                      verbosity=3)
+    
     
     
