@@ -219,7 +219,8 @@ for ret_model in retained_models:
     
 
 # save the retained models
-with open(sc_fitting.FIT_RESULTS_FOLDER + '/RetainedDetModels.pkl', 'wb') as file_obj:
+with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_DET_FNAME,
+          'wb') as file_obj:
     pickle.dump(retained_models, file_obj)
     
     

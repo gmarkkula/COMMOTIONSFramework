@@ -32,6 +32,12 @@ import sc_scenario_perception
 SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
 FIT_RESULTS_FOLDER = SCPAPER_PATH + 'results/'
 
+# file names
+DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
+PROB_FIT_FILE_NAME_FMT = 'ProbFit_%s.pkl'
+RETAINED_DET_FNAME ='RetainedDetModels.pkl'
+RETAINED_PROB_FNAME ='RetainedProbModels.pkl'
+
 # scenario basics
 N_AGENTS = 2
 PED_NAME = 'P'
@@ -277,9 +283,6 @@ PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst
                                                             time_step = PROB_SIM_TIME_STEP,
                                                             end_time = PROB_SIM_END_TIME)
 
-
-DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
-PROB_FIT_FILE_NAME_FMT = 'ProbFit_%s.pkl'
 METRIC_FCN_PREFIX = 'metric_'
 
 
@@ -473,6 +476,58 @@ def get_metrics_for_params_parallel(i_parameterisation, i_repetition,
     return(i_parameterisation, i_repetition, metrics)
 
 
+def set_params(params_obj, params_k_obj, params_dict):
+    """
+    Update params_obj and params_k_obj with values from params_dict.
+
+    Parameters
+    ----------
+    params_obj : commotions.Parameters
+        Has attributes corresponding to sc_scenario.SCAgent parameters.
+    params_k_obj : dict with sc_scenario.CtrlType as keys and 
+                   commotions.Parameters values
+        Each value has attributes corresponding to sc_scenario.SCAgent value 
+        function gain parameters.
+    params_dict : dict with string parameter names (starting with 'k_' for
+                  value function gain parameters) and parameter values
+    Returns
+    -------
+    None.
+    """
+    # loop through the provided free parameter values and assign them
+    # to the correct attributes of the local parameter objects
+    for param_name, param_value in params_dict.items():
+        if param_name[0:2] == 'k_':
+            # value function gain parameter - set across both control types
+            # (redundant, but doesn't matter)
+            param_attr = param_name[1:]
+            for ctrl_type in CtrlType:
+                setattr(params_k_obj[ctrl_type], param_attr, param_value)
+        else:
+            # other parameter
+            setattr(params_obj, param_name, param_value)
+            
+
+def construct_model_and_simulate_scenario(
+        model_name, params_dict, scenario, i_variation=None, 
+        snapshots=(None, None), noise_seeds=(None, None), 
+        zero_acc_after_exit=True, apply_stop_criteria=True):
+    """ Convenience wrapper for simulate_scenario(), which first builds the model
+        and parameterisation from model_name, the sc_fitting default parameters,
+        and params_dict.
+    """
+    assumptions = sc_scenario.get_assumptions_dict_from_string(model_name)
+    params = copy.deepcopy(DEFAULT_PARAMS)
+    params_k = copy.deepcopy(get_default_params_k(model_name))
+    set_params(params, params_k, params_dict)
+    return simulate_scenario(scenario, assumptions, params, params_k,
+                             i_variation=i_variation, snapshots=snapshots, 
+                             noise_seeds=noise_seeds, 
+                             zero_acc_after_exit=zero_acc_after_exit,
+                             apply_stop_criteria=apply_stop_criteria)
+
+
+
 # class for searching/testing parameterisations of sc_scenario.SCSimulation
 class SCPaperParameterSearch(parameter_search.ParameterSearch):
     
@@ -491,18 +546,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         None.
 
         """    
-        # loop through the provided free parameter values and assign them
-        # to the correct attributes of the local parameter objects
-        for param_name, param_value in params_dict.items():
-            if param_name[0:2] == 'k_':
-                # value function gain parameter - set across both control types
-                # (redundant, but doesn't matter)
-                param_attr = param_name[1:]
-                for ctrl_type in CtrlType:
-                    setattr(self.params_k[ctrl_type], param_attr, param_value)
-            else:
-                # other parameter
-                setattr(self.params, param_name, param_value)
+        set_params(self.params, self.params_k, params_dict)
     
     
     def simulate_scenario(self, scenario, i_variation='all', 
