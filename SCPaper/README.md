@@ -73,13 +73,18 @@
             * Decide in some structured way (based on the updated large deterministic fits?) on a fixed value of $T_\delta$ for the `oVA` fits.
         * With `oBE*` etc
             * Think through `oBEo` in light of the noisy perception -> requires a slightly updated expression for the Bayesian update I think?
-            * Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.
+            * ~~Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.~~
             * Run retained `oVAoBE*` models with retained noisy assumptions from the noisy `oVA` fits.
         * ~~Speedups:~~
             * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
             * ~~Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.~~
         * ~~Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.~~
-* Idea: Test the best model candidates on the Keio or HIKER pedestrian crossing data - without fitting.
+* Test the best model candidates on the HIKER pedestrian crossing data - without fitting.
+    * Add functionality in `SCAgent` to 
+        * Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.
+        * Allow piecewise constant acceleration of agents - to account for the deceleration of the second vehicle in the HIKER paradigm not occurring from start of trial.
+    * Create `SCPaperScenario` versions of the non-eHMI HIKER scenarios.
+    * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
 
@@ -88,7 +93,7 @@
     * Retain models achieving all four main deterministic criteria somewhere, retaining parameterisations achieving at least three.
 * Fit all noisy base `oVA` models (assuming the base model and base `oVAa` still don't fare well in the deterministic fits) to the probabilistic criteria.
     * Retain noisy assumptions and parameterisations that achieve all four probabilistic criteria.
-* Fit all combinations of retained deterministic model parameterisations with all combinations of probabilistic models, across a grid of probabilistic model parameterisations, to the probabilistic criteria.
+* Fit all retained deterministic model parameterisations with all combinations of retained noisy assumptions, across a grid of parameterisations of the noisy assumptions, to the probabilistic criteria.
     * Retain the models and parameterisations that achieve all four probabilistic criteria.
 * Test the retained model parameterisations on (or fit from them to) the non-eHMI HIKER crossing initiation time data. 
 

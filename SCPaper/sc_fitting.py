@@ -35,8 +35,10 @@ FIT_RESULTS_FOLDER = SCPAPER_PATH + 'results/'
 # file names
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
 PROB_FIT_FILE_NAME_FMT = 'ProbFit_%s.pkl'
+COMB_FIT_FILE_NAME_FMT = 'CombFit_%s.pkl'
 RETAINED_DET_FNAME ='RetainedDetModels.pkl'
 RETAINED_PROB_FNAME ='RetainedProbModels.pkl'
+RETAINED_COMB_FNAME ='RetainedCombModels.pkl'
 
 # scenario basics
 N_AGENTS = 2
