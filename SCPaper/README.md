@@ -81,8 +81,8 @@
         * ~~Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.~~
 * Test the best model candidates on the HIKER pedestrian crossing data - without fitting.
     * Add functionality in `SCAgent` to 
-        * ~Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.~~
-        * Allow piecewise constant acceleration of agents - to account for the deceleration of the second vehicle in the HIKER paradigm not occurring from start of trial.
+        * ~~Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.~~
+        * ~~Allow piecewise constant acceleration of agents - to account for the deceleration of the second vehicle in the HIKER paradigm not occurring from start of trial.~~
     * Create a class derived from `SCPaperScenario` for the (non-eHMI) HIKER scenarios.
         * Extend `SCPaperScenario` with support for early conflict space entry penalisation and piecewise constant acceleration of agents.
     * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
