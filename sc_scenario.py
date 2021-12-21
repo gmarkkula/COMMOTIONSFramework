@@ -192,6 +192,7 @@ class SCAgent(commotions.AgentWithGoal):
         # store an "image" of the other agent, with parameters assumed same as 
         # own parameters (but for the appropriate ctrl type)
         oth_params = copy.copy(self.params)
+        oth_params.V_ny_inf = 0 # not assuming other agent avoids entering conflict space
         oth_params.k = copy.copy(self.params.k_all[self.other_agent.ctrl_type])
         oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
         oth_g_free = self.other_agent.g_free
@@ -317,6 +318,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.curr_state = self.add_sc_state_info(self.curr_state, self.coll_dist)
         self.signed_CP_dists[self.simulation.state.i_time_step] = \
             self.curr_state.signed_CP_dist
+        if (self.inhibit_first_pass_before_time != None
+            and self.simulation.state.time < self.inhibit_first_pass_before_time):
+            self.params.V_ny_inf = -math.inf
+        else:
+            self.params.V_ny_inf = 0
 
 
     def do_action_update(self):
@@ -874,11 +880,12 @@ class SCAgent(commotions.AgentWithGoal):
                             k = ego_image.params.k) )
                     value += ach_access_value
                     # inherent value of this access order
-                    if (ego_image.ctrl_type is CtrlType.ACCELERATION 
-                        and access_order is AccessOrder.EGOFIRST):
-                        inh_access_value = ego_image.params.V_ny
-                    else:
-                        inh_access_value = 0
+                    inh_access_value = 0
+                    if access_order is AccessOrder.EGOFIRST:
+                        if ego_image.params.V_ny_inf != 0:
+                            inh_access_value = ego_image.params.V_ny_inf
+                        elif ego_image.ctrl_type is CtrlType.ACCELERATION:
+                            inh_access_value = ego_image.params.V_ny
                     value += inh_access_value
                     # valuation of the step of regaining the free speed after the
                     # access order has been achieved (may be a zero duration
@@ -1162,9 +1169,10 @@ class SCAgent(commotions.AgentWithGoal):
     def __init__(self, name, ctrl_type, width, length, simulation, goal_pos, 
                  initial_state, optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, 
-                 noise_seed = None, kalman_prior = None, const_acc = None, 
-                 zero_acc_after_exit = False, plot_color = 'k', 
-                 snapshot_times = None):
+                 noise_seed = None, kalman_prior = None, 
+                 inhibit_first_pass_before_time = None, # NB: Currently only supported for oVA models
+                 const_acc = None, zero_acc_after_exit = False, 
+                 plot_color = 'k',  snapshot_times = None):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -1173,6 +1181,9 @@ class SCAgent(commotions.AgentWithGoal):
         # (no reversing, regardless of agent type)
         super().__init__(name, simulation, goal_pos, \
             initial_state, can_reverse = False, plot_color = plot_color)
+            
+        # inhibiting passing first before a certain time?
+        self.inhibit_first_pass_before_time = inhibit_first_pass_before_time
             
         # is this agent to just keep a constant acceleration?
         # (throughout or after exiting conflict space)
@@ -1323,6 +1334,7 @@ class SCSimulation(commotions.Simulation):
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None,  
                  noise_seeds = (None, None), kalman_priors = (None, None),
+                 inhibit_first_pass_before_time = None,
                  const_accs = (None, None), zero_acc_after_exit = False, 
                  agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
                  snapshot_times = (None, None), stop_criteria = ()):
@@ -1344,6 +1356,7 @@ class SCSimulation(commotions.Simulation):
                     length = lengths[i_agent],
                     noise_seed = noise_seeds[i_agent],
                     kalman_prior = kalman_priors[i_agent],
+                    inhibit_first_pass_before_time = inhibit_first_pass_before_time,
                     const_acc = const_accs[i_agent],
                     zero_acc_after_exit = zero_acc_after_exit,
                     plot_color = plot_colors[i_agent],
@@ -1884,11 +1897,13 @@ if __name__ == "__main__":
     NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
     STOP_CRITERIA = (SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
+    #sc_scenario_helper.NEW_ACC_IMPL_CALCS = False
     #np.seterr(invalid='raise')
     sc_simulation = SCSimulation(
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
             initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
+            inhibit_first_pass_before_time = None,
             const_accs = CONST_ACCS, zero_acc_after_exit = False,
             agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 

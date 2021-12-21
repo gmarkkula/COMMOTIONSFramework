@@ -334,11 +334,12 @@ def get_access_order_values(
             continue
         
         # inherent value of this access order
-        if (ego_image.ctrl_type is CtrlType.ACCELERATION 
-            and access_ord is AccessOrder.EGOFIRST):
-            inh_access_value = ego_image.params.V_ny
-        else:
-            inh_access_value = 0
+        inh_access_value = 0
+        if access_ord is AccessOrder.EGOFIRST:
+            if ego_image.params.V_ny_inf != 0:
+                inh_access_value = ego_image.params.V_ny_inf
+            elif ego_image.ctrl_type is CtrlType.ACCELERATION:
+                inh_access_value = ego_image.params.V_ny
         
         # get the duration of the anticipation phases 
         # (except the final "continue" phase)
