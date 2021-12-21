@@ -335,8 +335,20 @@ class SCAgent(commotions.AgentWithGoal):
         
         # is this agent just supposed to keep constant speed?
         if self.const_acc != None:
-            self.trajectory.long_acc[i_time_step] = self.const_acc
-            return
+            if type(self.const_acc) is tuple:
+                # piecewise constant acceleration
+                const_acc = 0
+                for cmd in self.const_acc:
+                    if self.simulation.state.time >= cmd[0]:
+                        const_acc = cmd[1]
+                    else:
+                        break
+                self.trajectory.long_acc[i_time_step] = const_acc
+                return
+            else:
+                # single constant acceleration
+                self.trajectory.long_acc[i_time_step] = self.const_acc
+                return
         elif (self.zero_acc_after_exit 
               and self.curr_state.signed_CP_dist < -self.coll_dist):
             self.trajectory.long_acc[i_time_step] = 0
@@ -1894,6 +1906,7 @@ if __name__ == "__main__":
             speed_stddev = 0.5 * oth_free_speed))
     
     # run simulation
+    #CONST_ACCS = ( None, ((1, -2),(2, -4)) )
     NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
     STOP_CRITERIA = (SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
