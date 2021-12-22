@@ -119,13 +119,36 @@ class ModelWithParams:
     params_array: np.ndarray
         
 
-# deterministic fitting
+# class for defining scenarios to simulate
 class SCPaperScenario:
     
     def get_full_metric_name(self, short_metric_name):
         return self.name + '_' + short_metric_name
     
     def get_dists_and_accs(self, i_variation=None, force_calc=False):
+        """
+        Get the initial distances and any constant accelerations for the
+        scenario, typically only used outside of this class if the scenario
+        has multiple kinematic variations.
+
+        Parameters
+        ----------
+        i_variation : TYPE, optional
+            Index of the kinematic scenario variation, should be None if the 
+            scenario doesn't have any variations. The default is None.
+        force_calc : TYPE, optional
+            Set to True to force recalculation of the values to be returned 
+            regardless if already stored internally. The default is False.
+
+        Returns
+        -------
+        tuple
+            Initial distances of the two agents.
+        tuple
+            Constant accelerations of the two agents (None if no constant
+            acceleration for the agent).
+
+        """
         if self.n_variations == 1 and not force_calc:
             # should already have been calculated in call from the constructor
             return self.initial_cp_distances, self.const_accs
@@ -152,17 +175,23 @@ class SCPaperScenario:
         if self.veh_const_speed:
             const_accs[i_VEH_AGENT] = 0
         elif self.veh_yielding:
-            stop_dist = (initial_cp_distances[i_VEH_AGENT] 
-                         - AGENT_COLL_DISTS[i_VEH_AGENT] - self.veh_yielding_margin)
-            const_accs[i_VEH_AGENT] = (
-                -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
+            veh_dist_at_yield_start = (initial_cp_distances[i_VEH_AGENT] -
+                                       self.veh_yielding_start_time
+                                       * self.initial_speeds[i_VEH_AGENT])
+            stop_dist = (veh_dist_at_yield_start 
+                         - AGENT_COLL_DISTS[i_VEH_AGENT] 
+                         - self.veh_yielding_margin)
+            const_accs[i_VEH_AGENT] = ((self.veh_yielding_start_time, 
+                -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist)),)
         return initial_cp_distances, const_accs
         
     
     def __init__(self, name, initial_ttcas, ped_prio=False,
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
-                 veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN,
+                 veh_yielding=False, veh_yielding_start_time=0,
+                 veh_yielding_margin=COLLISION_MARGIN,
+                 inhibit_first_pass_before_time=None,
                  time_step=DET_SIM_TIME_STEP, end_time=DET_SIM_END_TIME,
                  stop_criteria = (), metric_names = None):
         """ Construct a scenario. 
@@ -183,7 +212,9 @@ class SCPaperScenario:
         self.ped_const_speed = ped_const_speed
         self.veh_const_speed = veh_const_speed
         self.veh_yielding = veh_yielding
+        self.veh_yielding_start_time = veh_yielding_start_time
         self.veh_yielding_margin = veh_yielding_margin
+        self.inhibit_first_pass_before_time = inhibit_first_pass_before_time
         self.time_step = time_step
         self.end_time = end_time
         self.stop_criteria = stop_criteria
@@ -208,10 +239,11 @@ class SCPaperScenario:
                 self.get_dists_and_accs(i_variation=1, force_calc=True)
         # store metric info
         self.short_metric_names = metric_names
-        self.full_metric_names = []
-        for short_metric_name in self.short_metric_names:
-            self.full_metric_names.append(
-                self.get_full_metric_name(short_metric_name))
+        if metric_names != None:
+            self.full_metric_names = []
+            for short_metric_name in self.short_metric_names:
+                self.full_metric_names.append(
+                    self.get_full_metric_name(short_metric_name))
         
     
 # scenarios
@@ -284,6 +316,10 @@ PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst
                                                             metric_names = ('ped_av_speed_to_CS',),
                                                             time_step = PROB_SIM_TIME_STEP,
                                                             end_time = PROB_SIM_END_TIME)
+
+
+
+# implementations of metrics for analysing model simulation results
 
 METRIC_FCN_PREFIX = 'metric_'
 
@@ -424,6 +460,7 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         start_time=0, end_time=scenario.end_time, time_step=scenario.time_step, 
         optional_assumptions=optional_assumptions, 
         params=params, params_k=params_k, kalman_priors=kalman_priors,
+        inhibit_first_pass_before_time=scenario.inhibit_first_pass_before_time,
         noise_seeds=noise_seeds, agent_names=AGENT_NAMES, 
         snapshot_times=snapshots, stop_criteria=stop_criteria)
     
@@ -898,33 +935,61 @@ if __name__ == "__main__":
         
     plt.close('all')
     
-    MODEL = ''
     
-    PARAM_ARRAYS = {}
-    PARAM_ARRAYS['k_c'] = (0.2, 2)
-    PARAM_ARRAYS['k_sc'] = (0.2, 2)
-
-    OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict_from_string(MODEL)
+    if True:
     
-    # as grid
-    test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
-                                      OPTIONAL_ASSUMPTIONS, 
-                                      DEFAULT_PARAMS, 
-                                      get_default_params_k(MODEL), 
-                                      PARAM_ARRAYS, 
-                                      n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
-                                      parallel=True,
-                                      verbosity=3)
+        # test scenario running
+        TEST_SCENARIO = SCPaperScenario(name='TestScenario', initial_ttcas=(6, 6),
+                                   veh_yielding=True, veh_yielding_start_time=2,
+                                   inhibit_first_pass_before_time=3,
+                                   time_step=PROB_SIM_TIME_STEP, end_time=15)    
+        sim = construct_model_and_simulate_scenario(model_name='oVA', 
+                                                    params_dict={'T_delta': 60}, 
+                                                    scenario=TEST_SCENARIO)
+        sim.do_plots(kinem_states=True)
     
-    # as list
-    test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
-                                      OPTIONAL_ASSUMPTIONS, 
-                                      DEFAULT_PARAMS, 
-                                      get_default_params_k(MODEL), 
-                                      PARAM_ARRAYS, list_search=True,
-                                      n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
-                                      parallel=True,
-                                      verbosity=3)
+    
+    if True:
+    
+        # test fitting functionality
+        
+        MODEL = ''
+        
+        PARAM_ARRAYS = {}
+        PARAM_ARRAYS['k_c'] = (0.2, 2)
+        PARAM_ARRAYS['k_sc'] = (0.2, 2)
+    
+        OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict_from_string(MODEL)
+        
+        # as grid, not parallel
+        test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                          OPTIONAL_ASSUMPTIONS, 
+                                          DEFAULT_PARAMS, 
+                                          get_default_params_k(MODEL), 
+                                          PARAM_ARRAYS, 
+                                          n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                          parallel=False,
+                                          verbosity=5)
+        
+        # as grid, parallel
+        test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                          OPTIONAL_ASSUMPTIONS, 
+                                          DEFAULT_PARAMS, 
+                                          get_default_params_k(MODEL), 
+                                          PARAM_ARRAYS, 
+                                          n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                          parallel=True,
+                                          verbosity=3)
+    
+        # as list, parallel
+        test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                          OPTIONAL_ASSUMPTIONS, 
+                                          DEFAULT_PARAMS, 
+                                          get_default_params_k(MODEL), 
+                                          PARAM_ARRAYS, list_search=True,
+                                          n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                          parallel=True,
+                                          verbosity=3)
     
     
     
