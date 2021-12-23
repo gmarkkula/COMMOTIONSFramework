@@ -163,7 +163,7 @@ class SCPaperScenario:
             else:
                 initial_ttcas.append(self.initial_ttcas[i_agent])
         # - get the corresponding initial distances
-        initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
+        initial_cp_distances = (np.array(initial_ttcas) * self.initial_speeds 
                                 + np.array(AGENT_COLL_DISTS))
         # - get any constant accelerations
         const_accs = [None, None]
@@ -189,6 +189,7 @@ class SCPaperScenario:
     def __init__(self, name, initial_ttcas, ped_prio=False,
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
+                 veh_initial_speed=AGENT_FREE_SPEEDS[i_VEH_AGENT],
                  veh_yielding=False, veh_yielding_start_time=0,
                  veh_yielding_margin=COLLISION_MARGIN,
                  inhibit_first_pass_before_time=None,
@@ -230,6 +231,7 @@ class SCPaperScenario:
                 self.n_variations = len(initial_ttcas[i_agent])  
         # get and store initial speeds
         self.initial_speeds = np.copy(AGENT_FREE_SPEEDS)
+        self.initial_speeds[i_VEH_AGENT] = veh_initial_speed
         if ped_start_standing:
             self.initial_speeds[i_PED_AGENT] = 0       
         # set initial distances and constant accelerations here only if 
@@ -317,6 +319,74 @@ PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst
                                                             time_step = PROB_SIM_TIME_STEP,
                                                             end_time = PROB_SIM_END_TIME)
 
+
+# HIKER scenarios
+
+HIKER_VEH_SPEEDS_MPH = (25, 30, 35) # miles per hour
+HIKER_VEH_TIME_GAPS = (2, 3, 4, 5) # s
+HIKER_FIRST_VEH_PASSING_TIME = 3
+HIKER_YIELD_START_DIST = 38.5 # m from front bumper to conflict point
+HIKER_YIELD_END_DIST = 2.5 # m from front bumper to conflict point
+HIKER_SIM_TIME_AFTER_VEH_STOP = 3 # if ped not moving 3 s after the car has yielded to a stop, terminate simulation
+
+def get_hiker_scen_name(veh_speed_mph, veh_time_gap, veh_yielding):
+    base = str(veh_speed_mph) + '_' + str(veh_time_gap)
+    if veh_yielding:
+        return base + '_y'
+    else:
+        return base
+    
+class HIKERScenario(SCPaperScenario):
+    
+    def __init__(self, name, veh_speed_mph, veh_time_gap, veh_yielding):
+        half_ped_width = AGENT_WIDTHS[i_PED_AGENT] / 2
+        veh_speed = veh_speed_mph * 1.609 / 3.6
+        # get initial time for the second vehicle to conflict area 
+        # - the edge of the conflict area is half a pedestrian width closer to
+        # the second vehicle than the back of the first vehicle when the second
+        # vehicle is passing the pedestrian
+        veh_initial_ttca = (HIKER_FIRST_VEH_PASSING_TIME + veh_time_gap 
+                            - half_ped_width / veh_speed)
+        if veh_yielding:
+            veh_const_speed = False
+            # get distance to conflict area at time of yielding for the second veh.
+            veh_dist_to_ca_at_yield = HIKER_YIELD_START_DIST - half_ped_width
+            # now we can calculate the time to conflict area at yielding start
+            # and thus also the time in the simulation when yielding should start
+            veh_ttca_at_yield = veh_dist_to_ca_at_yield / veh_speed
+            veh_yielding_start_time = veh_initial_ttca - veh_ttca_at_yield
+            # ancestor class defines yielding margin as actual physical gap,
+            # whereas HIKER scenario is again defined with ref to ped centre
+            veh_yielding_margin = HIKER_YIELD_END_DIST - half_ped_width
+            # calculate stopping deceleration, just so we can calculate a
+            # sensible simulation end time
+            veh_stop_dec = veh_speed ** 2 / (2 * (HIKER_YIELD_START_DIST 
+                                                  - HIKER_YIELD_END_DIST))
+            veh_stop_time = veh_yielding_start_time + veh_speed / veh_stop_dec
+            end_time = veh_stop_time + HIKER_SIM_TIME_AFTER_VEH_STOP
+        else: 
+            veh_const_speed = True
+            veh_yielding_start_time = None
+            veh_yielding_margin = None
+            end_time = veh_initial_ttca
+        super().__init__(
+            name, initial_ttcas=(math.nan, veh_initial_ttca), ped_prio=False,
+            ped_start_standing=True, ped_standing_margin=COLLISION_MARGIN,
+            veh_const_speed=veh_const_speed, veh_yielding=veh_yielding, 
+            veh_yielding_start_time=veh_yielding_start_time,
+            veh_yielding_margin=veh_yielding_margin,
+            inhibit_first_pass_before_time=HIKER_FIRST_VEH_PASSING_TIME,
+            time_step=PROB_SIM_TIME_STEP, end_time=end_time,
+            stop_criteria = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,), 
+            metric_names = 'hiker_cit')
+
+HIKER_SCENARIOS = {}
+for veh_speed_mph in HIKER_VEH_SPEEDS_MPH:
+    for veh_time_gap in HIKER_VEH_TIME_GAPS:
+        for veh_yielding in (False, True):
+            name = get_hiker_scen_name(veh_speed_mph, veh_time_gap, veh_yielding)
+            HIKER_SCENARIOS[name] = HIKERScenario(name, veh_speed_mph, 
+                                                  veh_time_gap, veh_yielding)
 
 
 # implementations of metrics for analysing model simulation results
@@ -942,14 +1012,21 @@ if __name__ == "__main__":
         TEST_SCENARIO = SCPaperScenario(name='TestScenario', initial_ttcas=(6, 6),
                                    veh_yielding=True, veh_yielding_start_time=2,
                                    inhibit_first_pass_before_time=3,
-                                   time_step=PROB_SIM_TIME_STEP, end_time=15)    
+                                   time_step=PROB_SIM_TIME_STEP, end_time=15)   
+        TEST_PARAMS = {'T_delta': 60}
         sim = construct_model_and_simulate_scenario(model_name='oVA', 
-                                                    params_dict={'T_delta': 60}, 
+                                                    params_dict=TEST_PARAMS, 
                                                     scenario=TEST_SCENARIO)
+        sim.do_plots(kinem_states=True)
+        
+        
+        sim = construct_model_and_simulate_scenario(model_name='oVA', 
+                                                    params_dict=TEST_PARAMS, 
+                                                    scenario=HIKER_SCENARIOS['25_2'])
         sim.do_plots(kinem_states=True)
     
     
-    if True:
+    if False:
     
         # test fitting functionality
         
