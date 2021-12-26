@@ -255,14 +255,18 @@ class SCAgent(commotions.AgentWithGoal):
         # prepare a separate array for storing distances to the conflict point
         self.signed_CP_dists = np.full(n_time_steps, math.nan)
         
-        # calculate where the two agents' paths intersect, if it has not already 
+        # specify where the two agents' paths intersect, if it has not already 
         # been done
         if not hasattr(self.simulation, 'conflict_point'):
-            self.simulation.conflict_point = \
+            self.simulation.conflict_point = np.array((0, 0))
+            # make sure the SC scenario has been correctly set up
+            apparent_conflict_point = \
                 commotions.get_intersection_of_lines(
                     self.get_current_kinematic_state().pos, self.goal, 
                     self.other_agent.get_current_kinematic_state().pos, 
                     self.other_agent.goal)
+            assert(np.linalg.norm(self.simulation.conflict_point
+                                 - apparent_conflict_point) < 0.0001)
 
     
     def add_sc_state_info(self, state, coll_dist):
