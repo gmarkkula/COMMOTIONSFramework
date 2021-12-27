@@ -345,7 +345,11 @@ def get_access_order_values(
         # (except the final "continue" phase)
         phase_durations = np.full(N_ANTICIPATION_PHASES-1, math.nan)
         phase_durations[i_ACTION] = ego_image.params.DeltaT
-        phase_durations[i_ACH_ACCESS] = access_ord_impls[access_ord].T_acc
+        if access_ord_impls[access_ord].T_acc == 0:
+            phase_durations[i_ACH_ACCESS] = 0
+        else:
+            phase_durations[i_ACH_ACCESS] = max(
+                ANTICIPATION_TIME_STEP, access_ord_impls[access_ord].T_acc)
         phase_durations[i_WAIT] = access_ord_impls[access_ord].T_dw
         if ego_image.ctrl_type is CtrlType.SPEED:
             phase_durations[i_REGAIN_SPD] = ego_image.params.DeltaT
