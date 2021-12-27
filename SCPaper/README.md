@@ -83,12 +83,14 @@
     * Add functionality in `SCAgent` to 
         * ~~Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.~~
         * ~~Allow piecewise constant acceleration of agents - to account for the deceleration of the second vehicle in the HIKER paradigm not occurring from start of trial.~~
-    * Create a class derived from `SCPaperScenario` for the (non-eHMI) HIKER scenarios.
+    * ~~Create a class derived from `SCPaperScenario` for the (non-eHMI) HIKER scenarios.~~
         * ~~Extend `SCPaperScenario` with support for early conflict space entry penalisation and piecewise constant acceleration of agents.~~
         * Next steps:
             * ~~Look at test simulations of the various scenarios; look through the distances at start/end of deceleration, from front bumper etc...~~
             * ~~Look through the previously defined scenarios for deterministic/probabilistic fitting, to make sure they have not become broken/modified.~~
-            * Implement `metric_hiker_cit`
+            * ~~Implement `metric_hiker_cit`~~
+    * Implement and run a script for testing combined-fit models on the HIKER scenarios.
+    * Read the empirical HIKER CITs.
     * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
