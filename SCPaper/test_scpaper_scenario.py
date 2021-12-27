@@ -72,27 +72,25 @@ params.beta_V = 18.98
 
 if True:
     
-    for scenarios in (sc_fitting.ONE_AG_SCENARIOS, 
-                      sc_fitting.PROB_FIT_SCENARIOS, 
-                      sc_fitting.HIKER_SCENARIOS):
+    SCENARIOS = sc_fitting.HIKER_SCENARIOS
         
-        print(f'\n*** Looping through {scenarios.keys()}:')
-        
-        for scenario in scenarios.values():
+    print(f'\n*** Looping through {SCENARIOS.keys()}:')
     
-            for i_var in range(scenario.n_variations):
-                print(f'\n{scenario.name} variation {i_var+1}/{scenario.n_variations}:')
-                tic = time.perf_counter()
-                sim = sc_fitting.simulate_scenario(scenario, assumptions, params, params_k, 
-                                                   i_variation=i_var, snapshots=(None, None),
-                                                   noise_seeds=(None, None), 
-                                                   apply_stop_criteria=True)
-                toc = time.perf_counter()
-                print('Initialising and running simulation took %.3f s.' % (toc - tic,))
-                sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 
-                              action_val_ests=False, surplus_action_vals=False, looming=False,
-                              veh_stop_dec=False)
-                metrics = sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
+    for scenario in SCENARIOS.values():
+
+        for i_var in range(scenario.n_variations):
+            print(f'\n{scenario.name} variation {i_var+1}/{scenario.n_variations}:')
+            tic = time.perf_counter()
+            sim = sc_fitting.simulate_scenario(scenario, assumptions, params, params_k, 
+                                               i_variation=i_var, snapshots=(None, None),
+                                               noise_seeds=(None, None), 
+                                               apply_stop_criteria=True)
+            toc = time.perf_counter()
+            print('Initialising and running simulation took %.3f s.' % (toc - tic,))
+            sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 
+                          action_val_ests=False, surplus_action_vals=False, looming=False,
+                          veh_stop_dec=False)
+            metrics = sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
 
 
 if False:

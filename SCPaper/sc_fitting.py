@@ -368,7 +368,7 @@ class HIKERScenario(SCPaperScenario):
             veh_const_speed = True
             veh_yielding_start_time = None
             veh_yielding_margin = None
-            end_time = veh_initial_ttca
+            end_time = veh_initial_ttca + 0.5 # just to definitely not end before the vehicle enters the conflict space
         super().__init__(
             name, initial_ttcas=(math.nan, veh_initial_ttca), ped_prio=False,
             ped_start_standing=True, ped_standing_margin=COLLISION_MARGIN,
@@ -378,8 +378,8 @@ class HIKERScenario(SCPaperScenario):
             veh_yielding_margin=veh_yielding_margin,
             inhibit_first_pass_before_time=HIKER_FIRST_VEH_PASSING_TIME,
             time_step=PROB_SIM_TIME_STEP, end_time=end_time,
-            stop_criteria = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,), 
-            metric_names = ())
+            stop_criteria = (sc_scenario.SimStopCriterion.AGENT_IN_CS,), 
+            metric_names = ('hiker_cit',))
 
 HIKER_SCENARIOS = {}
 for veh_speed_mph in HIKER_VEH_SPEEDS_MPH:
@@ -469,6 +469,18 @@ def metric_ped_exit_time(sim):
 
 def metric_veh_exit_time(sim):
     return metric_agent_exit_time(sim, i_VEH_AGENT)
+
+def metric_hiker_cit(sim):
+    nonzero_ped_speed_samples = np.nonzero(sim.agents[
+        i_PED_AGENT].trajectory.long_speed)[0]
+    if len(nonzero_ped_speed_samples) == 0:
+        # pedestrian didn't move before end of simulation
+        return math.nan
+    if sim.first_passer is sim.agents[i_VEH_AGENT]:
+        # pedestrian moved, but vehicle entered conflict space first
+        return math.nan
+    return (sim.time_stamps[nonzero_ped_speed_samples[0]] 
+            - HIKER_FIRST_VEH_PASSING_TIME)
 
 
 def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
