@@ -90,7 +90,7 @@
             * ~~Look through the previously defined scenarios for deterministic/probabilistic fitting, to make sure they have not become broken/modified.~~
             * ~~Implement `metric_hiker_cit`~~
     * Implement and run a script for testing combined-fit models on the HIKER scenarios.
-    * Read the empirical HIKER CITs.
+    * ~~Read the empirical HIKER CITs.~~
     * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 

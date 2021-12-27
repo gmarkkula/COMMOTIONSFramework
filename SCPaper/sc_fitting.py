@@ -31,8 +31,10 @@ import sc_scenario_perception
 # expecting a results subfolder in the folder where this file is located
 SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
 FIT_RESULTS_FOLDER = SCPAPER_PATH + 'results/'
+DATA_FOLDER = SCPAPER_PATH + 'data/'
 
 # file names
+HIKER_DATA_FILE_NAME = 'HIKERData.pkl'
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
 PROB_FIT_FILE_NAME_FMT = 'ProbFit_%s.pkl'
 COMB_FIT_FILE_NAME_FMT = 'CombFit_%s.pkl'
