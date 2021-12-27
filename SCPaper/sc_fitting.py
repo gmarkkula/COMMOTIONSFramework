@@ -372,13 +372,14 @@ class HIKERScenario(SCPaperScenario):
         super().__init__(
             name, initial_ttcas=(math.nan, veh_initial_ttca), ped_prio=False,
             ped_start_standing=True, ped_standing_margin=COLLISION_MARGIN,
-            veh_const_speed=veh_const_speed, veh_yielding=veh_yielding, 
+            veh_const_speed=veh_const_speed, veh_initial_speed=veh_speed,
+            veh_yielding=veh_yielding, 
             veh_yielding_start_time=veh_yielding_start_time,
             veh_yielding_margin=veh_yielding_margin,
             inhibit_first_pass_before_time=HIKER_FIRST_VEH_PASSING_TIME,
             time_step=PROB_SIM_TIME_STEP, end_time=end_time,
             stop_criteria = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,), 
-            metric_names = 'hiker_cit')
+            metric_names = ())
 
 HIKER_SCENARIOS = {}
 for veh_speed_mph in HIKER_VEH_SPEEDS_MPH:
@@ -1008,25 +1009,27 @@ if __name__ == "__main__":
     
     if True:
     
-        # test scenario running
-        TEST_SCENARIO = SCPaperScenario(name='TestScenario', initial_ttcas=(6, 6),
-                                   veh_yielding=True, veh_yielding_start_time=2,
-                                   inhibit_first_pass_before_time=3,
-                                   time_step=PROB_SIM_TIME_STEP, end_time=15)   
+        # # test scenario running
+        # TEST_SCENARIO = SCPaperScenario(name='TestScenario', initial_ttcas=(6, 6),
+        #                            veh_yielding=True, veh_yielding_start_time=2,
+        #                            inhibit_first_pass_before_time=3,
+        #                            time_step=PROB_SIM_TIME_STEP, end_time=15)   
         TEST_PARAMS = {'T_delta': 60}
-        sim = construct_model_and_simulate_scenario(model_name='oVA', 
-                                                    params_dict=TEST_PARAMS, 
-                                                    scenario=TEST_SCENARIO)
-        sim.do_plots(kinem_states=True)
+        # sim = construct_model_and_simulate_scenario(model_name='oVA', 
+        #                                             params_dict=TEST_PARAMS, 
+        #                                             scenario=TEST_SCENARIO)
+        # sim.do_plots(kinem_states=True)
         
         
         sim = construct_model_and_simulate_scenario(model_name='oVA', 
                                                     params_dict=TEST_PARAMS, 
-                                                    scenario=HIKER_SCENARIOS['25_2'])
+                                                    scenario=HIKER_SCENARIOS['35_2_y'],
+                                                    apply_stop_criteria=False,
+                                                    snapshots=(None, None))
         sim.do_plots(kinem_states=True)
     
     
-    if False:
+    if True:
     
         # test fitting functionality
         

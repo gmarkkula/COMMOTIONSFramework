@@ -38,16 +38,16 @@ params_k = copy.deepcopy(sc_fitting.get_default_params_k(MODEL))
 params.T_delta = 59.95
 #params.thetaDot_1 = 0.005
 params.beta_V = 18.98
-#params.T_Of = 4
-#params.sigma_O = 0.1
+#params.T_Of = 3.7
+#params.sigma_O = 1.2
 # for ctrl_type in sc_scenario_helper.CtrlType:
 #     params_k[ctrl_type]._c = 0.55651188
 #     params_k[ctrl_type]._sc = 0.055651188
 
 
 # set scenario to run
-SCENARIO = sc_fitting.ONE_AG_SCENARIOS['PedCrossVehYield']
-# SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['PedHesitateVehConst']
+# SCENARIO = sc_fitting.ONE_AG_SCENARIOS['VehPrioAssert']
+# SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['Encounter']
 # SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
 #                                         initial_ttcas=(3, 8), 
 #                                         veh_const_speed=True,
@@ -71,19 +71,28 @@ SCENARIO = sc_fitting.ONE_AG_SCENARIOS['PedCrossVehYield']
 
 
 if True:
-    for i_var in range(SCENARIO.n_variations):
-        print(f'{SCENARIO.name} variation {i_var+1}/{SCENARIO.n_variations}:')
-        tic = time.perf_counter()
-        sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
-                                           i_variation=i_var, snapshots=(None, None),
-                                           noise_seeds=(None, None), 
-                                           apply_stop_criteria=False)
-        toc = time.perf_counter()
-        print('Initialising and running simulation took %.3f s.' % (toc - tic,))
-        sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 
-                      action_val_ests=True, surplus_action_vals=True, looming=False,
-                      veh_stop_dec=False)
-        metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
+    
+    for scenarios in (sc_fitting.ONE_AG_SCENARIOS, 
+                      sc_fitting.PROB_FIT_SCENARIOS, 
+                      sc_fitting.HIKER_SCENARIOS):
+        
+        print(f'\n*** Looping through {scenarios.keys()}:')
+        
+        for scenario in scenarios.values():
+    
+            for i_var in range(scenario.n_variations):
+                print(f'\n{scenario.name} variation {i_var+1}/{scenario.n_variations}:')
+                tic = time.perf_counter()
+                sim = sc_fitting.simulate_scenario(scenario, assumptions, params, params_k, 
+                                                   i_variation=i_var, snapshots=(None, None),
+                                                   noise_seeds=(None, None), 
+                                                   apply_stop_criteria=True)
+                toc = time.perf_counter()
+                print('Initialising and running simulation took %.3f s.' % (toc - tic,))
+                sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 
+                              action_val_ests=False, surplus_action_vals=False, looming=False,
+                              veh_stop_dec=False)
+                metrics = sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
 
 
 if False:

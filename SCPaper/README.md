@@ -86,9 +86,9 @@
     * Create a class derived from `SCPaperScenario` for the (non-eHMI) HIKER scenarios.
         * ~~Extend `SCPaperScenario` with support for early conflict space entry penalisation and piecewise constant acceleration of agents.~~
         * Next steps:
-            * Look at test simulations of the various scenarios.
-            * Look through the distances at start/end of deceleration, from front bumper etc...
-            * Look through the previously defined scenarios for deterministic/probabilistic fitting, to make sure they have not become broken/modified.
+            * ~~Look at test simulations of the various scenarios; look through the distances at start/end of deceleration, from front bumper etc...~~
+            * ~~Look through the previously defined scenarios for deterministic/probabilistic fitting, to make sure they have not become broken/modified.~~
+            * Implement `metric_hiker_cit`
     * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
