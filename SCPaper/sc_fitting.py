@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 import commotions
 import parameter_search
 from sc_scenario import CtrlType, OptionalAssumption
@@ -635,8 +636,9 @@ def set_params(params_obj, params_k_obj, params_dict):
 
 def construct_model_and_simulate_scenario(
         model_name, params_dict, scenario, i_variation=None, 
-        snapshots=(None, None), noise_seeds=(None, None), 
-        zero_acc_after_exit=True, apply_stop_criteria=True):
+        snapshots=(None, None), detailed_snapshots=False, 
+        noise_seeds=(None, None), zero_acc_after_exit=True, 
+        apply_stop_criteria=True, report_time=False):
     """ Convenience wrapper for simulate_scenario(), which first builds the model
         and parameterisation from model_name, the sc_fitting default parameters,
         and params_dict.
@@ -645,11 +647,16 @@ def construct_model_and_simulate_scenario(
     params = copy.deepcopy(DEFAULT_PARAMS)
     params_k = copy.deepcopy(get_default_params_k(model_name))
     set_params(params, params_k, params_dict)
+    tic = time.perf_counter()
     return simulate_scenario(scenario, assumptions, params, params_k,
                              i_variation=i_variation, snapshots=snapshots, 
+                             detailed_snapshots=detailed_snapshots, 
                              noise_seeds=noise_seeds, 
                              zero_acc_after_exit=zero_acc_after_exit,
                              apply_stop_criteria=apply_stop_criteria)
+    toc = time.perf_counter()
+    if report_time:
+        print('Initialising and running simulation took %.3f s.' % (toc - tic,))
 
 
 
