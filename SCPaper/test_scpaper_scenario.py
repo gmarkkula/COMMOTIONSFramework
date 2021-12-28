@@ -45,32 +45,38 @@ params.beta_V = 18.98
 #     params_k[ctrl_type]._sc = 0.055651188
 
 
-# set scenario to run
-# SCENARIO = sc_fitting.ONE_AG_SCENARIOS['VehPrioAssert']
-# SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['Encounter']
-# SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
-#                                         initial_ttcas=(3, 8), 
-#                                         veh_const_speed=True,
-#                                         stop_criteria = sc_fitting.IN_CS_STOP,
-#                                         metric_names = ('ped_av_speed', 'ped_av_speed_to_CS'),
-#                                         time_step = sc_fitting.PROB_SIM_TIME_STEP,
-#                                         end_time = sc_fitting.PROB_SIM_END_TIME)
-
-# tic = time.perf_counter()
-# sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
-#                                    i_variation=0, snapshots=(None, None),
-#                                    noise_seeds=(None, None), apply_stop_criteria=False)
-# toc = time.perf_counter()
-# print('Initialising and running simulation took %.3f s.' % (toc - tic,))
-# sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 
-#               action_val_ests=False, surplus_action_vals=False, looming=False,
-#               veh_stop_dec=True)
-# metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
-
 
 
 
 if True:
+    
+    SCENARIO = sc_fitting.ONE_AG_SCENARIOS['VehShortStop']
+    # SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['Encounter']
+    # SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
+    #                                         initial_ttcas=(3, 8), 
+    #                                         veh_const_speed=True,
+    #                                         stop_criteria = sc_fitting.IN_CS_STOP,
+    #                                         metric_names = ('ped_av_speed', 'ped_av_speed_to_CS'),
+    #                                         time_step = sc_fitting.PROB_SIM_TIME_STEP,
+    #                                         end_time = sc_fitting.PROB_SIM_END_TIME)
+
+    for i_var in range(SCENARIO.n_variations):
+        print(f'\n{SCENARIO.name} variation {i_var+1}/{SCENARIO.n_variations}:')
+        tic = time.perf_counter()
+        sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
+                                           i_variation=i_var, snapshots=(None, (0.5,)),
+                                           detailed_snapshots=True,
+                                           noise_seeds=(None, None), 
+                                           apply_stop_criteria=True)
+        toc = time.perf_counter()
+        print('Initialising and running simulation took %.3f s.' % (toc - tic,))
+        sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 
+                      action_val_ests=False, surplus_action_vals=False, looming=False,
+                      veh_stop_dec=False)
+        metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
+
+
+if False:
     
     SCENARIOS = sc_fitting.HIKER_SCENARIOS
         

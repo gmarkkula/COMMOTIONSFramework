@@ -463,9 +463,16 @@ class SCAgent(commotions.AgentWithGoal):
         if self.doing_snapshots:
             if np.amin(np.abs(np.array(self.snapshot_times) - time_stamp)) < 0.00001:
                 self.do_snapshot_now = True
-                # set up the figures
+                # set up the figure(s)
                 fig_axs = []
-                for snapshot in ('', '(kinematics) ', '(looming) '):
+                # - which snapshots to do?
+                snapshots = []
+                snapshots.append('') # basic state info
+                if self.detailed_snapshots:
+                    snapshots.append('(kinematics) ') # kinematics details
+                    if self.assumptions[OptionalAssumption.oVAl]:
+                        snapshots.append('(looming) ') # looming details
+                for snapshot in snapshots:
                     fig_name = 'Snapshot %sfor %s at t = %.2f s' % (
                         snapshot, self.name, time_stamp)
                     fig = plt.figure(num=fig_name, figsize=(15, 10))
@@ -486,9 +493,13 @@ class SCAgent(commotions.AgentWithGoal):
                         # affordance-based value functions
                         # doing snapshot?
                         if self.do_snapshot_now:
+                            # create a temporary list of the snapshot axes for
+                            # the current action-behaviour combination
+                            # (used also for more detailed snapshot plotting)
                             self.snapshot_axs = []
                             for fig_ax in fig_axs:
                                 self.snapshot_axs.append(fig_ax[i_beh, i_action])
+                            # plot basic state snapshot info
                             self.plot_state_snapshot(self.curr_state, 
                                                      self.plot_color, 
                                                      alpha=True)
@@ -792,7 +803,7 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_first_acc = oth_first_acc, oth_cont_acc = oth_cont_acc, 
                 access_ord_impls = implications, 
                 consider_looming = self.assumptions[OptionalAssumption.oVAl],
-                return_details = self.do_snapshot_now)      
+                return_details = self.do_snapshot_now and self.detailed_snapshots)      
             
             # do value squashing and store in output array
             for access_order in AccessOrder:
@@ -834,10 +845,11 @@ class SCAgent(commotions.AgentWithGoal):
                                                       deets.oth_cp_dists,
                                                       '--', lw=1, color='gray', 
                                                       alpha=0.5)
-                            self.snapshot_axs[2].plot(deets.time_stamps,
-                                                      deets.thetaDots,
-                                                      '-', lw=2, color=color, 
-                                                      alpha=0.5)
+                            if self.assumptions[OptionalAssumption.oVAl]:
+                                self.snapshot_axs[2].plot(deets.time_stamps,
+                                                          deets.thetaDots,
+                                                          '-', lw=2, color=color, 
+                                                          alpha=0.5)
                                 
         else:
             
@@ -1189,7 +1201,8 @@ class SCAgent(commotions.AgentWithGoal):
                  noise_seed = None, kalman_prior = None, 
                  inhibit_first_pass_before_time = None, # NB: Currently only supported for oVA models
                  const_acc = None, zero_acc_after_exit = False, 
-                 plot_color = 'k',  snapshot_times = None):
+                 plot_color = 'k',  snapshot_times = None, 
+                 detailed_snapshots = False):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -1210,6 +1223,7 @@ class SCAgent(commotions.AgentWithGoal):
         # doing any value function snapshots?
         self.snapshot_times = snapshot_times
         self.doing_snapshots = snapshot_times != None
+        self.detailed_snapshots = detailed_snapshots
         
         # store the optional assumptions
         self.assumptions = optional_assumptions
@@ -1354,7 +1368,8 @@ class SCSimulation(commotions.Simulation):
                  inhibit_first_pass_before_time = None,
                  const_accs = (None, None), zero_acc_after_exit = False, 
                  agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
-                 snapshot_times = (None, None), stop_criteria = ()):
+                 snapshot_times = (None, None), detailed_snapshots = False,
+                 stop_criteria = ()):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -1377,7 +1392,8 @@ class SCSimulation(commotions.Simulation):
                     const_acc = const_accs[i_agent],
                     zero_acc_after_exit = zero_acc_after_exit,
                     plot_color = plot_colors[i_agent],
-                    snapshot_times = snapshot_times[i_agent])
+                    snapshot_times = snapshot_times[i_agent],
+                    detailed_snapshots = detailed_snapshots)
         
         self.stop_criteria = stop_criteria
             

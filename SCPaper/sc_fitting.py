@@ -500,8 +500,8 @@ def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
 
 def simulate_scenario(scenario, optional_assumptions, params, params_k, 
                       i_variation=None, snapshots=(None, None), 
-                      noise_seeds=(None, None), zero_acc_after_exit=True,
-                      apply_stop_criteria=True):
+                      detailed_snapshots=False, noise_seeds=(None, None), 
+                      zero_acc_after_exit=True, apply_stop_criteria=True):
     # prepare the simulation
     # - get initial distances and constant accelerations for this scenario variation
     if scenario.n_variations > 1 and i_variation == None:
@@ -547,7 +547,8 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         params=params, params_k=params_k, kalman_priors=kalman_priors,
         inhibit_first_pass_before_time=scenario.inhibit_first_pass_before_time,
         noise_seeds=noise_seeds, agent_names=AGENT_NAMES, 
-        snapshot_times=snapshots, stop_criteria=stop_criteria)
+        snapshot_times=snapshots, detailed_snapshots=detailed_snapshots,
+        stop_criteria=stop_criteria)
     
     # run the simulation
     sc_simulation.run()
@@ -674,8 +675,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
     
     
     def simulate_scenario(self, scenario, i_variation='all', 
-                          snapshots=(None, None), zero_acc_after_exit=True,
-                          apply_stop_criteria=True):
+                          snapshots=(None, None), detailed_snapshots=False,
+                          zero_acc_after_exit=True, apply_stop_criteria=True):
         """
         Run a given scenario for the model parameterisation currently
         specified by self.params and self.params_k.
@@ -693,7 +694,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         if self.n_scenario_variations == 1:
             return simulate_scenario(scenario, self.optional_assumptions, 
                                      self.params, self.params_k, 
-                                     snapshots=snapshots,
+                                     snapshots=snapshots, 
+                                     detailed_snapshots=detailed_snapshots,
                                      zero_acc_after_exit=zero_acc_after_exit,
                                      apply_stop_criteria=apply_stop_criteria)
         else:
@@ -705,6 +707,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                                                   self.params, self.params_k, 
                                                   i_variation=i_var, 
                                                   snapshots=snapshots,
+                                                  detailed_snapshots=detailed_snapshots,
                                                   zero_acc_after_exit=zero_acc_after_exit,
                                                   apply_stop_criteria=apply_stop_criteria))
                 return sims
@@ -713,6 +716,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                                          self.params, self.params_k, 
                                          i_variation=i_variation, 
                                          snapshots=snapshots,
+                                         detailed_snapshots=detailed_snapshots,
                                          zero_acc_after_exit=zero_acc_after_exit,
                                          apply_stop_criteria=apply_stop_criteria)
     
