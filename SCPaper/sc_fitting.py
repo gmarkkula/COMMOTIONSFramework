@@ -1028,9 +1028,9 @@ def do_crit_params_plot(fit, criteria_matrix, log=False):
     plt.show()
    
 
-def do_hiker_cit_cdf_plot(cit_data):
+def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs'):
     fig, axs = plt.subplots(nrows=2, ncols=len(HIKER_VEH_TIME_GAPS), 
-                            sharex=True, sharey=True, num='Empirical CDFs',
+                            sharex=True, sharey=True, num=fig_name,
                             figsize=(10, 6))
     for i_speed, veh_speed_mph in enumerate(HIKER_VEH_SPEEDS_MPH):
         for i_gap, veh_time_gap in enumerate(HIKER_VEH_TIME_GAPS):
