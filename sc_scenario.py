@@ -803,7 +803,7 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_first_acc = oth_first_acc, oth_cont_acc = oth_cont_acc, 
                 access_ord_impls = implications, 
                 consider_looming = self.assumptions[OptionalAssumption.oVAl],
-                return_details = self.do_snapshot_now and self.detailed_snapshots)      
+                return_details = self.do_snapshot_now)      
             
             # do value squashing and store in output array
             for access_order in AccessOrder:
@@ -992,7 +992,7 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_pred_state = oth_pred_state,
                 snapshot_color = self.plot_color,
                 snapshot_loc = 'topleft',
-                plot_snapshot_deets = True)
+                plot_snapshot_deets = self.detailed_snapshots)
         return access_order_values
         
     
@@ -1947,7 +1947,8 @@ if __name__ == "__main__":
             const_accs = CONST_ACCS, zero_acc_after_exit = False,
             agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step = 0.1,
+            snapshot_times = SNAPSHOT_TIMES, detailed_snapshots = True,
+            time_step = 0.1,
             stop_criteria = STOP_CRITERIA)
     tic = time.perf_counter()
     sc_simulation.run()
