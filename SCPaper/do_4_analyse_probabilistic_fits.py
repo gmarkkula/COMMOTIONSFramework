@@ -53,7 +53,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
     print(prob_fit_files)
     
     
-    # loop through the deterministic fitting results files
+    # loop through the fitting results files
     prob_fits = {}
     retained_models = []
     for prob_fit_file in prob_fit_files:
