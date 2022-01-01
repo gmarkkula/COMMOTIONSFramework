@@ -22,6 +22,7 @@ import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+from statsmodels.distributions.empirical_distribution import ECDF
 import commotions
 import parameter_search
 from sc_scenario import CtrlType, OptionalAssumption
@@ -332,6 +333,7 @@ HIKER_FIRST_VEH_PASSING_TIME = 3
 HIKER_YIELD_START_DIST = 38.5 # m from front bumper to conflict point
 HIKER_YIELD_END_DIST = 2.5 # m from front bumper to conflict point
 HIKER_SIM_TIME_AFTER_VEH_STOP = 3 # if ped not moving 3 s after the car has yielded to a stop, terminate simulation
+HIKER_CIT_METRIC_NAME = 'hiker_cit'
 
 def get_hiker_scen_name(veh_speed_mph, veh_time_gap, veh_yielding):
     base = str(veh_speed_mph) + '_' + str(veh_time_gap)
@@ -383,7 +385,7 @@ class HIKERScenario(SCPaperScenario):
             inhibit_first_pass_before_time=HIKER_FIRST_VEH_PASSING_TIME,
             time_step=PROB_SIM_TIME_STEP, end_time=end_time,
             stop_criteria = (sc_scenario.SimStopCriterion.AGENT_IN_CS,), 
-            metric_names = ('hiker_cit',))
+            metric_names = (HIKER_CIT_METRIC_NAME,))
 
 HIKER_SCENARIOS = {}
 for veh_speed_mph in HIKER_VEH_SPEEDS_MPH:
@@ -1025,7 +1027,32 @@ def do_crit_params_plot(fit, criteria_matrix, log=False):
                 ax.set_xlabel(fit.param_names[i_x_param])   
     plt.show()
    
+
+def do_hiker_cit_cdf_plot(cit_data):
+    fig, axs = plt.subplots(nrows=2, ncols=len(HIKER_VEH_TIME_GAPS), 
+                            sharex=True, sharey=True, num='Empirical CDFs',
+                            figsize=(10, 6))
+    for i_speed, veh_speed_mph in enumerate(HIKER_VEH_SPEEDS_MPH):
+        for i_gap, veh_time_gap in enumerate(HIKER_VEH_TIME_GAPS):
+            for i_yield, veh_yielding in enumerate((False, True)):
+                scen_name = get_hiker_scen_name(veh_speed_mph,
+                                                veh_time_gap,
+                                                veh_yielding)
+                ax = axs[i_yield, i_gap]
+                ecdf = ECDF(cit_data[scen_name]['crossing_time'])
+                alpha = (1 - float(i_speed)/len(HIKER_VEH_SPEEDS_MPH)) ** 2
+                ax.step(ecdf.x, ecdf.y, 'k-', lw=i_speed+1, alpha=alpha)
+                ax.set_xlim(-1, 11)
+                ax.set_ylim(-.1, 1.1)
+            axs[0, i_gap].set_title(f'Gap {veh_time_gap} s\n')
+            axs[1, i_gap].set_xlabel('CIT (s)')
+    axs[0, 0].set_ylabel('Constant speed scenario\n\nCDF')  
+    axs[1, 0].set_ylabel('Yielding scenario\n\nCDF')        
+    axs[0,-1].legend(tuple(f'{spd} mph' for spd in HIKER_VEH_SPEEDS_MPH))
+    plt.tight_layout()
+    plt.show()
      
+    
     
 # unit testing
 if __name__ == "__main__":
