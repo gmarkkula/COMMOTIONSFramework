@@ -74,6 +74,7 @@
         * With `oBE*` etc
             * Think through `oBEo` in light of the noisy perception -> requires a slightly updated expression for the Bayesian update I think?
             * ~~Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.~~
+            * Expand noise magnitude grid to both smaller and larger values (see 2022-01-01 diary notes).
             * Run retained `oVAoBE*` models with retained noisy assumptions from the noisy `oVA` fits.
         * ~~Speedups:~~
             * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
@@ -81,7 +82,9 @@
         * ~~Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.~~
 * Test the best model candidates on the HIKER pedestrian crossing data - without fitting.
     * Add functionality in `SCAgent` to 
-        * ~~Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.~~
+        * Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.
+            * ~~By penalising first-passing before the time in question.~~
+            * Modify to instead penalise being within safety distance of the conflict space before the time in question (see 2022-01-01 diary notes).
         * ~~Allow piecewise constant acceleration of agents - to account for the deceleration of the second vehicle in the HIKER paradigm not occurring from start of trial.~~
     * ~~Create a class derived from `SCPaperScenario` for the (non-eHMI) HIKER scenarios.~~
         * ~~Extend `SCPaperScenario` with support for early conflict space entry penalisation and piecewise constant acceleration of agents.~~

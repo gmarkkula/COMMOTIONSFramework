@@ -52,7 +52,7 @@ for hiker_fit_file in hiker_fit_files:
                     model_cits[scen_name] = model_cits[scen_name].append(param_cits)
     
     
-    sc_fitting.do_hiker_cit_cdf_plot(model_cits)
+    sc_fitting.do_hiker_cit_cdf_plot(model_cits, fig_name=hiker_fit.name)
                     
                 
                 
