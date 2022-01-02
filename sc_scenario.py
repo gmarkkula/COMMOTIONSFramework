@@ -70,8 +70,9 @@ class DerivedAssumption(Enum):
     
 
 class SimStopCriterion(Enum):
-    ACTIVE_AGENT_HALFWAY_TO_CS = 'one actively behaving agent halfway to conflict space'
-    ACTIVE_AGENT_IN_CS = 'one actively behaving agent in conflict space'
+    ACTIVE_AGENT_HALFWAY_TO_CS = 'at least one actively behaving agent halfway to conflict space'
+    ACTIVE_AGENT_IN_CS = 'at least one actively behaving agent in conflict space'
+    AGENT_IN_CS = 'at least one agent in conflict space'
     BOTH_AGENTS_HAVE_MOVED = 'both agents have moved since simulation start'
     BOTH_AGENTS_STOPPED = 'both agents stopped'
     BOTH_AGENTS_EXITED_CS = 'both agents exited conflict space'
@@ -192,6 +193,7 @@ class SCAgent(commotions.AgentWithGoal):
         # store an "image" of the other agent, with parameters assumed same as 
         # own parameters (but for the appropriate ctrl type)
         oth_params = copy.copy(self.params)
+        oth_params.V_ny_inf = 0 # not assuming other agent avoids entering conflict space
         oth_params.k = copy.copy(self.params.k_all[self.other_agent.ctrl_type])
         oth_v_free = sc_scenario_helper.get_agent_free_speed(oth_params.k)
         oth_g_free = self.other_agent.g_free
@@ -254,14 +256,18 @@ class SCAgent(commotions.AgentWithGoal):
         # prepare a separate array for storing distances to the conflict point
         self.signed_CP_dists = np.full(n_time_steps, math.nan)
         
-        # calculate where the two agents' paths intersect, if it has not already 
+        # specify where the two agents' paths intersect, if it has not already 
         # been done
         if not hasattr(self.simulation, 'conflict_point'):
-            self.simulation.conflict_point = \
+            self.simulation.conflict_point = np.array((0, 0))
+            # make sure the SC scenario has been correctly set up
+            apparent_conflict_point = \
                 commotions.get_intersection_of_lines(
                     self.get_current_kinematic_state().pos, self.goal, 
                     self.other_agent.get_current_kinematic_state().pos, 
                     self.other_agent.goal)
+            assert(np.linalg.norm(self.simulation.conflict_point
+                                 - apparent_conflict_point) < 0.0001)
 
     
     def add_sc_state_info(self, state, coll_dist):
@@ -317,6 +323,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.curr_state = self.add_sc_state_info(self.curr_state, self.coll_dist)
         self.signed_CP_dists[self.simulation.state.i_time_step] = \
             self.curr_state.signed_CP_dist
+        if (self.inhibit_first_pass_before_time != None
+            and self.simulation.state.time < self.inhibit_first_pass_before_time):
+            self.params.V_ny_inf = -math.inf
+        else:
+            self.params.V_ny_inf = 0
 
 
     def do_action_update(self):
@@ -329,8 +340,20 @@ class SCAgent(commotions.AgentWithGoal):
         
         # is this agent just supposed to keep constant speed?
         if self.const_acc != None:
-            self.trajectory.long_acc[i_time_step] = self.const_acc
-            return
+            if type(self.const_acc) is tuple:
+                # piecewise constant acceleration
+                const_acc = 0
+                for cmd in self.const_acc:
+                    if self.simulation.state.time >= cmd[0]:
+                        const_acc = cmd[1]
+                    else:
+                        break
+                self.trajectory.long_acc[i_time_step] = const_acc
+                return
+            else:
+                # single constant acceleration
+                self.trajectory.long_acc[i_time_step] = self.const_acc
+                return
         elif (self.zero_acc_after_exit 
               and self.curr_state.signed_CP_dist < -self.coll_dist):
             self.trajectory.long_acc[i_time_step] = 0
@@ -440,9 +463,16 @@ class SCAgent(commotions.AgentWithGoal):
         if self.doing_snapshots:
             if np.amin(np.abs(np.array(self.snapshot_times) - time_stamp)) < 0.00001:
                 self.do_snapshot_now = True
-                # set up the figures
+                # set up the figure(s)
                 fig_axs = []
-                for snapshot in ('', '(kinematics) ', '(looming) '):
+                # - which snapshots to do?
+                snapshots = []
+                snapshots.append('') # basic state info
+                if self.detailed_snapshots:
+                    snapshots.append('(kinematics) ') # kinematics details
+                    if self.assumptions[OptionalAssumption.oVAl]:
+                        snapshots.append('(looming) ') # looming details
+                for snapshot in snapshots:
                     fig_name = 'Snapshot %sfor %s at t = %.2f s' % (
                         snapshot, self.name, time_stamp)
                     fig = plt.figure(num=fig_name, figsize=(15, 10))
@@ -463,9 +493,13 @@ class SCAgent(commotions.AgentWithGoal):
                         # affordance-based value functions
                         # doing snapshot?
                         if self.do_snapshot_now:
+                            # create a temporary list of the snapshot axes for
+                            # the current action-behaviour combination
+                            # (used also for more detailed snapshot plotting)
                             self.snapshot_axs = []
                             for fig_ax in fig_axs:
                                 self.snapshot_axs.append(fig_ax[i_beh, i_action])
+                            # plot basic state snapshot info
                             self.plot_state_snapshot(self.curr_state, 
                                                      self.plot_color, 
                                                      alpha=True)
@@ -743,6 +777,14 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_image=oth_image, oth_state=oth_pred_state, 
                 consider_oth_acc=self.assumptions[OptionalAssumption.oVAa])
         
+        # inhibit early entry (slightly inelegant solution for emulating the 
+        # "first vehicle" in the HIKER scenarios)
+        if (ego_image.params.V_ny_inf != 0 and ego_pred_state.signed_CP_dist 
+            < ego_image.coll_dist + ego_image.params.D_s):
+            early_entry_value = ego_image.params.V_ny_inf
+        else:
+            early_entry_value = 0
+        
         # get values for the respective access orders
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
         if NEW_AFF_VAL_CALCS:
@@ -769,11 +811,12 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_first_acc = oth_first_acc, oth_cont_acc = oth_cont_acc, 
                 access_ord_impls = implications, 
                 consider_looming = self.assumptions[OptionalAssumption.oVAl],
-                return_details = self.do_snapshot_now)      
+                return_details = self.do_snapshot_now)     
             
             # do value squashing and store in output array
             for access_order in AccessOrder:
-                value = self.squash_value(access_ord_values_dict[access_order].value)
+                value = self.squash_value(access_ord_values_dict[access_order].value 
+                                          + early_entry_value)
                 access_order_values[access_order.value] = value
             
             # doing a snapshot?
@@ -811,10 +854,11 @@ class SCAgent(commotions.AgentWithGoal):
                                                       deets.oth_cp_dists,
                                                       '--', lw=1, color='gray', 
                                                       alpha=0.5)
-                            self.snapshot_axs[2].plot(deets.time_stamps,
-                                                      deets.thetaDots,
-                                                      '-', lw=2, color=color, 
-                                                      alpha=0.5)
+                            if self.assumptions[OptionalAssumption.oVAl]:
+                                self.snapshot_axs[2].plot(deets.time_stamps,
+                                                          deets.thetaDots,
+                                                          '-', lw=2, color=color, 
+                                                          alpha=0.5)
                                 
         else:
             
@@ -874,11 +918,12 @@ class SCAgent(commotions.AgentWithGoal):
                             k = ego_image.params.k) )
                     value += ach_access_value
                     # inherent value of this access order
-                    if (ego_image.ctrl_type is CtrlType.ACCELERATION 
-                        and access_order is AccessOrder.EGOFIRST):
-                        inh_access_value = ego_image.params.V_ny
-                    else:
-                        inh_access_value = 0
+                    inh_access_value = 0
+                    if access_order is AccessOrder.EGOFIRST:
+                        if ego_image.params.V_ny_inf != 0:
+                            inh_access_value = ego_image.params.V_ny_inf
+                        elif ego_image.ctrl_type is CtrlType.ACCELERATION:
+                            inh_access_value = ego_image.params.V_ny
                     value += inh_access_value
                     # valuation of the step of regaining the free speed after the
                     # access order has been achieved (may be a zero duration
@@ -920,7 +965,7 @@ class SCAgent(commotions.AgentWithGoal):
                                           ach_access_value, inh_access_value, 
                                           regain_value, final_value) + '\n')
                 # squash the value with a sigmoid
-                value = self.squash_value(value)
+                value = self.squash_value(value + early_entry_value)
                 # store the value of this access order in the output numpy array
                 access_order_values[access_order.value] = value
             
@@ -956,7 +1001,7 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_pred_state = oth_pred_state,
                 snapshot_color = self.plot_color,
                 snapshot_loc = 'topleft',
-                plot_snapshot_deets = True)
+                plot_snapshot_deets = self.detailed_snapshots)
         return access_order_values
         
     
@@ -1162,9 +1207,11 @@ class SCAgent(commotions.AgentWithGoal):
     def __init__(self, name, ctrl_type, width, length, simulation, goal_pos, 
                  initial_state, optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None, 
-                 noise_seed = None, kalman_prior = None, const_acc = None, 
-                 zero_acc_after_exit = False, plot_color = 'k', 
-                 snapshot_times = None):
+                 noise_seed = None, kalman_prior = None, 
+                 inhibit_first_pass_before_time = None, # NB: Currently only supported for oVA models
+                 const_acc = None, zero_acc_after_exit = False, 
+                 plot_color = 'k',  snapshot_times = None, 
+                 detailed_snapshots = False):
 
         # set control type
         self.ctrl_type = ctrl_type
@@ -1174,6 +1221,9 @@ class SCAgent(commotions.AgentWithGoal):
         super().__init__(name, simulation, goal_pos, \
             initial_state, can_reverse = False, plot_color = plot_color)
             
+        # inhibiting passing first before a certain time?
+        self.inhibit_first_pass_before_time = inhibit_first_pass_before_time
+            
         # is this agent to just keep a constant acceleration?
         # (throughout or after exiting conflict space)
         self.const_acc = const_acc
@@ -1182,6 +1232,7 @@ class SCAgent(commotions.AgentWithGoal):
         # doing any value function snapshots?
         self.snapshot_times = snapshot_times
         self.doing_snapshots = snapshot_times != None
+        self.detailed_snapshots = detailed_snapshots
         
         # store the optional assumptions
         self.assumptions = optional_assumptions
@@ -1323,9 +1374,11 @@ class SCSimulation(commotions.Simulation):
                  optional_assumptions = get_assumptions_dict(False), 
                  params = None, params_k = None,  
                  noise_seeds = (None, None), kalman_priors = (None, None),
+                 inhibit_first_pass_before_time = None,
                  const_accs = (None, None), zero_acc_after_exit = False, 
                  agent_names = ('A', 'B'), plot_colors = ('c', 'm'), 
-                 snapshot_times = (None, None), stop_criteria = ()):
+                 snapshot_times = (None, None), detailed_snapshots = False,
+                 stop_criteria = ()):
 
         super().__init__(start_time, end_time, time_step)
        
@@ -1344,10 +1397,12 @@ class SCSimulation(commotions.Simulation):
                     length = lengths[i_agent],
                     noise_seed = noise_seeds[i_agent],
                     kalman_prior = kalman_priors[i_agent],
+                    inhibit_first_pass_before_time = inhibit_first_pass_before_time,
                     const_acc = const_accs[i_agent],
                     zero_acc_after_exit = zero_acc_after_exit,
                     plot_color = plot_colors[i_agent],
-                    snapshot_times = snapshot_times[i_agent])
+                    snapshot_times = snapshot_times[i_agent],
+                    detailed_snapshots = detailed_snapshots)
         
         self.stop_criteria = stop_criteria
             
@@ -1370,6 +1425,12 @@ class SCSimulation(commotions.Simulation):
                         if agent.curr_state.signed_CP_dist < agent.coll_dist:
                             self.stop_now = True
                             return
+                        
+            elif stop_crit == SimStopCriterion.AGENT_IN_CS:
+                for agent in self.agents:
+                    if agent.curr_state.signed_CP_dist < agent.coll_dist:
+                        self.stop_now = True
+                        return
                     
             elif stop_crit == SimStopCriterion.BOTH_AGENTS_HAVE_MOVED:
                 found_unmoved_agent = False
@@ -1377,9 +1438,9 @@ class SCSimulation(commotions.Simulation):
                     if agent.curr_state.signed_CP_dist == agent.signed_CP_dists[0]:
                         found_unmoved_agent = True
                         break
-                    if not found_unmoved_agent:
-                        self.stop_now = True
-                        return
+                if not found_unmoved_agent:
+                    self.stop_now = True
+                    return
                     
             elif stop_crit == SimStopCriterion.BOTH_AGENTS_STOPPED:
                 found_moving_agent = False
@@ -1881,18 +1942,22 @@ if __name__ == "__main__":
             speed_stddev = 0.5 * oth_free_speed))
     
     # run simulation
+    #CONST_ACCS = ( None, ((1, -2),(2, -4)) )
     NOISE_SEEDS = (20, None)
     SNAPSHOT_TIMES = (None, None)
     STOP_CRITERIA = (SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
+    #sc_scenario_helper.NEW_ACC_IMPL_CALCS = False
     #np.seterr(invalid='raise')
     sc_simulation = SCSimulation(
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
             initial_speeds = SPEEDS, 
             end_time = 8, optional_assumptions = optional_assumptions,
+            inhibit_first_pass_before_time = None,
             const_accs = CONST_ACCS, zero_acc_after_exit = False,
             agent_names = NAMES,  params = params, 
             noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, time_step = 0.1,
+            snapshot_times = SNAPSHOT_TIMES, detailed_snapshots = True,
+            time_step = 0.1,
             stop_criteria = STOP_CRITERIA)
     tic = time.perf_counter()
     sc_simulation.run()

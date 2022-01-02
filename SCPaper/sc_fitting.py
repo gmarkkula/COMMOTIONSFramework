@@ -21,6 +21,8 @@ from dataclasses import dataclass
 import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+from statsmodels.distributions.empirical_distribution import ECDF
 import commotions
 import parameter_search
 from sc_scenario import CtrlType, OptionalAssumption
@@ -31,11 +33,14 @@ import sc_scenario_perception
 # expecting a results subfolder in the folder where this file is located
 SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
 FIT_RESULTS_FOLDER = SCPAPER_PATH + 'results/'
+DATA_FOLDER = SCPAPER_PATH + 'data/'
 
 # file names
+HIKER_DATA_FILE_NAME = 'HIKERData.pkl'
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
 PROB_FIT_FILE_NAME_FMT = 'ProbFit_%s.pkl'
 COMB_FIT_FILE_NAME_FMT = 'CombFit_%s.pkl'
+HIKER_FIT_FILE_NAME_FMT = 'HIKERFit_%s.pkl'
 RETAINED_DET_FNAME ='RetainedDetModels.pkl'
 RETAINED_PROB_FNAME ='RetainedProbModels.pkl'
 RETAINED_COMB_FNAME ='RetainedCombModels.pkl'
@@ -119,13 +124,36 @@ class ModelWithParams:
     params_array: np.ndarray
         
 
-# deterministic fitting
+# class for defining scenarios to simulate
 class SCPaperScenario:
     
     def get_full_metric_name(self, short_metric_name):
         return self.name + '_' + short_metric_name
     
     def get_dists_and_accs(self, i_variation=None, force_calc=False):
+        """
+        Get the initial distances and any constant accelerations for the
+        scenario, typically only used outside of this class if the scenario
+        has multiple kinematic variations.
+
+        Parameters
+        ----------
+        i_variation : TYPE, optional
+            Index of the kinematic scenario variation, should be None if the 
+            scenario doesn't have any variations. The default is None.
+        force_calc : TYPE, optional
+            Set to True to force recalculation of the values to be returned 
+            regardless if already stored internally. The default is False.
+
+        Returns
+        -------
+        tuple
+            Initial distances of the two agents.
+        tuple
+            Constant accelerations of the two agents (None if no constant
+            acceleration for the agent).
+
+        """
         if self.n_variations == 1 and not force_calc:
             # should already have been calculated in call from the constructor
             return self.initial_cp_distances, self.const_accs
@@ -140,7 +168,7 @@ class SCPaperScenario:
             else:
                 initial_ttcas.append(self.initial_ttcas[i_agent])
         # - get the corresponding initial distances
-        initial_cp_distances = (np.array(initial_ttcas) * AGENT_FREE_SPEEDS 
+        initial_cp_distances = (np.array(initial_ttcas) * self.initial_speeds 
                                 + np.array(AGENT_COLL_DISTS))
         # - get any constant accelerations
         const_accs = [None, None]
@@ -152,17 +180,24 @@ class SCPaperScenario:
         if self.veh_const_speed:
             const_accs[i_VEH_AGENT] = 0
         elif self.veh_yielding:
-            stop_dist = (initial_cp_distances[i_VEH_AGENT] 
-                         - AGENT_COLL_DISTS[i_VEH_AGENT] - self.veh_yielding_margin)
-            const_accs[i_VEH_AGENT] = (
-                -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist))
+            veh_dist_at_yield_start = (initial_cp_distances[i_VEH_AGENT] -
+                                       self.veh_yielding_start_time
+                                       * self.initial_speeds[i_VEH_AGENT])
+            stop_dist = (veh_dist_at_yield_start 
+                         - AGENT_COLL_DISTS[i_VEH_AGENT] 
+                         - self.veh_yielding_margin)
+            const_accs[i_VEH_AGENT] = ((self.veh_yielding_start_time, 
+                -self.initial_speeds[i_VEH_AGENT] ** 2 / (2 * stop_dist)),)
         return initial_cp_distances, const_accs
         
     
     def __init__(self, name, initial_ttcas, ped_prio=False,
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
-                 veh_yielding=False, veh_yielding_margin=COLLISION_MARGIN,
+                 veh_initial_speed=AGENT_FREE_SPEEDS[i_VEH_AGENT],
+                 veh_yielding=False, veh_yielding_start_time=0,
+                 veh_yielding_margin=COLLISION_MARGIN,
+                 inhibit_first_pass_before_time=None,
                  time_step=DET_SIM_TIME_STEP, end_time=DET_SIM_END_TIME,
                  stop_criteria = (), metric_names = None):
         """ Construct a scenario. 
@@ -183,7 +218,9 @@ class SCPaperScenario:
         self.ped_const_speed = ped_const_speed
         self.veh_const_speed = veh_const_speed
         self.veh_yielding = veh_yielding
+        self.veh_yielding_start_time = veh_yielding_start_time
         self.veh_yielding_margin = veh_yielding_margin
+        self.inhibit_first_pass_before_time = inhibit_first_pass_before_time
         self.time_step = time_step
         self.end_time = end_time
         self.stop_criteria = stop_criteria
@@ -199,6 +236,7 @@ class SCPaperScenario:
                 self.n_variations = len(initial_ttcas[i_agent])  
         # get and store initial speeds
         self.initial_speeds = np.copy(AGENT_FREE_SPEEDS)
+        self.initial_speeds[i_VEH_AGENT] = veh_initial_speed
         if ped_start_standing:
             self.initial_speeds[i_PED_AGENT] = 0       
         # set initial distances and constant accelerations here only if 
@@ -208,10 +246,11 @@ class SCPaperScenario:
                 self.get_dists_and_accs(i_variation=1, force_calc=True)
         # store metric info
         self.short_metric_names = metric_names
-        self.full_metric_names = []
-        for short_metric_name in self.short_metric_names:
-            self.full_metric_names.append(
-                self.get_full_metric_name(short_metric_name))
+        if metric_names != None:
+            self.full_metric_names = []
+            for short_metric_name in self.short_metric_names:
+                self.full_metric_names.append(
+                    self.get_full_metric_name(short_metric_name))
         
     
 # scenarios
@@ -284,6 +323,80 @@ PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst
                                                             metric_names = ('ped_av_speed_to_CS',),
                                                             time_step = PROB_SIM_TIME_STEP,
                                                             end_time = PROB_SIM_END_TIME)
+
+
+# HIKER scenarios
+
+HIKER_VEH_SPEEDS_MPH = (25, 30, 35) # miles per hour
+HIKER_VEH_TIME_GAPS = (2, 3, 4, 5) # s
+HIKER_FIRST_VEH_PASSING_TIME = 3
+HIKER_YIELD_START_DIST = 38.5 # m from front bumper to conflict point
+HIKER_YIELD_END_DIST = 2.5 # m from front bumper to conflict point
+HIKER_SIM_TIME_AFTER_VEH_STOP = 3 # if ped not moving 3 s after the car has yielded to a stop, terminate simulation
+HIKER_CIT_METRIC_NAME = 'hiker_cit'
+
+def get_hiker_scen_name(veh_speed_mph, veh_time_gap, veh_yielding):
+    base = str(veh_speed_mph) + '_' + str(veh_time_gap)
+    if veh_yielding:
+        return base + '_y'
+    else:
+        return base
+    
+class HIKERScenario(SCPaperScenario):
+    
+    def __init__(self, name, veh_speed_mph, veh_time_gap, veh_yielding):
+        half_ped_width = AGENT_WIDTHS[i_PED_AGENT] / 2
+        veh_speed = veh_speed_mph * 1.609 / 3.6
+        # get initial time for the second vehicle to conflict area 
+        # - the edge of the conflict area is half a pedestrian width closer to
+        # the second vehicle than the back of the first vehicle when the second
+        # vehicle is passing the pedestrian
+        veh_initial_ttca = (HIKER_FIRST_VEH_PASSING_TIME + veh_time_gap 
+                            - half_ped_width / veh_speed)
+        if veh_yielding:
+            veh_const_speed = False
+            # get distance to conflict area at time of yielding for the second veh.
+            veh_dist_to_ca_at_yield = HIKER_YIELD_START_DIST - half_ped_width
+            # now we can calculate the time to conflict area at yielding start
+            # and thus also the time in the simulation when yielding should start
+            veh_ttca_at_yield = veh_dist_to_ca_at_yield / veh_speed
+            veh_yielding_start_time = veh_initial_ttca - veh_ttca_at_yield
+            # ancestor class defines yielding margin as actual physical gap,
+            # whereas HIKER scenario is again defined with ref to ped centre
+            veh_yielding_margin = HIKER_YIELD_END_DIST - half_ped_width
+            # calculate stopping deceleration, just so we can calculate a
+            # sensible simulation end time
+            veh_stop_dec = veh_speed ** 2 / (2 * (HIKER_YIELD_START_DIST 
+                                                  - HIKER_YIELD_END_DIST))
+            veh_stop_time = veh_yielding_start_time + veh_speed / veh_stop_dec
+            end_time = veh_stop_time + HIKER_SIM_TIME_AFTER_VEH_STOP
+        else: 
+            veh_const_speed = True
+            veh_yielding_start_time = None
+            veh_yielding_margin = None
+            end_time = veh_initial_ttca + 0.5 # just to definitely not end before the vehicle enters the conflict space
+        super().__init__(
+            name, initial_ttcas=(math.nan, veh_initial_ttca), ped_prio=False,
+            ped_start_standing=True, ped_standing_margin=COLLISION_MARGIN,
+            veh_const_speed=veh_const_speed, veh_initial_speed=veh_speed,
+            veh_yielding=veh_yielding, 
+            veh_yielding_start_time=veh_yielding_start_time,
+            veh_yielding_margin=veh_yielding_margin,
+            inhibit_first_pass_before_time=HIKER_FIRST_VEH_PASSING_TIME,
+            time_step=PROB_SIM_TIME_STEP, end_time=end_time,
+            stop_criteria = (sc_scenario.SimStopCriterion.AGENT_IN_CS,), 
+            metric_names = (HIKER_CIT_METRIC_NAME,))
+
+HIKER_SCENARIOS = {}
+for veh_speed_mph in HIKER_VEH_SPEEDS_MPH:
+    for veh_time_gap in HIKER_VEH_TIME_GAPS:
+        for veh_yielding in (False, True):
+            name = get_hiker_scen_name(veh_speed_mph, veh_time_gap, veh_yielding)
+            HIKER_SCENARIOS[name] = HIKERScenario(name, veh_speed_mph, 
+                                                  veh_time_gap, veh_yielding)
+
+
+# implementations of metrics for analysing model simulation results
 
 METRIC_FCN_PREFIX = 'metric_'
 
@@ -363,6 +476,18 @@ def metric_ped_exit_time(sim):
 def metric_veh_exit_time(sim):
     return metric_agent_exit_time(sim, i_VEH_AGENT)
 
+def metric_hiker_cit(sim):
+    nonzero_ped_speed_samples = np.nonzero(sim.agents[
+        i_PED_AGENT].trajectory.long_speed)[0]
+    if len(nonzero_ped_speed_samples) == 0:
+        # pedestrian didn't move before end of simulation
+        return math.nan
+    if sim.first_passer is sim.agents[i_VEH_AGENT]:
+        # pedestrian moved, but vehicle entered conflict space first
+        return math.nan
+    return (sim.time_stamps[nonzero_ped_speed_samples[0]] 
+            - HIKER_FIRST_VEH_PASSING_TIME)
+
 
 def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
     metrics = {}
@@ -379,8 +504,8 @@ def get_metrics_for_scenario(scenario, sim, verbose=False, report_prefix=''):
 
 def simulate_scenario(scenario, optional_assumptions, params, params_k, 
                       i_variation=None, snapshots=(None, None), 
-                      noise_seeds=(None, None), zero_acc_after_exit=True,
-                      apply_stop_criteria=True):
+                      detailed_snapshots=False, noise_seeds=(None, None), 
+                      zero_acc_after_exit=True, apply_stop_criteria=True):
     # prepare the simulation
     # - get initial distances and constant accelerations for this scenario variation
     if scenario.n_variations > 1 and i_variation == None:
@@ -424,8 +549,10 @@ def simulate_scenario(scenario, optional_assumptions, params, params_k,
         start_time=0, end_time=scenario.end_time, time_step=scenario.time_step, 
         optional_assumptions=optional_assumptions, 
         params=params, params_k=params_k, kalman_priors=kalman_priors,
+        inhibit_first_pass_before_time=scenario.inhibit_first_pass_before_time,
         noise_seeds=noise_seeds, agent_names=AGENT_NAMES, 
-        snapshot_times=snapshots, stop_criteria=stop_criteria)
+        snapshot_times=snapshots, detailed_snapshots=detailed_snapshots,
+        stop_criteria=stop_criteria)
     
     # run the simulation
     sc_simulation.run()
@@ -512,8 +639,9 @@ def set_params(params_obj, params_k_obj, params_dict):
 
 def construct_model_and_simulate_scenario(
         model_name, params_dict, scenario, i_variation=None, 
-        snapshots=(None, None), noise_seeds=(None, None), 
-        zero_acc_after_exit=True, apply_stop_criteria=True):
+        snapshots=(None, None), detailed_snapshots=False, 
+        noise_seeds=(None, None), zero_acc_after_exit=True, 
+        apply_stop_criteria=True, report_time=False):
     """ Convenience wrapper for simulate_scenario(), which first builds the model
         and parameterisation from model_name, the sc_fitting default parameters,
         and params_dict.
@@ -522,11 +650,16 @@ def construct_model_and_simulate_scenario(
     params = copy.deepcopy(DEFAULT_PARAMS)
     params_k = copy.deepcopy(get_default_params_k(model_name))
     set_params(params, params_k, params_dict)
+    tic = time.perf_counter()
     return simulate_scenario(scenario, assumptions, params, params_k,
                              i_variation=i_variation, snapshots=snapshots, 
+                             detailed_snapshots=detailed_snapshots, 
                              noise_seeds=noise_seeds, 
                              zero_acc_after_exit=zero_acc_after_exit,
                              apply_stop_criteria=apply_stop_criteria)
+    toc = time.perf_counter()
+    if report_time:
+        print('Initialising and running simulation took %.3f s.' % (toc - tic,))
 
 
 
@@ -552,8 +685,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
     
     
     def simulate_scenario(self, scenario, i_variation='all', 
-                          snapshots=(None, None), zero_acc_after_exit=True,
-                          apply_stop_criteria=True):
+                          snapshots=(None, None), detailed_snapshots=False,
+                          zero_acc_after_exit=True, apply_stop_criteria=True):
         """
         Run a given scenario for the model parameterisation currently
         specified by self.params and self.params_k.
@@ -571,7 +704,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         if self.n_scenario_variations == 1:
             return simulate_scenario(scenario, self.optional_assumptions, 
                                      self.params, self.params_k, 
-                                     snapshots=snapshots,
+                                     snapshots=snapshots, 
+                                     detailed_snapshots=detailed_snapshots,
                                      zero_acc_after_exit=zero_acc_after_exit,
                                      apply_stop_criteria=apply_stop_criteria)
         else:
@@ -583,6 +717,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                                                   self.params, self.params_k, 
                                                   i_variation=i_var, 
                                                   snapshots=snapshots,
+                                                  detailed_snapshots=detailed_snapshots,
                                                   zero_acc_after_exit=zero_acc_after_exit,
                                                   apply_stop_criteria=apply_stop_criteria))
                 return sims
@@ -591,6 +726,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                                          self.params, self.params_k, 
                                          i_variation=i_variation, 
                                          snapshots=snapshots,
+                                         detailed_snapshots=detailed_snapshots,
                                          zero_acc_after_exit=zero_acc_after_exit,
                                          apply_stop_criteria=apply_stop_criteria)
     
@@ -891,40 +1027,102 @@ def do_crit_params_plot(fit, criteria_matrix, log=False):
                 ax.set_xlabel(fit.param_names[i_x_param])   
     plt.show()
    
+
+def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs'):
+    fig, axs = plt.subplots(nrows=2, ncols=len(HIKER_VEH_TIME_GAPS), 
+                            sharex=True, sharey=True, num=fig_name,
+                            figsize=(10, 6))
+    for i_speed, veh_speed_mph in enumerate(HIKER_VEH_SPEEDS_MPH):
+        for i_gap, veh_time_gap in enumerate(HIKER_VEH_TIME_GAPS):
+            for i_yield, veh_yielding in enumerate((False, True)):
+                scen_name = get_hiker_scen_name(veh_speed_mph,
+                                                veh_time_gap,
+                                                veh_yielding)
+                ax = axs[i_yield, i_gap]
+                ecdf = ECDF(cit_data[scen_name]['crossing_time'])
+                alpha = (1 - float(i_speed)/len(HIKER_VEH_SPEEDS_MPH)) ** 2
+                ax.step(ecdf.x, ecdf.y, 'k-', lw=i_speed+1, alpha=alpha)
+                ax.set_xlim(-1, 11)
+                ax.set_ylim(-.1, 1.1)
+            axs[0, i_gap].set_title(f'Gap {veh_time_gap} s\n')
+            axs[1, i_gap].set_xlabel('CIT (s)')
+    axs[0, 0].set_ylabel('Constant speed scenario\n\nCDF')  
+    axs[1, 0].set_ylabel('Yielding scenario\n\nCDF')        
+    axs[0,-1].legend(tuple(f'{spd} mph' for spd in HIKER_VEH_SPEEDS_MPH))
+    plt.tight_layout()
+    plt.show()
      
+    
     
 # unit testing
 if __name__ == "__main__":
         
     plt.close('all')
     
-    MODEL = ''
     
-    PARAM_ARRAYS = {}
-    PARAM_ARRAYS['k_c'] = (0.2, 2)
-    PARAM_ARRAYS['k_sc'] = (0.2, 2)
-
-    OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict_from_string(MODEL)
+    if True:
     
-    # as grid
-    test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
-                                      OPTIONAL_ASSUMPTIONS, 
-                                      DEFAULT_PARAMS, 
-                                      get_default_params_k(MODEL), 
-                                      PARAM_ARRAYS, 
-                                      n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
-                                      parallel=True,
-                                      verbosity=3)
+        # # test scenario running
+        # TEST_SCENARIO = SCPaperScenario(name='TestScenario', initial_ttcas=(6, 6),
+        #                            veh_yielding=True, veh_yielding_start_time=2,
+        #                            inhibit_first_pass_before_time=3,
+        #                            time_step=PROB_SIM_TIME_STEP, end_time=15)   
+        TEST_PARAMS = {'T_delta': 60}
+        # sim = construct_model_and_simulate_scenario(model_name='oVA', 
+        #                                             params_dict=TEST_PARAMS, 
+        #                                             scenario=TEST_SCENARIO)
+        # sim.do_plots(kinem_states=True)
+        
+        
+        sim = construct_model_and_simulate_scenario(model_name='oVA', 
+                                                    params_dict=TEST_PARAMS, 
+                                                    scenario=HIKER_SCENARIOS['35_2_y'],
+                                                    apply_stop_criteria=False,
+                                                    snapshots=(None, None))
+        sim.do_plots(kinem_states=True)
     
-    # as list
-    test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
-                                      OPTIONAL_ASSUMPTIONS, 
-                                      DEFAULT_PARAMS, 
-                                      get_default_params_k(MODEL), 
-                                      PARAM_ARRAYS, list_search=True,
-                                      n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
-                                      parallel=True,
-                                      verbosity=3)
+    
+    if True:
+    
+        # test fitting functionality
+        
+        MODEL = ''
+        
+        PARAM_ARRAYS = {}
+        PARAM_ARRAYS['k_c'] = (0.2, 2)
+        PARAM_ARRAYS['k_sc'] = (0.2, 2)
+    
+        OPTIONAL_ASSUMPTIONS = sc_scenario.get_assumptions_dict_from_string(MODEL)
+        
+        # as grid, not parallel
+        test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                          OPTIONAL_ASSUMPTIONS, 
+                                          DEFAULT_PARAMS, 
+                                          get_default_params_k(MODEL), 
+                                          PARAM_ARRAYS, 
+                                          n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                          parallel=False,
+                                          verbosity=5)
+        
+        # as grid, parallel
+        test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                          OPTIONAL_ASSUMPTIONS, 
+                                          DEFAULT_PARAMS, 
+                                          get_default_params_k(MODEL), 
+                                          PARAM_ARRAYS, 
+                                          n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                          parallel=True,
+                                          verbosity=3)
+    
+        # as list, parallel
+        test_fit = SCPaperParameterSearch('test', ONE_AG_SCENARIOS,
+                                          OPTIONAL_ASSUMPTIONS, 
+                                          DEFAULT_PARAMS, 
+                                          get_default_params_k(MODEL), 
+                                          PARAM_ARRAYS, list_search=True,
+                                          n_repetitions=N_ONE_AG_SCEN_VARIATIONS,
+                                          parallel=True,
+                                          verbosity=3)
     
     
     
