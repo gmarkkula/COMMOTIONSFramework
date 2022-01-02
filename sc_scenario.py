@@ -777,6 +777,14 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_image=oth_image, oth_state=oth_pred_state, 
                 consider_oth_acc=self.assumptions[OptionalAssumption.oVAa])
         
+        # inhibit early entry (slightly inelegant solution for emulating the 
+        # "first vehicle" in the HIKER scenarios)
+        if (ego_image.params.V_ny_inf != 0 and ego_pred_state.signed_CP_dist 
+            < ego_image.coll_dist + ego_image.params.D_s):
+            early_entry_value = ego_image.params.V_ny_inf
+        else:
+            early_entry_value = 0
+        
         # get values for the respective access orders
         access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
         if NEW_AFF_VAL_CALCS:
@@ -803,11 +811,12 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_first_acc = oth_first_acc, oth_cont_acc = oth_cont_acc, 
                 access_ord_impls = implications, 
                 consider_looming = self.assumptions[OptionalAssumption.oVAl],
-                return_details = self.do_snapshot_now)      
+                return_details = self.do_snapshot_now)     
             
             # do value squashing and store in output array
             for access_order in AccessOrder:
-                value = self.squash_value(access_ord_values_dict[access_order].value)
+                value = self.squash_value(access_ord_values_dict[access_order].value 
+                                          + early_entry_value)
                 access_order_values[access_order.value] = value
             
             # doing a snapshot?
@@ -956,7 +965,7 @@ class SCAgent(commotions.AgentWithGoal):
                                           ach_access_value, inh_access_value, 
                                           regain_value, final_value) + '\n')
                 # squash the value with a sigmoid
-                value = self.squash_value(value)
+                value = self.squash_value(value + early_entry_value)
                 # store the value of this access order in the output numpy array
                 access_order_values[access_order.value] = value
             
