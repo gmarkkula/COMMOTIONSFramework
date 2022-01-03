@@ -425,7 +425,8 @@ class SCAgent(commotions.AgentWithGoal):
                      ego_state=self.perception.perc_oth_state, 
                      oth_image=self.self_image,
                      oth_state=self.curr_state, 
-                     consider_oth_acc=False)
+                     consider_oth_acc=self.assumptions[OptionalAssumption.oVAa] 
+                     and self.ctrl_type == CtrlType.ACCELERATION)
              
         # determine which behaviours are valid at this time step
         # - the helper function above returns nan if behaviour is invalid for 
