@@ -63,9 +63,9 @@
         * Get ready to run (near-)final large-scale fits on ARC:
             * ~~Verify all steps of the probabilistic fits on small/medium grids.~~
             * Tweaks identified 2022-01-02:
-                * Fix the bug in the looming value calculations, giving non-zero looming values also when $\dot{\theta} < \dot{\theta}_0$.
-                * Fix the awkward assumption combination for the `oVAaoBE*` models, I think preferably by considering ego-accelerations for acceleration-controlling but not speed-controlling ego agents, when generating other-behaviour hypotheses in these models.
-                * Possibly: Update the numerical looming integration to also include movement after regaining free speed, if still not fully clear of the conflict space.
+                * ~~Fix the bug in the looming value calculations, giving non-zero looming values also when $\dot{\theta} < \dot{\theta}_0$.~~
+                * ~~Fix the awkward assumption combination for the `oVAaoBE*` models, I think preferably by considering ego-accelerations for acceleration-controlling but not speed-controlling ego agents, when generating other-behaviour hypotheses in these models.~~
+                * ~~Possibly: Update the numerical looming integration to also include movement after regaining free speed, if still not fully clear of the conflict space. (Deciding now that this is probably not needed; see 2022-01-03 notes.)~~
                 * Extend the search range for $\dot{\theta}_1$ downward, and probably also set $\dot{\theta}_0$ = 0.
         * Run large-scale ARC fits.
         * Sensitivity analysis on the criterion thresholds.
@@ -119,7 +119,7 @@
 * Model:
     * Assuming pedestrians apply constant deceleration rather than constant speed to achieve interaction outcomes.
     * ~~The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.)~~ 
-    * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed.
+    * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed. As noted in the 2022-01-03, more detailed checking suggests this imperfection might be quite inconsequential, as the actual apparent collision courses in practice tend to happen before free speed has been regained. It should also be born in mind that these calculations always include a "regain free speed" time interval, even if the "access-achieving" acceleration already takes the agent to this speed (in which case that interval will be just an interval of constant speed), which should further reduce any impact of this imperfection. 
     * The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
 * Other stuff:
     * The pedestrian hesitation metrics could return NaN if the pedestrian hesitates itself to a full stop and never gets halfway to the conflict space before the simulation time runs out. I haven't seen that it is a problem, but it might be.
