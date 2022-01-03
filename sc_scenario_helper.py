@@ -461,7 +461,7 @@ def get_access_order_values(
             # get the looming value contributions
             if consider_looming:
                 looming_values = (-ego_image.g_free * ANTICIPATION_TIME_STEP
-                                  * np.abs(thetaDots - ego_image.params.thetaDot_0)
+                                  * np.maximum(thetaDots - ego_image.params.thetaDot_0, 0)
                                   / (ego_image.params.thetaDot_1
                                      - ego_image.params.thetaDot_0))
             else:
