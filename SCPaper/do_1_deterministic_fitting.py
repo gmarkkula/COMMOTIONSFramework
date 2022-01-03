@@ -50,7 +50,7 @@ PARAM_ARRAYS = {}
 # PARAM_ARRAYS['T_Of'] = (0.5, 1, 2, 4, math.inf)
 # PARAM_ARRAYS['sigma_O'] = (0.02, 0.05, 0.1, 0.2, 0.5, 1, 2.5)
 # -- further expanded grid
-N_GRID_SIDE = 3
+N_GRID_SIDE = 10
 PARAM_ARRAYS['k_c'] = np.logspace(np.log10(0.2), np.log10(2), N_GRID_SIDE)
 PARAM_ARRAYS['k_sc'] = np.logspace(np.log10(0.02), np.log10(0.2), N_GRID_SIDE)
 PARAM_ARRAYS['thetaDot_1'] = np.logspace(np.log10(0.001), np.log10(0.1), N_GRID_SIDE) 
