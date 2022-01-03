@@ -60,7 +60,14 @@
         * ~~Maybe first on my own computer...?~~
         * ~~... And then on a faster computer, with an expanded grid? Feels like it would be possible to aim for a factor ten increase in parameterisations tested (i.e., about 10<sup>5</sup> parameterisations tested for the most complex models).~~
             * ~~Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.~~
-        * Rerun after having verified all steps of the probabilistic fits on small/medium grids.
+        * ~~Get ready to run (near-)final large-scale fits on ARC:~~
+            * ~~Verify all steps of the probabilistic fits on small/medium grids.~~
+            * Tweaks identified 2022-01-02:
+                * ~~Fix the bug in the looming value calculations, giving non-zero looming values also when $\dot{\theta} < \dot{\theta}_0$.~~
+                * ~~Fix the awkward assumption combination for the `oVAaoBE*` models, I think preferably by considering ego-accelerations for acceleration-controlling but not speed-controlling ego agents, when generating other-behaviour hypotheses in these models.~~
+                * ~~Possibly: Update the numerical looming integration to also include movement after regaining free speed, if still not fully clear of the conflict space. (Deciding now that this is probably not needed; see 2022-01-03 notes.)~~
+                * ~~Extend the search range for $\dot{\theta}_1$ downward, and probably also set $\dot{\theta}_0$ = 0.~~
+        * Run large-scale ARC fits.
         * Sensitivity analysis on the criterion thresholds.
     * Run probabilistic fits       
         * ~~Preparing the fitting class in `sc_fitting.py` for probabilistic fitting.~~
@@ -81,10 +88,10 @@
             * ~~Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.~~
         * ~~Make sure to include tests both with and without `oPF`, to see if it is needed for the "pedestrian hesitation and speedup" phenomenon.~~
 * Test the best model candidates on the HIKER pedestrian crossing data - without fitting.
-    * Add functionality in `SCAgent` to 
-        * Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.
+    * ~~Add functionality in `SCAgent` to~~
+        * ~~Penalise being in the conflict space before a certain time - to account for the first vehicle in the HIKER paradigm.~~
             * ~~By penalising first-passing before the time in question.~~
-            * Modify to instead penalise being within safety distance of the conflict space before the time in question (see 2022-01-01 diary notes).
+            * ~~Modify to instead penalise being within safety distance of the conflict space before the time in question (see 2022-01-01 diary notes).~~
         * ~~Allow piecewise constant acceleration of agents - to account for the deceleration of the second vehicle in the HIKER paradigm not occurring from start of trial.~~
     * ~~Create a class derived from `SCPaperScenario` for the (non-eHMI) HIKER scenarios.~~
         * ~~Extend `SCPaperScenario` with support for early conflict space entry penalisation and piecewise constant acceleration of agents.~~
@@ -92,7 +99,7 @@
             * ~~Look at test simulations of the various scenarios; look through the distances at start/end of deceleration, from front bumper etc...~~
             * ~~Look through the previously defined scenarios for deterministic/probabilistic fitting, to make sure they have not become broken/modified.~~
             * ~~Implement `metric_hiker_cit`~~
-    * Implement and run a script for testing combined-fit models on the HIKER scenarios.
+    * ~~Implement and run a script for testing combined-fit models on the HIKER scenarios.~~
     * ~~Read the empirical HIKER CITs.~~
     * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
 * Optional stuff
@@ -112,7 +119,7 @@
 * Model:
     * Assuming pedestrians apply constant deceleration rather than constant speed to achieve interaction outcomes.
     * ~~The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.)~~ 
-    * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed.
+    * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed. As noted in the 2022-01-03, more detailed checking suggests this imperfection might be quite inconsequential, as the actual apparent collision courses in practice tend to happen before free speed has been regained. It should also be born in mind that these calculations always include a "regain free speed" time interval, even if the "access-achieving" acceleration already takes the agent to this speed (in which case that interval will be just an interval of constant speed), which should further reduce any impact of this imperfection. 
     * The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
 * Other stuff:
     * The pedestrian hesitation metrics could return NaN if the pedestrian hesitates itself to a full stop and never gets halfway to the conflict space before the simulation time runs out. I haven't seen that it is a problem, but it might be.

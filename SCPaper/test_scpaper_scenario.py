@@ -23,7 +23,7 @@ import sc_scenario_helper
 import sc_fitting
 
 # set model
-MODEL = 'oVAoBEvoAI'
+MODEL = 'oVAaoVAloBEvoAI'
 # get assumptions and default parameters for chosen model
 assumptions = sc_scenario.get_assumptions_dict_from_string(MODEL)
 params = copy.deepcopy(sc_fitting.DEFAULT_PARAMS)
@@ -35,9 +35,11 @@ params_k = copy.deepcopy(sc_fitting.get_default_params_k(MODEL))
 # params.sigma_V = 0.01
 #params.tau_theta = 0.05
 #params.sigma_xdot = 0.1
-params.T_delta = 59.95
-#params.thetaDot_1 = 0.005
-params.beta_V = 18.98
+#sc_fitting.V_NY_REL = -2
+params.T_delta = 10
+params.thetaDot_1 = 0.00
+params.thetaDot_1 = 0.001
+params.beta_V = 1
 #params.T_Of = 3.7
 #params.sigma_O = 1.2
 # for ctrl_type in sc_scenario_helper.CtrlType:
@@ -50,7 +52,7 @@ params.beta_V = 18.98
 
 if True:
     
-    SCENARIO = sc_fitting.ONE_AG_SCENARIOS['VehShortStop']
+    SCENARIO = sc_fitting.ONE_AG_SCENARIOS['VehPrioAssert']
     # SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['Encounter']
     # SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
     #                                         initial_ttcas=(3, 8), 
@@ -59,15 +61,18 @@ if True:
     #                                         metric_names = ('ped_av_speed', 'ped_av_speed_to_CS'),
     #                                         time_step = sc_fitting.PROB_SIM_TIME_STEP,
     #                                         end_time = sc_fitting.PROB_SIM_END_TIME)
-
-    for i_var in range(SCENARIO.n_variations):
+    SCENARIO.end_time = 10
+    #i_variations = range(SCENARIO.n_variations)
+    i_variations = (2,)
+    for i_var in i_variations:
         print(f'\n{SCENARIO.name} variation {i_var+1}/{SCENARIO.n_variations}:')
         tic = time.perf_counter()
         sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
-                                           i_variation=i_var, snapshots=(None, (0.5,)),
+                                           i_variation=i_var, 
+                                           snapshots=(None, None),
                                            detailed_snapshots=True,
                                            noise_seeds=(None, None), 
-                                           apply_stop_criteria=True)
+                                           apply_stop_criteria=False)
         toc = time.perf_counter()
         print('Initialising and running simulation took %.3f s.' % (toc - tic,))
         sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 

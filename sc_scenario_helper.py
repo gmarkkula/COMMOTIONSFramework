@@ -425,10 +425,10 @@ def get_access_order_values(
             # get anticipated speeds and conflict point distances for the other agent
             oth_accs = np.full(n_time_steps, oth_first_acc)
             oth_accs[idx_phase_starts[i_ACTION]+1:] = oth_cont_acc
-            oth_speeds = anticipation_integration(oth_curr_state.long_speed,
-                                                  oth_accs)
+            oth_speeds = np.maximum(0, anticipation_integration(
+                oth_curr_state.long_speed, oth_accs))
             oth_cp_dists = anticipation_integration(oth_curr_state.signed_CP_dist,
-                                                    -oth_speeds, -oth_accs)
+                                                    -oth_speeds)
             # get anticipated apparent entry/exit times for both agents
             app_entry_times, app_exit_times = get_app_entry_exit_time_arrays(
                 cp_dists, speeds, ego_image.coll_dist)
@@ -461,7 +461,7 @@ def get_access_order_values(
             # get the looming value contributions
             if consider_looming:
                 looming_values = (-ego_image.g_free * ANTICIPATION_TIME_STEP
-                                  * np.abs(thetaDots - ego_image.params.thetaDot_0)
+                                  * np.maximum(thetaDots - ego_image.params.thetaDot_0, 0)
                                   / (ego_image.params.thetaDot_1
                                      - ego_image.params.thetaDot_0))
             else:
