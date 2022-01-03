@@ -28,13 +28,13 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_TIME_SERIES_PLOTS = False
+DO_TIME_SERIES_PLOTS = True
 DO_PARAMS_PLOTS = True
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
-SURPLUS_DEC_THRESH = 2 # m/s^2
+SURPLUS_DEC_THRESH = 0.5 # m/s^2
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
 CRITERION_GROUPS = ('Main criteria', 'Secondary criteria')
@@ -195,7 +195,9 @@ for det_fit_file in det_fit_files:
                 sc_simulations = det_fit.simulate_scenario(scenario)
                 be_plots = 'oBE' in det_fit.name
                 for sim in sc_simulations:
-                    sim.do_plots(kinem_states=True, veh_stop_dec=True, beh_probs=be_plots)
+                    sim.do_plots(kinem_states=True, 
+                                 veh_stop_dec=(scenario.name == 'VehShortStop'), 
+                                 beh_probs=be_plots)
                     sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
         if DO_PARAMS_PLOTS:
             sc_fitting.do_crit_params_plot(det_fit, main_criteria_matrix, log=True)

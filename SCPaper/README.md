@@ -60,13 +60,13 @@
         * ~~Maybe first on my own computer...?~~
         * ~~... And then on a faster computer, with an expanded grid? Feels like it would be possible to aim for a factor ten increase in parameterisations tested (i.e., about 10<sup>5</sup> parameterisations tested for the most complex models).~~
             * ~~Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.~~
-        * Get ready to run (near-)final large-scale fits on ARC:
+        * ~~Get ready to run (near-)final large-scale fits on ARC:~~
             * ~~Verify all steps of the probabilistic fits on small/medium grids.~~
             * Tweaks identified 2022-01-02:
                 * ~~Fix the bug in the looming value calculations, giving non-zero looming values also when $\dot{\theta} < \dot{\theta}_0$.~~
                 * ~~Fix the awkward assumption combination for the `oVAaoBE*` models, I think preferably by considering ego-accelerations for acceleration-controlling but not speed-controlling ego agents, when generating other-behaviour hypotheses in these models.~~
                 * ~~Possibly: Update the numerical looming integration to also include movement after regaining free speed, if still not fully clear of the conflict space. (Deciding now that this is probably not needed; see 2022-01-03 notes.)~~
-                * Extend the search range for $\dot{\theta}_1$ downward, and probably also set $\dot{\theta}_0$ = 0.
+                * ~~Extend the search range for $\dot{\theta}_1$ downward, and probably also set $\dot{\theta}_0$ = 0.~~
         * Run large-scale ARC fits.
         * Sensitivity analysis on the criterion thresholds.
     * Run probabilistic fits       
