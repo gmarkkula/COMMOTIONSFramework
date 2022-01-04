@@ -60,8 +60,7 @@ AGENT_GOALS = np.array([[0, 5], [-50, 0]]) # m
 COLLISION_MARGIN = 1 # m
 DET_SIM_TIME_STEP = 0.1 # s
 PROB_SIM_TIME_STEP = 0.025 # s
-DET_SIM_END_TIME = 8 # s
-PROB_SIM_END_TIME = 12 # s
+SIM_END_TIME = 12 # s
 V_NY_REL = -1.5
 PRIOR_DIST_SD_MULT = 2
 PRIOR_SPEED_SD_MULT = 2
@@ -198,7 +197,7 @@ class SCPaperScenario:
                  veh_yielding=False, veh_yielding_start_time=0,
                  veh_yielding_margin=COLLISION_MARGIN,
                  inhibit_first_pass_before_time=None,
-                 time_step=DET_SIM_TIME_STEP, end_time=DET_SIM_END_TIME,
+                 time_step=DET_SIM_TIME_STEP, end_time=SIM_END_TIME,
                  stop_criteria = (), metric_names = None):
         """ Construct a scenario. 
             
@@ -256,6 +255,7 @@ class SCPaperScenario:
 # scenarios
 # - just defining some shorter names for the simulation stopping criteria
 HALFWAY_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_HALFWAY_TO_CS,)
+STOPPED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_STOPPED,)
 IN_CS_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_IN_CS,)
 MOVED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,)
 EXITED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
@@ -273,19 +273,21 @@ ONE_AG_SCENARIOS['VehShortStop'] = SCPaperScenario('VehShortStop',
                                                   ped_prio = True,
                                                   ped_start_standing=True, 
                                                   ped_const_speed=True,
-                                                  stop_criteria = HALFWAY_STOP,
-                                                  metric_names = ('veh_av_surpl_dec',))
+                                                  stop_criteria = (STOPPED_STOP 
+                                                                   + IN_CS_STOP),
+                                                  metric_names = ('veh_av_surpl_dec',
+                                                                  'veh_stop_margin'))
 ONE_AG_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
                                                           initial_ttcas=(3, (7.5, 8, 8.5)), 
                                                           veh_const_speed=True,
-                                                          stop_criteria = HALFWAY_STOP,
-                                                          metric_names = ('ped_av_speed',))
+                                                          stop_criteria = IN_CS_STOP,
+                                                          metric_names = ('ped_av_speed_to_CS',))
 ONE_AG_SCENARIOS['PedHesitateVehYield'] = SCPaperScenario('PedHesitateVehYield', 
                                                          initial_ttcas=(3, (2.5, 3, 3.5)), 
                                                          ped_prio=True,
                                                          veh_yielding=True,
-                                                         stop_criteria = HALFWAY_STOP,
-                                                         metric_names = ('ped_av_speed',))
+                                                         stop_criteria = IN_CS_STOP,
+                                                         metric_names = ('ped_av_speed_to_CS',))
 ONE_AG_SCENARIOS['PedCrossVehYield'] = SCPaperScenario('PedCrossVehYield', 
                                                        initial_ttcas=(math.nan, (1.5, 2, 2.5)), 
                                                        ped_prio=True,
@@ -301,28 +303,24 @@ PROB_FIT_SCENARIOS['Encounter'] = SCPaperScenario('Encounter',
                                                   initial_ttcas=(3, 3), 
                                                   stop_criteria = EXITED_STOP,
                                                   metric_names = TWO_AG_METRIC_NAMES,
-                                                  time_step = PROB_SIM_TIME_STEP,
-                                                  end_time = PROB_SIM_END_TIME)
+                                                  time_step = PROB_SIM_TIME_STEP)
 PROB_FIT_SCENARIOS['EncounterPedPrio'] = SCPaperScenario('EncounterPedPrio', 
                                                          initial_ttcas=(3, 3), 
                                                          ped_prio=True,
                                                          stop_criteria = EXITED_STOP,
                                                          metric_names = TWO_AG_METRIC_NAMES,
-                                                         time_step = PROB_SIM_TIME_STEP,
-                                                         end_time = PROB_SIM_END_TIME)
+                                                         time_step = PROB_SIM_TIME_STEP)
 PROB_FIT_SCENARIOS['PedLead'] = SCPaperScenario('PedLead', 
                                                 initial_ttcas=(3, 8), 
                                                 stop_criteria = EXITED_STOP,
                                                 metric_names = TWO_AG_METRIC_NAMES,
-                                                time_step = PROB_SIM_TIME_STEP,
-                                                end_time = PROB_SIM_END_TIME)
+                                                time_step = PROB_SIM_TIME_STEP)
 PROB_FIT_SCENARIOS['PedHesitateVehConst'] = SCPaperScenario('PedHesitateVehConst', 
                                                             initial_ttcas=(3, 8), 
                                                             veh_const_speed=True,
                                                             stop_criteria = IN_CS_STOP,
                                                             metric_names = ('ped_av_speed_to_CS',),
-                                                            time_step = PROB_SIM_TIME_STEP,
-                                                            end_time = PROB_SIM_END_TIME)
+                                                            time_step = PROB_SIM_TIME_STEP)
 
 
 # HIKER scenarios
@@ -447,6 +445,14 @@ def metric_veh_av_surpl_dec(sim):
         # compare to actual decelerations
         actual_decs = -veh_agent.trajectory.long_acc[idx_RT:idx_halfway]
         return np.mean(actual_decs - stop_decs)
+    
+def metric_veh_stop_margin(sim):
+    veh_agent = sim.agents[i_VEH_AGENT]
+    idx_veh_stopped = np.nonzero(veh_agent.trajectory.long_speed <= 0.5)[0]
+    if len(idx_veh_stopped) == 0:
+        return math.nan
+    else:
+        return veh_agent.signed_CP_dists[idx_veh_stopped[0]] - veh_agent.coll_dist
 
 def metric_veh_speed_at_ped_start(sim):
     idx_halfway = get_halfway_to_cs_sample(sim, i_PED_AGENT)
@@ -1060,7 +1066,7 @@ if __name__ == "__main__":
     plt.close('all')
     
     
-    if True:
+    if False:
     
         # # test scenario running
         # TEST_SCENARIO = SCPaperScenario(name='TestScenario', initial_ttcas=(6, 6),

@@ -34,7 +34,8 @@ N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 SPEEDUP_FRACT = 1.01
-SURPLUS_DEC_THRESH = 0.5 # m/s^2
+#SURPLUS_DEC_THRESH = 0.5 # m/s^2
+SHORT_STOPPING_THRESH = 2 # m
 HESITATION_SPEED_FRACT = 0.8
 VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
 CRITERION_GROUPS = ('Main criteria', 'Secondary criteria')
@@ -88,16 +89,19 @@ for det_fit_file in det_fit_files:
                 crit_met_all = veh_av_speed > SPEEDUP_FRACT * VEH_FREE_SPEED
                 
             elif crit == 'Vehicle short-stopping':
-                veh_av_surplus_dec = det_fit.get_metric_results(
-                    'VehShortStop_veh_av_surpl_dec')
-                crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
+                # veh_av_surplus_dec = det_fit.get_metric_results(
+                #     'VehShortStop_veh_av_surpl_dec')
+                # crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
+                veh_stop_margin = det_fit.get_metric_results(
+                    'VehShortStop_veh_stop_margin')
+                crit_met_all = veh_stop_margin > SHORT_STOPPING_THRESH
                 
             elif crit == 'Pedestrian hesitation in constant-speed scenario':
-                ped_av_speed = det_fit.get_metric_results('PedHesitateVehConst_ped_av_speed')
+                ped_av_speed = det_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
                 crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
             
             elif crit == 'Pedestrian hesitation in deceleration scenario':
-                ped_av_speed = det_fit.get_metric_results('PedHesitateVehYield_ped_av_speed')
+                ped_av_speed = det_fit.get_metric_results('PedHesitateVehYield_ped_av_speed_to_CS')
                 crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
                 
             elif crit == 'Pedestrian starting before vehicle at full stop':
