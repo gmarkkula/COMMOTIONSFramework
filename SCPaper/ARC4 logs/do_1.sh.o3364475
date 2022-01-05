@@ -1,0 +1,16 @@
+## WARNING!
+## The current directory is in your home directory. Please use the high-performance
+## cluster filesystem /nobackup. See documentation for information.
+## WARNING!
+
+## Hosts assigned to job 3364475.1:
+##
+## d11s6b2.arc4.leeds.ac.uk 40 slots
+##
+## Resources granted:
+##
+## h_vmem = 1G (per slot)
+## h_rt   = 03:00:00
+## disk   = 1G (per slot)
+
+01/04/22 21:38:29 oVAaoBEcoBEooBEvoAI   Starting a pool of 40 workers for parallel evaluation of parameterisations...
