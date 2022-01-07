@@ -28,9 +28,10 @@ ExampleParameterisation = collections.namedtuple(
                                 'params_dict', 'crit_dict'])
 
 # constants
-DO_TIME_SERIES_PLOTS = False
+DO_TIME_SERIES_PLOTS = True
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
+DO_RETAINED_PARAMS_PLOT = True
 N_CRIT_FOR_PARAMS_PLOT = 4
 N_CRIT_FOR_RETAINING = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
@@ -41,6 +42,7 @@ CRITERIA = ('Collision-free encounter',
             'Pedestrian hesitation in constant-speed scenario')
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
+PARAMS_JITTER = 0.015
 #N_MAIN_CRIT_FOR_RETAINING = 3
 
 
@@ -166,6 +168,9 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
               f' out of {n_total}'
               f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
         print(ret_model.param_names)
+        if DO_RETAINED_PARAMS_PLOT:
+            sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
+                                      ret_model.param_ranges, log=True, jitter=PARAMS_JITTER)
         print('\n***********************')
         
     

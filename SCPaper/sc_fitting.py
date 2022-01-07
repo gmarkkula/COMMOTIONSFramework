@@ -100,7 +100,7 @@ def get_default_params_k(model_str):
         return DEFAULT_PARAMS_K_NVA
 # - other fixed parameters
 DEFAULT_PARAMS = commotions.Parameters()
-DEFAULT_PARAMS.T_delta = 60
+DEFAULT_PARAMS.T_delta = 40
 DEFAULT_PARAMS.H_e = 1.5
 DEFAULT_PARAMS.sigma_xdot = 0.1
 DEFAULT_PARAMS.c_tau = 0.01
