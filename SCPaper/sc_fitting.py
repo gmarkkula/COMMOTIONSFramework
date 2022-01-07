@@ -38,6 +38,7 @@ DATA_FOLDER = SCPAPER_PATH + 'data/'
 # file names
 HIKER_DATA_FILE_NAME = 'HIKERData.pkl'
 DET_FIT_FILE_NAME_FMT = 'DetFit_%s.pkl'
+ALT_SHORTSTOP_FIT_FILE_NAME_FMT = 'AltShortStopFit_%s.pkl'
 PROB_FIT_FILE_NAME_FMT = 'ProbFit_%s.pkl'
 COMB_FIT_FILE_NAME_FMT = 'CombFit_%s.pkl'
 HIKER_FIT_FILE_NAME_FMT = 'HIKERFit_%s.pkl'
@@ -256,6 +257,7 @@ class SCPaperScenario:
 # scenarios
 # - just defining some shorter names for the simulation stopping criteria
 HALFWAY_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_HALFWAY_TO_CS,)
+STOPPED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_STOPPED,)
 IN_CS_STOP = (sc_scenario.SimStopCriterion.ACTIVE_AGENT_IN_CS,)
 MOVED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_HAVE_MOVED,)
 EXITED_STOP = (sc_scenario.SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
@@ -293,6 +295,19 @@ ONE_AG_SCENARIOS['PedCrossVehYield'] = SCPaperScenario('PedCrossVehYield',
                                                        veh_yielding=True,
                                                        stop_criteria = HALFWAY_STOP,
                                                        metric_names = ('veh_speed_at_ped_start',))
+
+# - alternative scenario for testing short-stopping
+ALT_SHORTSTOP_SCENARIO = SCPaperScenario('VehShortStopAlt', 
+                                        initial_ttcas=(math.nan, (3.5, 4, 4.5)),
+                                        ped_prio=True,
+                                        ped_start_standing=True, 
+                                        ped_const_speed=True,
+                                        stop_criteria = (STOPPED_STOP 
+                                                         + IN_CS_STOP),
+                                        metric_names = ('veh_av_surpl_dec',
+                                                        'veh_stop_margin'),
+                                        end_time = 12)
+
 # - scenarios for the probabilistic fits
 N_PROB_SCEN_REPETITIONS = 5
 TWO_AG_METRIC_NAMES = ('collision', 'ped_exit_time', 'veh_exit_time')
@@ -447,6 +462,14 @@ def metric_veh_av_surpl_dec(sim):
         # compare to actual decelerations
         actual_decs = -veh_agent.trajectory.long_acc[idx_RT:idx_halfway]
         return np.mean(actual_decs - stop_decs)
+    
+def metric_veh_stop_margin(sim):
+    veh_agent = sim.agents[i_VEH_AGENT]
+    idx_veh_stopped = np.nonzero(veh_agent.trajectory.long_speed <= 0.5)[0]
+    if len(idx_veh_stopped) == 0:
+        return math.nan
+    else:
+        return veh_agent.signed_CP_dists[idx_veh_stopped[0]] - veh_agent.coll_dist
 
 def metric_veh_speed_at_ped_start(sim):
     idx_halfway = get_halfway_to_cs_sample(sim, i_PED_AGENT)
