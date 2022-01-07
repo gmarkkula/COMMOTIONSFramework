@@ -28,7 +28,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_TIME_SERIES_PLOTS = True
+DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = True
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
@@ -50,6 +50,7 @@ assert(N_CRIT_GROUPS == len(CRITERIA))
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 N_MAIN_CRIT_FOR_RETAINING = 3
+PARAMS_JITTER = 0.015
 
 
 # find pickle files from deterministic fitting
@@ -149,17 +150,19 @@ for det_fit_file in det_fit_files:
     det_fit.n_main_criteria_met = n_main_criteria_met
     det_fit.sec_criteria_matrix = sec_criteria_matrix
     
+    # get the parameter ranges, for possible retaining and/or plotting below
+    param_ranges = []
+    for i_param in range(det_fit.n_params):
+        param_ranges.append((np.amin(det_fit.results.params_matrix[:, i_param]),
+                             np.amax(det_fit.results.params_matrix[:, i_param])))
+    
     # did the model meet all main criteria at least somewhere, even if not in
     # a single parameterisation? 
     main_crit_met_somewhere = np.amax(main_criteria_matrix, axis=1)
     all_main_crit_met_somewhere = np.all(main_crit_met_somewhere)
     if all_main_crit_met_somewhere:
         # yes, so retain this model for further analysis
-        retained_params = (n_main_criteria_met == N_MAIN_CRIT_FOR_RETAINING)
-        param_ranges = []
-        for i_param in range(det_fit.n_params):
-            param_ranges.append((np.amin(det_fit.results.params_matrix[:, i_param]),
-                                 np.amax(det_fit.results.params_matrix[:, i_param])))
+        retained_params = (n_main_criteria_met >= N_MAIN_CRIT_FOR_RETAINING)
         retained_models.append(sc_fitting.ModelWithParams(
             model=det_fit.name, param_names=copy.copy(det_fit.param_names), 
             param_ranges=param_ranges,
@@ -188,8 +191,6 @@ for det_fit_file in det_fit_files:
             print(f'\t\t{main_crit_dict}')
             print(f'\t\t{sec_crit_dict}')
             det_fit.set_params(params_dict)
-            #warnings.warn('Next line here to be removed, will not be needed when do_1... has been rerun again.')
-            #det_fit.n_scenario_variations = round(det_fit.n_scenario_variations)
             for scenario in det_fit.scenarios.values():
                 print(f'\n\n\t\t\tScenario "{scenario.name}"')
                 sc_simulations = det_fit.simulate_scenario(scenario)
@@ -200,23 +201,29 @@ for det_fit_file in det_fit_files:
                                  beh_probs=be_plots)
                     sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
         if DO_PARAMS_PLOTS:
-            sc_fitting.do_crit_params_plot(det_fit, main_criteria_matrix, log=True)
+            #sc_fitting.do_crit_params_plot(det_fit, main_criteria_matrix, log=True)
+            print(f'\tParameterisations meeting at least {N_MAIN_CRIT_FOR_PLOT} criteria:')
+            sc_fitting.do_params_plot(
+                det_fit.param_names, det_fit.results.params_matrix[
+                    n_main_criteria_met >= N_MAIN_CRIT_FOR_PLOT], 
+                param_ranges, log=True, jitter=PARAMS_JITTER)
                             
                         
             
         
     
 # provide info on retained models
-print('\n\n*** Retained models ***')
+print('\n\n*** Retained models (meeting all main criteria at least somewhere in parameter space) ***')
 for ret_model in retained_models:
     n_ret_params = ret_model.params_array.shape[0]
     n_total = det_fits[ret_model.model].n_parameterisations
     print(f'\nModel {ret_model.model}\nRetaining {n_ret_params}'
           f' out of {n_total}'
-          f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
+          f' ({100 * n_ret_params / n_total:.1f} %) parameterisations meeting'
+          f' at least {N_MAIN_CRIT_FOR_RETAINING} main criteria, across:')
     print(ret_model.param_names)
     sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
-                              ret_model.param_ranges, log=True)
+                              ret_model.param_ranges, log=True, jitter=PARAMS_JITTER)
     print('\n***********************')
     
 

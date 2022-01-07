@@ -926,9 +926,20 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         # save the results
         self.save(FIT_RESULTS_FOLDER + (file_name_format % name))
         
+
         
-        
-def do_params_plot(param_names, params_array, param_ranges=None, log=False):
+def do_params_plot(param_names, params_array, param_ranges=None, log=False, jitter=0):
+    def get_plot_lims(minv, maxv):
+        ZOOM = 0.1
+        if log:
+            minp = minv * (maxv/minv) ** (-ZOOM)
+            maxp = maxv * (maxv/minv) ** (ZOOM)
+        else:
+            minp = minv - (maxv-minv) * ZOOM
+            maxp = maxv + (maxv-minv) * ZOOM
+        return minp, maxp
+    N_PARAM_BINS = 10
+    PARAM_VAL_FOR_INF = 10 # for T_Of = Inf
     n_params = len(param_names)
     assert(params_array.shape[1] == n_params)
     figsize = min(12, 3 * n_params)
@@ -939,6 +950,8 @@ def do_params_plot(param_names, params_array, param_ranges=None, log=False):
         for i_param in range(n_params):
             param_ranges.append((np.amin(params_array[:, i_param]),
                                  np.amax(params_array[:, i_param])))
+    if jitter > 0:
+        rng = np.random.default_rng()
     for i_x_param in range(n_params):
         for i_y_param in range(n_params):
             if n_params > 1:
@@ -949,82 +962,45 @@ def do_params_plot(param_names, params_array, param_ranges=None, log=False):
                 ax.set_xscale('log')
             xmin = param_ranges[i_x_param][0]
             xmax = param_ranges[i_x_param][1]
+            ymin = param_ranges[i_y_param][0]
+            ymax = param_ranges[i_y_param][1]
             if np.isinf(xmax):
-                xmax = 10
-            ax.set_xlim(xmin, xmax)
-            if i_x_param > i_y_param:
-                continue
-            elif i_x_param == i_y_param:
+                xmax = PARAM_VAL_FOR_INF
+            xplotmin, xplotmax = get_plot_lims(xmin, xmax)
+            ax.set_xlim(xplotmin, xplotmax)
+            if i_x_param == i_y_param:
+                max_bin_edge = xmax+(xmax-xmin)/N_PARAM_BINS
                 if log:
-                    bins = np.logspace(np.log10(xmin), np.log10(xmax), 10)
+                    bins = np.logspace(np.log10(xmin), np.log10(max_bin_edge),
+                                       N_PARAM_BINS+1)
                 else:
-                    bins = np.linspace(xmin, xmax, 10)
+                    bins = np.linspace(xmin, max_bin_edge, N_PARAM_BINS+1)
                 ax.hist(params_array[:, i_x_param], bins=bins)
             else:
+                xdata = np.copy(params_array[:, i_x_param])
+                ydata = np.copy(params_array[:, i_y_param])
                 if log:
                     ax.set_yscale('log')
-                ax.plot(params_array[:, i_x_param], params_array[:, i_y_param],
-                    'ko', alpha=0.1)
-                ymin = param_ranges[i_y_param][0]
-                ymax = param_ranges[i_y_param][1]
+                if jitter > 0:
+                    if log:
+                        xdata *= (xmax/xmin) ** rng.normal(scale = jitter, 
+                                                  size = xdata.shape)
+                        ydata *= (ymax/ymin) ** rng.normal(scale = jitter, 
+                                                  size = xdata.shape)
+                    else:
+                        xdata += rng.normal(scale = jitter * (xmax - xmin),
+                                            size = xdata.shape)
+                        ydata += rng.normal(scale = jitter * (ymax - ymin),
+                                            size = xdata.shape)
+                ax.plot(xdata, ydata,'ko', ms=2, alpha=0.2)
                 if np.isinf(ymax):
-                    ymax = 10
-                ax.set_ylim(ymin, ymax)
+                    ymax = PARAM_VAL_FOR_INF
+                yplotmin, yplotmax = get_plot_lims(ymin, ymax)
+                ax.set_ylim(yplotmin, yplotmax)
             if i_x_param == 0:
                 ax.set_ylabel(param_names[i_y_param])
             if i_y_param == n_params-1:
                 ax.set_xlabel(param_names[i_x_param]) 
-    plt.show()
-        
-
-def do_crit_params_plot(fit, criteria_matrix, log=False):
-    all_criteria_met = np.all(criteria_matrix, axis=0)
-    COLORS = 'rgbc'
-    figsize = min(12, 3 * fit.n_params)
-    fig, axs = plt.subplots(fit.n_params, fit.n_params, 
-                            figsize=(figsize,figsize))
-    for i_x_param in range(fit.n_params):
-        for i_y_param in range(fit.n_params):
-            if fit.n_params > 1:
-                ax = axs[i_y_param, i_x_param]
-            else:
-                ax = axs
-            if log:
-                ax.set_xscale('log')
-            xmin = np.amin(fit.results.params_matrix[:, i_x_param])
-            xmax = np.amax(fit.results.params_matrix[:, i_x_param])
-            if np.isinf(xmax):
-                xmax = 10
-            ax.set_xlim(xmin, xmax)
-            if i_x_param > i_y_param:
-                continue
-            elif i_x_param == i_y_param:
-                all_crit_param_vals = fit.results.params_matrix[
-                    all_criteria_met, i_x_param]
-                all_crit_param_vals[np.isinf(all_crit_param_vals)] = 10
-                if log:
-                    bins = np.logspace(np.log10(xmin), np.log10(xmax), 10)
-                else:
-                    bins = np.linspace(xmin, xmax, 10)
-                ax.hist(all_crit_param_vals, bins=bins)
-            else:
-                for i_crit in range(criteria_matrix.shape[0]):
-                    if log:
-                        ax.set_yscale('log')
-                    ax.plot(fit.results.params_matrix[
-                        criteria_matrix[i_crit, :], i_x_param],
-                        fit.results.params_matrix[
-                        criteria_matrix[i_crit, :], i_y_param],
-                        'o' + COLORS[i_crit], alpha=0.1)
-                ymin = np.amin(fit.results.params_matrix[:, i_y_param])
-                ymax = np.amax(fit.results.params_matrix[:, i_y_param])
-                if np.isinf(ymax):
-                    ymax = 10
-                ax.set_ylim(ymin, ymax)
-            if i_x_param == 0:
-                ax.set_ylabel(fit.param_names[i_y_param])
-            if i_y_param == fit.n_params-1:
-                ax.set_xlabel(fit.param_names[i_x_param])   
     plt.show()
    
 
