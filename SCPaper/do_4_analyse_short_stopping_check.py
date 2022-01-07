@@ -1,7 +1,6 @@
-
 # -*- coding: utf-8 -*-
 """
-Created on Sun Oct  3 19:37:11 2021
+Created on Fri Jan  7 13:21:33 2022
 
 @author: tragma
 """
@@ -22,42 +21,37 @@ import numpy as np
 import collections
 import parameter_search
 import sc_fitting
+import do_2_analyse_deterministic_fits
+from do_2_analyse_deterministic_fits import SURPLUS_DEC_THRESH
 
 ExampleParameterisation = collections.namedtuple(
     'ExampleParameterisation',['i_parameterisation', 'params_array', 
-                               'params_dict', 'main_crit_dict', 'sec_crit_dict'])
+                               'params_dict', 'main_crit_dict'])
 
 # constants
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = False
-N_MAIN_CRIT_FOR_PLOT = 4
-MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
+N_MAIN_CRIT_FOR_PLOT = 2
+MODELS_TO_ANALYSE = 'all' 
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
-SPEEDUP_FRACT = 1.01
-SURPLUS_DEC_THRESH = 0.5 # m/s^2
-HESITATION_SPEED_FRACT = 0.8
-VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
-CRITERION_GROUPS = ('Main criteria', 'Secondary criteria')
+STOP_DIST_THRESH = 2 # m
+CRITERION_GROUPS = ('Main criteria',)
 i_MAIN = 0
-i_SEC = 1
 N_CRIT_GROUPS = len(CRITERION_GROUPS)
-CRITERIA = (('Vehicle asserting priority', 'Vehicle short-stopping', 
-             'Pedestrian hesitation in deceleration scenario', 
-             'Pedestrian starting before vehicle at full stop'),
-            ('Pedestrian hesitation in constant-speed scenario',)
-            )
+CRITERIA = (('Short-stopping - deceleration', 
+            'Short-stopping - distance margin'),)
 assert(N_CRIT_GROUPS == len(CRITERIA))
-PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
-VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
-N_MAIN_CRIT_FOR_RETAINING = 3
+# PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
+# VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
+N_MAIN_CRIT_FOR_RETAINING = 2
 PARAMS_JITTER = 0.015
 
 
 def do():
     # find pickle files from deterministic fitting
     det_fit_files = glob.glob(sc_fitting.FIT_RESULTS_FOLDER + 
-                                (sc_fitting.DET_FIT_FILE_NAME_FMT % '*'))
+                                (sc_fitting.ALT_SHORTSTOP_FIT_FILE_NAME_FMT % '*'))
     det_fit_files.sort()
     print(det_fit_files)
     
@@ -86,32 +80,21 @@ def do():
             for i_crit, crit in enumerate(CRITERIA[i_crit_grp]):
                 
                 # criterion-specific calculations
-                if crit == 'Vehicle asserting priority':
-                    veh_av_speed = det_fit.get_metric_results('VehPrioAssert_veh_av_speed')
-                    crit_met_all = veh_av_speed > SPEEDUP_FRACT * VEH_FREE_SPEED
-                    
-                elif crit == 'Vehicle short-stopping':
+                if crit == 'Short-stopping - deceleration':
                     veh_av_surplus_dec = det_fit.get_metric_results(
-                        'VehShortStop_veh_av_surpl_dec')
+                        'VehShortStopAlt_veh_av_surpl_dec')
                     crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
                     
-                elif crit == 'Pedestrian hesitation in constant-speed scenario':
-                    ped_av_speed = det_fit.get_metric_results('PedHesitateVehConst_ped_av_speed')
-                    crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
-                
-                elif crit == 'Pedestrian hesitation in deceleration scenario':
-                    ped_av_speed = det_fit.get_metric_results('PedHesitateVehYield_ped_av_speed')
-                    crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
-                    
-                elif crit == 'Pedestrian starting before vehicle at full stop':
-                    veh_speed_at_ped_start = det_fit.get_metric_results(
-                        'PedCrossVehYield_veh_speed_at_ped_start')
-                    crit_met_all = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
+                elif crit == 'Short-stopping - distance margin':
+                    veh_stop_margin = det_fit.get_metric_results(
+                        'VehShortStopAlt_veh_stop_margin')
+                    crit_met_all = veh_stop_margin > STOP_DIST_THRESH
                 
                 else:
                     raise Exception(f'Unexpected criterion "{crit}".')
                     
                 # criterion met for model if met for at least one of the kinematic variants
+                crit_met_all = crit_met_all.reshape(-1, det_fit.n_scenario_variations) # in case there is just one parameterisation
                 crit_met = np.any(crit_met_all, axis=1)
                 criteria_matrices[i_crit_grp][i_crit, :] = crit_met
                 # print some info
@@ -134,23 +117,23 @@ def do():
         n_met_max_main_criteria = np.count_nonzero(met_max_main_criteria)
         print(f'\tMax no of main criteria met was {n_max_main_criteria_met},'
               f' for {n_met_max_main_criteria} parameterisations.')
-        # -- secondary criteria
-        sec_criteria_matrix = criteria_matrices[i_SEC]
-        n_sec_criteria_met = np.sum(sec_criteria_matrix, axis=0)
-        n_sec_criteria_met_among_best = n_sec_criteria_met[met_max_main_criteria]
-        n_max_sec_crit_met_among_best = np.max(n_sec_criteria_met_among_best)
-        n_met_max_sec_crit_among_best = np.count_nonzero(
-            n_sec_criteria_met_among_best == n_max_sec_crit_met_among_best)
-        print('\t\tOut of these, the max number of secondary criteria met was'
-              f' {n_max_sec_crit_met_among_best}, for {n_met_max_sec_crit_among_best}'
-              ' parameterisations.')
-        # -- NaNs
-        print(f'\tNaNs in main crit: {np.sum(np.isnan(main_criteria_matrix), axis=1)}'
-              f'; sec crit: {np.sum(np.isnan(sec_criteria_matrix), axis=1)}')
+        # # -- secondary criteria
+        # sec_criteria_matrix = criteria_matrices[i_SEC]
+        # n_sec_criteria_met = np.sum(sec_criteria_matrix, axis=0)
+        # n_sec_criteria_met_among_best = n_sec_criteria_met[met_max_main_criteria]
+        # n_max_sec_crit_met_among_best = np.max(n_sec_criteria_met_among_best)
+        # n_met_max_sec_crit_among_best = np.count_nonzero(
+        #     n_sec_criteria_met_among_best == n_max_sec_crit_met_among_best)
+        # print('\t\tOut of these, the max number of secondary criteria met was'
+        #       f' {n_max_sec_crit_met_among_best}, for {n_met_max_sec_crit_among_best}'
+        #       ' parameterisations.')
+        # # -- NaNs
+        # print(f'\tNaNs in main crit: {np.sum(np.isnan(main_criteria_matrix), axis=1)}'
+        #       f'; sec crit: {np.sum(np.isnan(sec_criteria_matrix), axis=1)}')
         # -- store these analysis results as object attributes
         det_fit.main_criteria_matrix = main_criteria_matrix
         det_fit.n_main_criteria_met = n_main_criteria_met
-        det_fit.sec_criteria_matrix = sec_criteria_matrix
+        # det_fit.sec_criteria_matrix = sec_criteria_matrix
         
         # get the parameter ranges, for possible retaining and/or plotting below
         param_ranges = []
@@ -172,26 +155,23 @@ def do():
         
         # pick a maximally sucessful parameterisations, and provide simulation 
         # plots if requested
-        i_parameterisation = np.nonzero(met_max_main_criteria 
-                                        & (n_sec_criteria_met
-                                           == n_max_sec_crit_met_among_best))[0][0]
+        i_parameterisation = np.nonzero(met_max_main_criteria)[0][0]
         params_array = det_fit.results.params_matrix[i_parameterisation, :]
         params_dict = det_fit.get_params_dict(params_array)
         main_crit_dict = {crit : main_criteria_matrix[i_crit, i_parameterisation] 
                      for i_crit, crit in enumerate(CRITERIA[i_MAIN])}
-        sec_crit_dict = {crit : sec_criteria_matrix[i_crit, i_parameterisation] 
-                     for i_crit, crit in enumerate(CRITERIA[i_SEC])}
+        # sec_crit_dict = {crit : sec_criteria_matrix[i_crit, i_parameterisation] 
+        #              for i_crit, crit in enumerate(CRITERIA[i_SEC])}
         det_fit.example = ExampleParameterisation(
             i_parameterisation=i_parameterisation, params_array=params_array,
-            params_dict=params_dict, main_crit_dict=main_crit_dict, 
-            sec_crit_dict=sec_crit_dict)
+            params_dict=params_dict, main_crit_dict=main_crit_dict)
         if np.sum(main_crit_met_somewhere) >= N_MAIN_CRIT_FOR_PLOT:
             if DO_TIME_SERIES_PLOTS:
                 print('\tLooking at one of the parameterisations meeting'
                       f' {n_main_criteria_met[i_parameterisation]} criteria:')
                 print(f'\t\t{params_dict}')
                 print(f'\t\t{main_crit_dict}')
-                print(f'\t\t{sec_crit_dict}')
+                # print(f'\t\t{sec_crit_dict}')
                 det_fit.set_params(params_dict)
                 for scenario in det_fit.scenarios.values():
                     print(f'\n\n\t\t\tScenario "{scenario.name}"')
@@ -230,10 +210,10 @@ def do():
         print('\n***********************')
         
     
-    # save the retained models
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_DET_FNAME,
-              'wb') as file_obj:
-        pickle.dump(retained_models, file_obj)
+    # # save the retained models
+    # with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_DET_FNAME,
+    #           'wb') as file_obj:
+    #     pickle.dump(retained_models, file_obj)
         
     
     # return the full dict of analysed deterministic models
@@ -241,4 +221,4 @@ def do():
         
     
 if __name__ == '__main__':
-    det_fits = do()
+    do()
