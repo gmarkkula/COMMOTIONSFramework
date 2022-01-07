@@ -25,7 +25,7 @@ import do_2_analyse_deterministic_fits
 from do_2_analyse_deterministic_fits import CRITERIA, i_MAIN
 
 
-MAX_PARAMETERISATIONS = 50
+MAX_PARAMETERISATIONS = math.inf
 if not math.isinf(MAX_PARAMETERISATIONS):
     warnings.warn('Limiting the number of parameterisations being tested')
 
