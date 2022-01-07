@@ -31,9 +31,9 @@ N_VALS_PER_PARAM = 5
 PARAM_ARRAYS = {}
 PARAM_ARRAYS['T'] = np.logspace(np.log10(0.1), np.log10(0.5), N_VALS_PER_PARAM)
 PARAM_ARRAYS['DeltaV_th_rel'] = np.logspace(np.log10(0.001), np.log10(0.1), N_VALS_PER_PARAM)
-PARAM_ARRAYS['sigma_V'] = np.logspace(np.log10(0.001), np.log10(0.1), N_VALS_PER_PARAM)
-PARAM_ARRAYS['tau_theta'] = np.logspace(np.log10(0.0005), np.log10(0.5), N_VALS_PER_PARAM)
-PARAM_ARRAYS['tau_d'] = np.logspace(np.log10(0.05), np.log10(50), N_VALS_PER_PARAM)
+PARAM_ARRAYS['sigma_V'] = np.logspace(np.log10(0.001), np.log10(1), N_VALS_PER_PARAM)
+PARAM_ARRAYS['tau_theta'] = np.logspace(np.log10(0.005), np.log10(5), N_VALS_PER_PARAM)
+PARAM_ARRAYS['tau_d'] = np.logspace(np.log10(0.5), np.log10(500), N_VALS_PER_PARAM)
 
 
 

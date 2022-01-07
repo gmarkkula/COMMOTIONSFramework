@@ -28,7 +28,7 @@ ExampleParameterisation = collections.namedtuple(
                                 'params_dict', 'crit_dict'])
 
 # constants
-DO_TIME_SERIES_PLOTS = True
+DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = True
