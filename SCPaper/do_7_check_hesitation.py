@@ -86,8 +86,9 @@ if __name__ == '__main__':
                 retained.hesitation_verified[i_param] = True
 
 
-    # resave the models, with the hesitation verification info added
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_PROB_FNAME, 
-              'wb') as file_obj:
-        pickle.dump(retained_models, file_obj)
+    # skipping the saving here - don't really think it's needed
+    # # resave the models, with the hesitation verification info added
+    # with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_PROB_FNAME, 
+    #           'wb') as file_obj:
+    #     pickle.dump(retained_models, file_obj)
             
