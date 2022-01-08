@@ -25,9 +25,10 @@ import do_2_analyse_deterministic_fits
 from do_2_analyse_deterministic_fits import CRITERIA, i_MAIN
 
 
-MAX_PARAMETERISATIONS = math.inf
+MAX_PARAMETERISATIONS = 1000
 if not math.isinf(MAX_PARAMETERISATIONS):
-    warnings.warn('Limiting the number of parameterisations being tested')
+    warnings.warn(f'Limiting the number of parameterisations per model to {MAX_PARAMETERISATIONS}.')
+    rng = np.random.default_rng()
 
 
 def run_fit(model_str, param_arrays):
@@ -71,8 +72,17 @@ if __name__ == '__main__':
         if n_did_short_stop > 0:
             print('\tChecking these in the "exaggerated final stopping margin" sense:\n')
             params_matrix = det_fit.results.params_matrix[idx_did_short_stop, :]
-            n_params = min(n_did_short_stop, MAX_PARAMETERISATIONS)
+            if n_did_short_stop <= MAX_PARAMETERISATIONS:
+                idx_included = np.arange(n_did_short_stop)
+            else:
+                print(f'(Limiting to a random sample of {MAX_PARAMETERISATIONS} parameterisations.)')
+                idx_included = rng.choice(n_did_short_stop, 
+                                          size=MAX_PARAMETERISATIONS, replace=False)
             param_arrays_dict = {}
             for i_param, param_name in enumerate(det_fit.param_names):
-                param_arrays_dict[param_name] = params_matrix[:n_params, i_param]
+                param_arrays_dict[param_name] = params_matrix[idx_included, i_param]
             run_fit(model_str, param_arrays_dict)
+            
+            
+            
+            
