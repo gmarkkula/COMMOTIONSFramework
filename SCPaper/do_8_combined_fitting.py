@@ -21,7 +21,7 @@ import sc_scenario
 import sc_fitting
 
 
-INCL_DET_MODELS = ('oVAoBEvoAI',)
+INCL_DET_MODELS = ('oVAaoVAloBEvoAI',)
 EXCL_PROB_MODELS = ('oVAoEAoAN',)
 
 
