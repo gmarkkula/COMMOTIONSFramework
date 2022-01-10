@@ -1,0 +1,604 @@
+## WARNING!
+## The current directory is in your home directory. Please use the high-performance
+## cluster filesystem /nobackup. See documentation for information.
+## WARNING!
+
+## Hosts assigned to job 3391393.1:
+##
+## d11s1b4.arc4.leeds.ac.uk 40 slots
+##
+## Resources granted:
+##
+## h_vmem = 1G (per slot)
+## h_rt   = 03:00:00
+## disk   = 1G (per slot)
+
+
+Model : Found 0 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+
+Model oBEo: Found 0 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+
+Model oBEooBEv: Found 42 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oBEooBEv.pkl already exists, not running parameter search for oBEooBEv.
+
+Model oBEooBEvoAI: Found 42 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oBEooBEvoAI.pkl already exists, not running parameter search for oBEooBEvoAI.
+
+Model oBEv: Found 0 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+
+Model oBEvoAI: Found 0 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+
+Model oVA: Found 10 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVA.pkl already exists, not running parameter search for oVA.
+
+Model oVAa: Found 10 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAa.pkl already exists, not running parameter search for oVAa.
+
+Model oVAaoBEc: Found 10 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEc.pkl already exists, not running parameter search for oVAaoBEc.
+
+Model oVAaoBEcoBEo: Found 160 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEcoBEo.pkl already exists, not running parameter search for oVAaoBEcoBEo.
+
+Model oVAaoBEcoBEooBEv: Found 976 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEcoBEooBEv.pkl already exists, not running parameter search for oVAaoBEcoBEooBEv.
+
+Model oVAaoBEcoBEooBEvoAI: Found 745 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEcoBEooBEvoAI.pkl already exists, not running parameter search for oVAaoBEcoBEooBEvoAI.
+
+Model oVAaoBEcoBEv: Found 0 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+
+Model oVAaoBEcoBEvoAI: Found 0 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+
+Model oVAaoBEo: Found 85 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEo.pkl already exists, not running parameter search for oVAaoBEo.
+
+Model oVAaoBEooBEv: Found 546 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEooBEv.pkl already exists, not running parameter search for oVAaoBEooBEv.
+
+Model oVAaoBEooBEvoAI: Found 338 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEooBEvoAI.pkl already exists, not running parameter search for oVAaoBEooBEvoAI.
+
+Model oVAaoBEv: Found 1 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEv.pkl already exists, not running parameter search for oVAaoBEv.
+
+Model oVAaoBEvoAI: Found 1 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoBEvoAI.pkl already exists, not running parameter search for oVAaoBEvoAI.
+
+Model oVAaoVAl: Found 100 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoVAl.pkl already exists, not running parameter search for oVAaoVAl.
+
+Model oVAaoVAloBEo: Found 938 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoVAloBEo.pkl already exists, not running parameter search for oVAaoVAloBEo.
+
+Model oVAaoVAloBEooBEv: Found 16967 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+(Limiting to a random sample of 1000 parameterisations.)
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoVAloBEooBEv.pkl already exists, not running parameter search for oVAaoVAloBEooBEv.
+
+Model oVAaoVAloBEooBEvoAI: Found 9220 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+(Limiting to a random sample of 1000 parameterisations.)
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoVAloBEooBEvoAI.pkl already exists, not running parameter search for oVAaoVAloBEooBEvoAI.
+
+Model oVAaoVAloBEv: Found 116 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoVAloBEv.pkl already exists, not running parameter search for oVAaoVAloBEv.
+
+Model oVAaoVAloBEvoAI: Found 50 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAaoVAloBEvoAI.pkl already exists, not running parameter search for oVAaoVAloBEvoAI.
+
+Model oVAoBEo: Found 1000 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoBEo.pkl already exists, not running parameter search for oVAoBEo.
+
+Model oVAoBEooBEv: Found 10000 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+(Limiting to a random sample of 1000 parameterisations.)
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoBEooBEv.pkl already exists, not running parameter search for oVAoBEooBEv.
+
+Model oVAoBEooBEvoAI: Found 9803 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+(Limiting to a random sample of 1000 parameterisations.)
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoBEooBEvoAI.pkl already exists, not running parameter search for oVAoBEooBEvoAI.
+
+Model oVAoBEv: Found 100 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoBEv.pkl already exists, not running parameter search for oVAoBEv.
+
+Model oVAoBEvoAI: Found 99 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoBEvoAI.pkl already exists, not running parameter search for oVAoBEvoAI.
+
+Model oVAoVAl: Found 100 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoVAl.pkl already exists, not running parameter search for oVAoVAl.
+
+Model oVAoVAloBEo: Found 10000 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+(Limiting to a random sample of 1000 parameterisations.)
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoVAloBEo.pkl already exists, not running parameter search for oVAoVAloBEo.
+
+Model oVAoVAloBEooBEv: Found 100000 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+(Limiting to a random sample of 1000 parameterisations.)
+01/10/22 06:45:31 oVAoVAloBEooBEv       Starting a pool of 40 workers for parallel evaluation of parameterisations...
+01/10/22 06:45:32 oVAoVAloBEooBEv       Pool of workers initialised.
+01/10/22 06:45:32 oVAoVAloBEooBEv       Searching 1000 parameterisations for parameter set ('T_delta', 'thetaDot_1', 'beta_V', 'T_Of', 'sigma_O')...
+01/10/22 06:45:34 oVAoVAloBEooBEv       Parameter search 1 % done.
+01/10/22 06:45:35 oVAoVAloBEooBEv       Parameter search 2 % done.
+01/10/22 06:45:36 oVAoVAloBEooBEv       Parameter search 3 % done.
+01/10/22 06:45:37 oVAoVAloBEooBEv       Parameter search 4 % done.
+01/10/22 06:45:39 oVAoVAloBEooBEv       Parameter search 5 % done.
+01/10/22 06:45:40 oVAoVAloBEooBEv       Parameter search 6 % done.
+01/10/22 06:45:41 oVAoVAloBEooBEv       Parameter search 7 % done.
+01/10/22 06:45:42 oVAoVAloBEooBEv       Parameter search 8 % done.
+01/10/22 06:45:43 oVAoVAloBEooBEv       Parameter search 9 % done.
+01/10/22 06:45:44 oVAoVAloBEooBEv       Parameter search 10 % done.
+01/10/22 06:45:46 oVAoVAloBEooBEv       Parameter search 11 % done.
+01/10/22 06:45:47 oVAoVAloBEooBEv       Parameter search 12 % done.
+01/10/22 06:45:48 oVAoVAloBEooBEv       Parameter search 13 % done.
+01/10/22 06:45:49 oVAoVAloBEooBEv       Parameter search 14 % done.
+01/10/22 06:45:50 oVAoVAloBEooBEv       Parameter search 15 % done.
+01/10/22 06:45:51 oVAoVAloBEooBEv       Parameter search 16 % done.
+01/10/22 06:45:53 oVAoVAloBEooBEv       Parameter search 17 % done.
+01/10/22 06:45:54 oVAoVAloBEooBEv       Parameter search 18 % done.
+01/10/22 06:45:55 oVAoVAloBEooBEv       Parameter search 19 % done.
+01/10/22 06:45:56 oVAoVAloBEooBEv       Parameter search 20 % done.
+01/10/22 06:45:57 oVAoVAloBEooBEv       Parameter search 21 % done.
+01/10/22 06:45:58 oVAoVAloBEooBEv       Parameter search 22 % done.
+01/10/22 06:45:59 oVAoVAloBEooBEv       Parameter search 23 % done.
+01/10/22 06:46:00 oVAoVAloBEooBEv       Parameter search 24 % done.
+01/10/22 06:46:01 oVAoVAloBEooBEv       Parameter search 25 % done.
+01/10/22 06:46:02 oVAoVAloBEooBEv       Parameter search 26 % done.
+01/10/22 06:46:03 oVAoVAloBEooBEv       Parameter search 27 % done.
+01/10/22 06:46:04 oVAoVAloBEooBEv       Parameter search 28 % done.
+01/10/22 06:46:05 oVAoVAloBEooBEv       Parameter search 29 % done.
+01/10/22 06:46:07 oVAoVAloBEooBEv       Parameter search 30 % done.
+01/10/22 06:46:07 oVAoVAloBEooBEv       Parameter search 31 % done.
+01/10/22 06:46:08 oVAoVAloBEooBEv       Parameter search 32 % done.
+01/10/22 06:46:10 oVAoVAloBEooBEv       Parameter search 33 % done.
+01/10/22 06:46:11 oVAoVAloBEooBEv       Parameter search 34 % done.
+01/10/22 06:46:12 oVAoVAloBEooBEv       Parameter search 35 % done.
+01/10/22 06:46:13 oVAoVAloBEooBEv       Parameter search 36 % done.
+01/10/22 06:46:14 oVAoVAloBEooBEv       Parameter search 37 % done.
+01/10/22 06:46:15 oVAoVAloBEooBEv       Parameter search 38 % done.
+01/10/22 06:46:16 oVAoVAloBEooBEv       Parameter search 39 % done.
+01/10/22 06:46:17 oVAoVAloBEooBEv       Parameter search 40 % done.
+01/10/22 06:46:18 oVAoVAloBEooBEv       Parameter search 41 % done.
+01/10/22 06:46:19 oVAoVAloBEooBEv       Parameter search 42 % done.
+01/10/22 06:46:20 oVAoVAloBEooBEv       Parameter search 43 % done.
+01/10/22 06:46:22 oVAoVAloBEooBEv       Parameter search 44 % done.
+01/10/22 06:46:23 oVAoVAloBEooBEv       Parameter search 45 % done.
+01/10/22 06:46:24 oVAoVAloBEooBEv       Parameter search 46 % done.
+01/10/22 06:46:25 oVAoVAloBEooBEv       Parameter search 47 % done.
+01/10/22 06:46:26 oVAoVAloBEooBEv       Parameter search 48 % done.
+01/10/22 06:46:27 oVAoVAloBEooBEv       Parameter search 49 % done.
+01/10/22 06:46:28 oVAoVAloBEooBEv       Parameter search 50 % done.
+01/10/22 06:46:29 oVAoVAloBEooBEv       Parameter search 51 % done.
+01/10/22 06:46:30 oVAoVAloBEooBEv       Parameter search 52 % done.
+01/10/22 06:46:31 oVAoVAloBEooBEv       Parameter search 53 % done.
+01/10/22 06:46:32 oVAoVAloBEooBEv       Parameter search 54 % done.
+01/10/22 06:46:33 oVAoVAloBEooBEv       Parameter search 55 % done.
+01/10/22 06:46:34 oVAoVAloBEooBEv       Parameter search 56 % done.
+01/10/22 06:46:35 oVAoVAloBEooBEv       Parameter search 57 % done.
+01/10/22 06:46:37 oVAoVAloBEooBEv       Parameter search 58 % done.
+01/10/22 06:46:37 oVAoVAloBEooBEv       Parameter search 59 % done.
+01/10/22 06:46:39 oVAoVAloBEooBEv       Parameter search 60 % done.
+01/10/22 06:46:40 oVAoVAloBEooBEv       Parameter search 61 % done.
+01/10/22 06:46:41 oVAoVAloBEooBEv       Parameter search 62 % done.
+01/10/22 06:46:42 oVAoVAloBEooBEv       Parameter search 63 % done.
+01/10/22 06:46:43 oVAoVAloBEooBEv       Parameter search 64 % done.
+01/10/22 06:46:44 oVAoVAloBEooBEv       Parameter search 65 % done.
+01/10/22 06:46:45 oVAoVAloBEooBEv       Parameter search 66 % done.
+01/10/22 06:46:46 oVAoVAloBEooBEv       Parameter search 67 % done.
+01/10/22 06:46:47 oVAoVAloBEooBEv       Parameter search 68 % done.
+01/10/22 06:46:48 oVAoVAloBEooBEv       Parameter search 69 % done.
+01/10/22 06:46:49 oVAoVAloBEooBEv       Parameter search 70 % done.
+01/10/22 06:46:50 oVAoVAloBEooBEv       Parameter search 71 % done.
+01/10/22 06:46:52 oVAoVAloBEooBEv       Parameter search 72 % done.
+01/10/22 06:46:53 oVAoVAloBEooBEv       Parameter search 73 % done.
+01/10/22 06:46:54 oVAoVAloBEooBEv       Parameter search 74 % done.
+01/10/22 06:46:55 oVAoVAloBEooBEv       Parameter search 75 % done.
+01/10/22 06:46:56 oVAoVAloBEooBEv       Parameter search 76 % done.
+01/10/22 06:46:57 oVAoVAloBEooBEv       Parameter search 77 % done.
+01/10/22 06:46:58 oVAoVAloBEooBEv       Parameter search 78 % done.
+01/10/22 06:46:59 oVAoVAloBEooBEv       Parameter search 79 % done.
+01/10/22 06:47:00 oVAoVAloBEooBEv       Parameter search 80 % done.
+01/10/22 06:47:01 oVAoVAloBEooBEv       Parameter search 81 % done.
+01/10/22 06:47:02 oVAoVAloBEooBEv       Parameter search 82 % done.
+01/10/22 06:47:03 oVAoVAloBEooBEv       Parameter search 83 % done.
+01/10/22 06:47:04 oVAoVAloBEooBEv       Parameter search 84 % done.
+01/10/22 06:47:05 oVAoVAloBEooBEv       Parameter search 85 % done.
+01/10/22 06:47:06 oVAoVAloBEooBEv       Parameter search 86 % done.
+01/10/22 06:47:07 oVAoVAloBEooBEv       Parameter search 87 % done.
+01/10/22 06:47:08 oVAoVAloBEooBEv       Parameter search 88 % done.
+01/10/22 06:47:09 oVAoVAloBEooBEv       Parameter search 89 % done.
+01/10/22 06:47:10 oVAoVAloBEooBEv       Parameter search 90 % done.
+01/10/22 06:47:11 oVAoVAloBEooBEv       Parameter search 91 % done.
+01/10/22 06:47:12 oVAoVAloBEooBEv       Parameter search 92 % done.
+01/10/22 06:47:14 oVAoVAloBEooBEv       Parameter search 93 % done.
+01/10/22 06:47:15 oVAoVAloBEooBEv       Parameter search 94 % done.
+01/10/22 06:47:16 oVAoVAloBEooBEv       Parameter search 95 % done.
+01/10/22 06:47:17 oVAoVAloBEooBEv       Parameter search 96 % done.
+01/10/22 06:47:18 oVAoVAloBEooBEv       Parameter search 97 % done.
+01/10/22 06:47:19 oVAoVAloBEooBEv       Parameter search 98 % done.
+01/10/22 06:47:20 oVAoVAloBEooBEv       Parameter search 99 % done.
+01/10/22 06:47:21 oVAoVAloBEooBEv       Parameter search 100 % done.
+01/10/22 06:47:21 oVAoVAloBEooBEv       Parameter search complete.
+01/10/22 06:47:21 oVAoVAloBEooBEv       Saving results of "oVAoVAloBEooBEv" to file "/home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoVAloBEooBEv.pkl"...
+01/10/22 06:47:21 oVAoVAloBEooBEv       Saving done.
+
+Model oVAoVAloBEooBEvoAI: Found 99096 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+(Limiting to a random sample of 1000 parameterisations.)
+01/10/22 06:47:21 oVAoVAloBEooBEvoAI    Starting a pool of 40 workers for parallel evaluation of parameterisations...
+01/10/22 06:47:21 oVAoVAloBEooBEvoAI    Pool of workers initialised.
+01/10/22 06:47:21 oVAoVAloBEooBEvoAI    Searching 1000 parameterisations for parameter set ('T_delta', 'thetaDot_1', 'beta_V', 'T_Of', 'sigma_O')...
+01/10/22 06:47:24 oVAoVAloBEooBEvoAI    Parameter search 1 % done.
+01/10/22 06:47:26 oVAoVAloBEooBEvoAI    Parameter search 2 % done.
+01/10/22 06:47:27 oVAoVAloBEooBEvoAI    Parameter search 3 % done.
+01/10/22 06:47:29 oVAoVAloBEooBEvoAI    Parameter search 4 % done.
+01/10/22 06:47:30 oVAoVAloBEooBEvoAI    Parameter search 5 % done.
+01/10/22 06:47:32 oVAoVAloBEooBEvoAI    Parameter search 6 % done.
+01/10/22 06:47:33 oVAoVAloBEooBEvoAI    Parameter search 7 % done.
+01/10/22 06:47:34 oVAoVAloBEooBEvoAI    Parameter search 8 % done.
+01/10/22 06:47:36 oVAoVAloBEooBEvoAI    Parameter search 9 % done.
+01/10/22 06:47:38 oVAoVAloBEooBEvoAI    Parameter search 10 % done.
+01/10/22 06:47:39 oVAoVAloBEooBEvoAI    Parameter search 11 % done.
+01/10/22 06:47:40 oVAoVAloBEooBEvoAI    Parameter search 12 % done.
+01/10/22 06:47:42 oVAoVAloBEooBEvoAI    Parameter search 13 % done.
+01/10/22 06:47:43 oVAoVAloBEooBEvoAI    Parameter search 14 % done.
+01/10/22 06:47:45 oVAoVAloBEooBEvoAI    Parameter search 15 % done.
+01/10/22 06:47:46 oVAoVAloBEooBEvoAI    Parameter search 16 % done.
+01/10/22 06:47:48 oVAoVAloBEooBEvoAI    Parameter search 17 % done.
+01/10/22 06:47:49 oVAoVAloBEooBEvoAI    Parameter search 18 % done.
+01/10/22 06:47:50 oVAoVAloBEooBEvoAI    Parameter search 19 % done.
+01/10/22 06:47:52 oVAoVAloBEooBEvoAI    Parameter search 20 % done.
+01/10/22 06:47:54 oVAoVAloBEooBEvoAI    Parameter search 21 % done.
+01/10/22 06:47:54 oVAoVAloBEooBEvoAI    Parameter search 22 % done.
+01/10/22 06:47:56 oVAoVAloBEooBEvoAI    Parameter search 23 % done.
+01/10/22 06:47:57 oVAoVAloBEooBEvoAI    Parameter search 24 % done.
+01/10/22 06:47:59 oVAoVAloBEooBEvoAI    Parameter search 25 % done.
+01/10/22 06:48:00 oVAoVAloBEooBEvoAI    Parameter search 26 % done.
+01/10/22 06:48:01 oVAoVAloBEooBEvoAI    Parameter search 27 % done.
+01/10/22 06:48:03 oVAoVAloBEooBEvoAI    Parameter search 28 % done.
+01/10/22 06:48:04 oVAoVAloBEooBEvoAI    Parameter search 29 % done.
+01/10/22 06:48:05 oVAoVAloBEooBEvoAI    Parameter search 30 % done.
+01/10/22 06:48:07 oVAoVAloBEooBEvoAI    Parameter search 31 % done.
+01/10/22 06:48:08 oVAoVAloBEooBEvoAI    Parameter search 32 % done.
+01/10/22 06:48:09 oVAoVAloBEooBEvoAI    Parameter search 33 % done.
+01/10/22 06:48:11 oVAoVAloBEooBEvoAI    Parameter search 34 % done.
+01/10/22 06:48:12 oVAoVAloBEooBEvoAI    Parameter search 35 % done.
+01/10/22 06:48:14 oVAoVAloBEooBEvoAI    Parameter search 36 % done.
+01/10/22 06:48:15 oVAoVAloBEooBEvoAI    Parameter search 37 % done.
+01/10/22 06:48:16 oVAoVAloBEooBEvoAI    Parameter search 38 % done.
+01/10/22 06:48:18 oVAoVAloBEooBEvoAI    Parameter search 39 % done.
+01/10/22 06:48:19 oVAoVAloBEooBEvoAI    Parameter search 40 % done.
+01/10/22 06:48:20 oVAoVAloBEooBEvoAI    Parameter search 41 % done.
+01/10/22 06:48:22 oVAoVAloBEooBEvoAI    Parameter search 42 % done.
+01/10/22 06:48:23 oVAoVAloBEooBEvoAI    Parameter search 43 % done.
+01/10/22 06:48:25 oVAoVAloBEooBEvoAI    Parameter search 44 % done.
+01/10/22 06:48:26 oVAoVAloBEooBEvoAI    Parameter search 45 % done.
+01/10/22 06:48:27 oVAoVAloBEooBEvoAI    Parameter search 46 % done.
+01/10/22 06:48:29 oVAoVAloBEooBEvoAI    Parameter search 47 % done.
+01/10/22 06:48:31 oVAoVAloBEooBEvoAI    Parameter search 48 % done.
+01/10/22 06:48:32 oVAoVAloBEooBEvoAI    Parameter search 49 % done.
+01/10/22 06:48:33 oVAoVAloBEooBEvoAI    Parameter search 50 % done.
+01/10/22 06:48:34 oVAoVAloBEooBEvoAI    Parameter search 51 % done.
+01/10/22 06:48:36 oVAoVAloBEooBEvoAI    Parameter search 52 % done.
+01/10/22 06:48:37 oVAoVAloBEooBEvoAI    Parameter search 53 % done.
+01/10/22 06:48:39 oVAoVAloBEooBEvoAI    Parameter search 54 % done.
+01/10/22 06:48:40 oVAoVAloBEooBEvoAI    Parameter search 55 % done.
+01/10/22 06:48:42 oVAoVAloBEooBEvoAI    Parameter search 56 % done.
+01/10/22 06:48:43 oVAoVAloBEooBEvoAI    Parameter search 57 % done.
+01/10/22 06:48:44 oVAoVAloBEooBEvoAI    Parameter search 58 % done.
+01/10/22 06:48:46 oVAoVAloBEooBEvoAI    Parameter search 59 % done.
+01/10/22 06:48:47 oVAoVAloBEooBEvoAI    Parameter search 60 % done.
+01/10/22 06:48:49 oVAoVAloBEooBEvoAI    Parameter search 61 % done.
+01/10/22 06:48:50 oVAoVAloBEooBEvoAI    Parameter search 62 % done.
+01/10/22 06:48:51 oVAoVAloBEooBEvoAI    Parameter search 63 % done.
+01/10/22 06:48:52 oVAoVAloBEooBEvoAI    Parameter search 64 % done.
+01/10/22 06:48:54 oVAoVAloBEooBEvoAI    Parameter search 65 % done.
+01/10/22 06:48:55 oVAoVAloBEooBEvoAI    Parameter search 66 % done.
+01/10/22 06:48:56 oVAoVAloBEooBEvoAI    Parameter search 67 % done.
+01/10/22 06:48:58 oVAoVAloBEooBEvoAI    Parameter search 68 % done.
+01/10/22 06:48:59 oVAoVAloBEooBEvoAI    Parameter search 69 % done.
+01/10/22 06:49:00 oVAoVAloBEooBEvoAI    Parameter search 70 % done.
+01/10/22 06:49:02 oVAoVAloBEooBEvoAI    Parameter search 71 % done.
+01/10/22 06:49:03 oVAoVAloBEooBEvoAI    Parameter search 72 % done.
+01/10/22 06:49:05 oVAoVAloBEooBEvoAI    Parameter search 73 % done.
+01/10/22 06:49:06 oVAoVAloBEooBEvoAI    Parameter search 74 % done.
+01/10/22 06:49:07 oVAoVAloBEooBEvoAI    Parameter search 75 % done.
+01/10/22 06:49:09 oVAoVAloBEooBEvoAI    Parameter search 76 % done.
+01/10/22 06:49:10 oVAoVAloBEooBEvoAI    Parameter search 77 % done.
+01/10/22 06:49:12 oVAoVAloBEooBEvoAI    Parameter search 78 % done.
+01/10/22 06:49:13 oVAoVAloBEooBEvoAI    Parameter search 79 % done.
+01/10/22 06:49:14 oVAoVAloBEooBEvoAI    Parameter search 80 % done.
+01/10/22 06:49:16 oVAoVAloBEooBEvoAI    Parameter search 81 % done.
+01/10/22 06:49:17 oVAoVAloBEooBEvoAI    Parameter search 82 % done.
+01/10/22 06:49:18 oVAoVAloBEooBEvoAI    Parameter search 83 % done.
+01/10/22 06:49:20 oVAoVAloBEooBEvoAI    Parameter search 84 % done.
+01/10/22 06:49:21 oVAoVAloBEooBEvoAI    Parameter search 85 % done.
+01/10/22 06:49:22 oVAoVAloBEooBEvoAI    Parameter search 86 % done.
+01/10/22 06:49:24 oVAoVAloBEooBEvoAI    Parameter search 87 % done.
+01/10/22 06:49:25 oVAoVAloBEooBEvoAI    Parameter search 88 % done.
+01/10/22 06:49:26 oVAoVAloBEooBEvoAI    Parameter search 89 % done.
+01/10/22 06:49:28 oVAoVAloBEooBEvoAI    Parameter search 90 % done.
+01/10/22 06:49:29 oVAoVAloBEooBEvoAI    Parameter search 91 % done.
+01/10/22 06:49:30 oVAoVAloBEooBEvoAI    Parameter search 92 % done.
+01/10/22 06:49:32 oVAoVAloBEooBEvoAI    Parameter search 93 % done.
+01/10/22 06:49:33 oVAoVAloBEooBEvoAI    Parameter search 94 % done.
+01/10/22 06:49:34 oVAoVAloBEooBEvoAI    Parameter search 95 % done.
+01/10/22 06:49:36 oVAoVAloBEooBEvoAI    Parameter search 96 % done.
+01/10/22 06:49:37 oVAoVAloBEooBEvoAI    Parameter search 97 % done.
+01/10/22 06:49:39 oVAoVAloBEooBEvoAI    Parameter search 98 % done.
+01/10/22 06:49:40 oVAoVAloBEooBEvoAI    Parameter search 99 % done.
+01/10/22 06:49:41 oVAoVAloBEooBEvoAI    Parameter search 100 % done.
+01/10/22 06:49:42 oVAoVAloBEooBEvoAI    Parameter search complete.
+01/10/22 06:49:42 oVAoVAloBEooBEvoAI    Saving results of "oVAoVAloBEooBEvoAI" to file "/home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoVAloBEooBEvoAI.pkl"...
+01/10/22 06:49:42 oVAoVAloBEooBEvoAI    Saving done.
+
+Model oVAoVAloBEv: Found 1000 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+01/10/22 06:49:42 oVAoVAloBEv           Starting a pool of 40 workers for parallel evaluation of parameterisations...
+01/10/22 06:49:42 oVAoVAloBEv           Pool of workers initialised.
+01/10/22 06:49:42 oVAoVAloBEv           Searching 1000 parameterisations for parameter set ('T_delta', 'thetaDot_1', 'beta_V')...
+01/10/22 06:49:43 oVAoVAloBEv           Parameter search 1 % done.
+01/10/22 06:49:45 oVAoVAloBEv           Parameter search 2 % done.
+01/10/22 06:49:46 oVAoVAloBEv           Parameter search 3 % done.
+01/10/22 06:49:47 oVAoVAloBEv           Parameter search 4 % done.
+01/10/22 06:49:48 oVAoVAloBEv           Parameter search 5 % done.
+01/10/22 06:49:50 oVAoVAloBEv           Parameter search 6 % done.
+01/10/22 06:49:51 oVAoVAloBEv           Parameter search 7 % done.
+01/10/22 06:49:52 oVAoVAloBEv           Parameter search 8 % done.
+01/10/22 06:49:53 oVAoVAloBEv           Parameter search 9 % done.
+01/10/22 06:49:54 oVAoVAloBEv           Parameter search 10 % done.
+01/10/22 06:49:55 oVAoVAloBEv           Parameter search 11 % done.
+01/10/22 06:49:57 oVAoVAloBEv           Parameter search 12 % done.
+01/10/22 06:49:58 oVAoVAloBEv           Parameter search 13 % done.
+01/10/22 06:49:59 oVAoVAloBEv           Parameter search 14 % done.
+01/10/22 06:50:00 oVAoVAloBEv           Parameter search 15 % done.
+01/10/22 06:50:01 oVAoVAloBEv           Parameter search 16 % done.
+01/10/22 06:50:02 oVAoVAloBEv           Parameter search 17 % done.
+01/10/22 06:50:04 oVAoVAloBEv           Parameter search 18 % done.
+01/10/22 06:50:05 oVAoVAloBEv           Parameter search 19 % done.
+01/10/22 06:50:06 oVAoVAloBEv           Parameter search 20 % done.
+01/10/22 06:50:07 oVAoVAloBEv           Parameter search 21 % done.
+01/10/22 06:50:08 oVAoVAloBEv           Parameter search 22 % done.
+01/10/22 06:50:09 oVAoVAloBEv           Parameter search 23 % done.
+01/10/22 06:50:10 oVAoVAloBEv           Parameter search 24 % done.
+01/10/22 06:50:11 oVAoVAloBEv           Parameter search 25 % done.
+01/10/22 06:50:12 oVAoVAloBEv           Parameter search 26 % done.
+01/10/22 06:50:13 oVAoVAloBEv           Parameter search 27 % done.
+01/10/22 06:50:15 oVAoVAloBEv           Parameter search 28 % done.
+01/10/22 06:50:16 oVAoVAloBEv           Parameter search 29 % done.
+01/10/22 06:50:17 oVAoVAloBEv           Parameter search 30 % done.
+01/10/22 06:50:18 oVAoVAloBEv           Parameter search 31 % done.
+01/10/22 06:50:19 oVAoVAloBEv           Parameter search 32 % done.
+01/10/22 06:50:20 oVAoVAloBEv           Parameter search 33 % done.
+01/10/22 06:50:21 oVAoVAloBEv           Parameter search 34 % done.
+01/10/22 06:50:22 oVAoVAloBEv           Parameter search 35 % done.
+01/10/22 06:50:23 oVAoVAloBEv           Parameter search 36 % done.
+01/10/22 06:50:24 oVAoVAloBEv           Parameter search 37 % done.
+01/10/22 06:50:25 oVAoVAloBEv           Parameter search 38 % done.
+01/10/22 06:50:27 oVAoVAloBEv           Parameter search 39 % done.
+01/10/22 06:50:28 oVAoVAloBEv           Parameter search 40 % done.
+01/10/22 06:50:29 oVAoVAloBEv           Parameter search 41 % done.
+01/10/22 06:50:30 oVAoVAloBEv           Parameter search 42 % done.
+01/10/22 06:50:31 oVAoVAloBEv           Parameter search 43 % done.
+01/10/22 06:50:32 oVAoVAloBEv           Parameter search 44 % done.
+01/10/22 06:50:33 oVAoVAloBEv           Parameter search 45 % done.
+01/10/22 06:50:34 oVAoVAloBEv           Parameter search 46 % done.
+01/10/22 06:50:35 oVAoVAloBEv           Parameter search 47 % done.
+01/10/22 06:50:36 oVAoVAloBEv           Parameter search 48 % done.
+01/10/22 06:50:37 oVAoVAloBEv           Parameter search 49 % done.
+01/10/22 06:50:38 oVAoVAloBEv           Parameter search 50 % done.
+01/10/22 06:50:39 oVAoVAloBEv           Parameter search 51 % done.
+01/10/22 06:50:40 oVAoVAloBEv           Parameter search 52 % done.
+01/10/22 06:50:41 oVAoVAloBEv           Parameter search 53 % done.
+01/10/22 06:50:42 oVAoVAloBEv           Parameter search 54 % done.
+01/10/22 06:50:43 oVAoVAloBEv           Parameter search 55 % done.
+01/10/22 06:50:44 oVAoVAloBEv           Parameter search 56 % done.
+01/10/22 06:50:46 oVAoVAloBEv           Parameter search 57 % done.
+01/10/22 06:50:47 oVAoVAloBEv           Parameter search 58 % done.
+01/10/22 06:50:48 oVAoVAloBEv           Parameter search 59 % done.
+01/10/22 06:50:49 oVAoVAloBEv           Parameter search 60 % done.
+01/10/22 06:50:50 oVAoVAloBEv           Parameter search 61 % done.
+01/10/22 06:50:51 oVAoVAloBEv           Parameter search 62 % done.
+01/10/22 06:50:51 oVAoVAloBEv           Parameter search 63 % done.
+01/10/22 06:50:53 oVAoVAloBEv           Parameter search 64 % done.
+01/10/22 06:50:54 oVAoVAloBEv           Parameter search 65 % done.
+01/10/22 06:50:55 oVAoVAloBEv           Parameter search 66 % done.
+01/10/22 06:50:56 oVAoVAloBEv           Parameter search 67 % done.
+01/10/22 06:50:57 oVAoVAloBEv           Parameter search 68 % done.
+01/10/22 06:50:58 oVAoVAloBEv           Parameter search 69 % done.
+01/10/22 06:50:59 oVAoVAloBEv           Parameter search 70 % done.
+01/10/22 06:51:00 oVAoVAloBEv           Parameter search 71 % done.
+01/10/22 06:51:01 oVAoVAloBEv           Parameter search 72 % done.
+01/10/22 06:51:02 oVAoVAloBEv           Parameter search 73 % done.
+01/10/22 06:51:03 oVAoVAloBEv           Parameter search 74 % done.
+01/10/22 06:51:04 oVAoVAloBEv           Parameter search 75 % done.
+01/10/22 06:51:05 oVAoVAloBEv           Parameter search 76 % done.
+01/10/22 06:51:06 oVAoVAloBEv           Parameter search 77 % done.
+01/10/22 06:51:07 oVAoVAloBEv           Parameter search 78 % done.
+01/10/22 06:51:08 oVAoVAloBEv           Parameter search 79 % done.
+01/10/22 06:51:09 oVAoVAloBEv           Parameter search 80 % done.
+01/10/22 06:51:10 oVAoVAloBEv           Parameter search 81 % done.
+01/10/22 06:51:11 oVAoVAloBEv           Parameter search 82 % done.
+01/10/22 06:51:12 oVAoVAloBEv           Parameter search 83 % done.
+01/10/22 06:51:13 oVAoVAloBEv           Parameter search 84 % done.
+01/10/22 06:51:14 oVAoVAloBEv           Parameter search 85 % done.
+01/10/22 06:51:15 oVAoVAloBEv           Parameter search 86 % done.
+01/10/22 06:51:16 oVAoVAloBEv           Parameter search 87 % done.
+01/10/22 06:51:17 oVAoVAloBEv           Parameter search 88 % done.
+01/10/22 06:51:18 oVAoVAloBEv           Parameter search 89 % done.
+01/10/22 06:51:19 oVAoVAloBEv           Parameter search 90 % done.
+01/10/22 06:51:19 oVAoVAloBEv           Parameter search 91 % done.
+01/10/22 06:51:20 oVAoVAloBEv           Parameter search 92 % done.
+01/10/22 06:51:21 oVAoVAloBEv           Parameter search 93 % done.
+01/10/22 06:51:22 oVAoVAloBEv           Parameter search 94 % done.
+01/10/22 06:51:23 oVAoVAloBEv           Parameter search 95 % done.
+01/10/22 06:51:24 oVAoVAloBEv           Parameter search 96 % done.
+01/10/22 06:51:25 oVAoVAloBEv           Parameter search 97 % done.
+01/10/22 06:51:26 oVAoVAloBEv           Parameter search 98 % done.
+01/10/22 06:51:27 oVAoVAloBEv           Parameter search 99 % done.
+01/10/22 06:51:28 oVAoVAloBEv           Parameter search 100 % done.
+01/10/22 06:51:28 oVAoVAloBEv           Parameter search complete.
+01/10/22 06:51:28 oVAoVAloBEv           Saving results of "oVAoVAloBEv" to file "/home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoVAloBEv.pkl"...
+01/10/22 06:51:28 oVAoVAloBEv           Saving done.
+
+Model oVAoVAloBEvoAI: Found 995 parameterisations achieving short-stopping in the "exaggerated early deceleration" sense.
+	Checking these in the "exaggerated final stopping margin" sense:
+
+01/10/22 06:51:28 oVAoVAloBEvoAI        Starting a pool of 40 workers for parallel evaluation of parameterisations...
+01/10/22 06:51:29 oVAoVAloBEvoAI        Pool of workers initialised.
+01/10/22 06:51:29 oVAoVAloBEvoAI        Searching 995 parameterisations for parameter set ('T_delta', 'thetaDot_1', 'beta_V')...
+01/10/22 06:51:31 oVAoVAloBEvoAI        Parameter search 1 % done.
+01/10/22 06:51:33 oVAoVAloBEvoAI        Parameter search 2 % done.
+01/10/22 06:51:35 oVAoVAloBEvoAI        Parameter search 3 % done.
+01/10/22 06:51:36 oVAoVAloBEvoAI        Parameter search 4 % done.
+01/10/22 06:51:37 oVAoVAloBEvoAI        Parameter search 5 % done.
+01/10/22 06:51:39 oVAoVAloBEvoAI        Parameter search 6 % done.
+01/10/22 06:51:41 oVAoVAloBEvoAI        Parameter search 7 % done.
+01/10/22 06:51:42 oVAoVAloBEvoAI        Parameter search 8 % done.
+01/10/22 06:51:44 oVAoVAloBEvoAI        Parameter search 9 % done.
+01/10/22 06:51:45 oVAoVAloBEvoAI        Parameter search 10 % done.
+01/10/22 06:51:47 oVAoVAloBEvoAI        Parameter search 11 % done.
+01/10/22 06:51:48 oVAoVAloBEvoAI        Parameter search 12 % done.
+01/10/22 06:51:50 oVAoVAloBEvoAI        Parameter search 13 % done.
+01/10/22 06:51:51 oVAoVAloBEvoAI        Parameter search 14 % done.
+01/10/22 06:51:52 oVAoVAloBEvoAI        Parameter search 15 % done.
+01/10/22 06:51:54 oVAoVAloBEvoAI        Parameter search 16 % done.
+01/10/22 06:51:55 oVAoVAloBEvoAI        Parameter search 17 % done.
+01/10/22 06:51:57 oVAoVAloBEvoAI        Parameter search 18 % done.
+01/10/22 06:51:58 oVAoVAloBEvoAI        Parameter search 19 % done.
+01/10/22 06:52:00 oVAoVAloBEvoAI        Parameter search 20 % done.
+01/10/22 06:52:01 oVAoVAloBEvoAI        Parameter search 21 % done.
+01/10/22 06:52:02 oVAoVAloBEvoAI        Parameter search 22 % done.
+01/10/22 06:52:03 oVAoVAloBEvoAI        Parameter search 23 % done.
+01/10/22 06:52:05 oVAoVAloBEvoAI        Parameter search 24 % done.
+01/10/22 06:52:06 oVAoVAloBEvoAI        Parameter search 25 % done.
+01/10/22 06:52:07 oVAoVAloBEvoAI        Parameter search 26 % done.
+01/10/22 06:52:09 oVAoVAloBEvoAI        Parameter search 27 % done.
+01/10/22 06:52:10 oVAoVAloBEvoAI        Parameter search 28 % done.
+01/10/22 06:52:11 oVAoVAloBEvoAI        Parameter search 29 % done.
+01/10/22 06:52:13 oVAoVAloBEvoAI        Parameter search 30 % done.
+01/10/22 06:52:14 oVAoVAloBEvoAI        Parameter search 31 % done.
+01/10/22 06:52:15 oVAoVAloBEvoAI        Parameter search 32 % done.
+01/10/22 06:52:17 oVAoVAloBEvoAI        Parameter search 33 % done.
+01/10/22 06:52:18 oVAoVAloBEvoAI        Parameter search 34 % done.
+01/10/22 06:52:19 oVAoVAloBEvoAI        Parameter search 35 % done.
+01/10/22 06:52:21 oVAoVAloBEvoAI        Parameter search 36 % done.
+01/10/22 06:52:22 oVAoVAloBEvoAI        Parameter search 37 % done.
+01/10/22 06:52:23 oVAoVAloBEvoAI        Parameter search 38 % done.
+01/10/22 06:52:25 oVAoVAloBEvoAI        Parameter search 39 % done.
+01/10/22 06:52:26 oVAoVAloBEvoAI        Parameter search 40 % done.
+01/10/22 06:52:27 oVAoVAloBEvoAI        Parameter search 41 % done.
+01/10/22 06:52:29 oVAoVAloBEvoAI        Parameter search 42 % done.
+01/10/22 06:52:30 oVAoVAloBEvoAI        Parameter search 43 % done.
+01/10/22 06:52:31 oVAoVAloBEvoAI        Parameter search 44 % done.
+01/10/22 06:52:33 oVAoVAloBEvoAI        Parameter search 45 % done.
+01/10/22 06:52:34 oVAoVAloBEvoAI        Parameter search 46 % done.
+01/10/22 06:52:35 oVAoVAloBEvoAI        Parameter search 47 % done.
+01/10/22 06:52:37 oVAoVAloBEvoAI        Parameter search 48 % done.
+01/10/22 06:52:38 oVAoVAloBEvoAI        Parameter search 49 % done.
+01/10/22 06:52:39 oVAoVAloBEvoAI        Parameter search 50 % done.
+01/10/22 06:52:41 oVAoVAloBEvoAI        Parameter search 51 % done.
+01/10/22 06:52:42 oVAoVAloBEvoAI        Parameter search 52 % done.
+01/10/22 06:52:43 oVAoVAloBEvoAI        Parameter search 53 % done.
+01/10/22 06:52:45 oVAoVAloBEvoAI        Parameter search 54 % done.
+01/10/22 06:52:46 oVAoVAloBEvoAI        Parameter search 55 % done.
+01/10/22 06:52:47 oVAoVAloBEvoAI        Parameter search 56 % done.
+01/10/22 06:52:48 oVAoVAloBEvoAI        Parameter search 57 % done.
+01/10/22 06:52:50 oVAoVAloBEvoAI        Parameter search 58 % done.
+01/10/22 06:52:51 oVAoVAloBEvoAI        Parameter search 59 % done.
+01/10/22 06:52:52 oVAoVAloBEvoAI        Parameter search 60 % done.
+01/10/22 06:52:54 oVAoVAloBEvoAI        Parameter search 61 % done.
+01/10/22 06:52:55 oVAoVAloBEvoAI        Parameter search 62 % done.
+01/10/22 06:52:56 oVAoVAloBEvoAI        Parameter search 63 % done.
+01/10/22 06:52:58 oVAoVAloBEvoAI        Parameter search 64 % done.
+01/10/22 06:52:59 oVAoVAloBEvoAI        Parameter search 65 % done.
+01/10/22 06:53:00 oVAoVAloBEvoAI        Parameter search 66 % done.
+01/10/22 06:53:01 oVAoVAloBEvoAI        Parameter search 67 % done.
+01/10/22 06:53:03 oVAoVAloBEvoAI        Parameter search 68 % done.
+01/10/22 06:53:04 oVAoVAloBEvoAI        Parameter search 69 % done.
+01/10/22 06:53:05 oVAoVAloBEvoAI        Parameter search 70 % done.
+01/10/22 06:53:06 oVAoVAloBEvoAI        Parameter search 71 % done.
+01/10/22 06:53:08 oVAoVAloBEvoAI        Parameter search 72 % done.
+01/10/22 06:53:09 oVAoVAloBEvoAI        Parameter search 73 % done.
+01/10/22 06:53:10 oVAoVAloBEvoAI        Parameter search 74 % done.
+01/10/22 06:53:12 oVAoVAloBEvoAI        Parameter search 75 % done.
+01/10/22 06:53:13 oVAoVAloBEvoAI        Parameter search 76 % done.
+01/10/22 06:53:14 oVAoVAloBEvoAI        Parameter search 77 % done.
+01/10/22 06:53:16 oVAoVAloBEvoAI        Parameter search 78 % done.
+01/10/22 06:53:17 oVAoVAloBEvoAI        Parameter search 79 % done.
+01/10/22 06:53:18 oVAoVAloBEvoAI        Parameter search 80 % done.
+01/10/22 06:53:20 oVAoVAloBEvoAI        Parameter search 81 % done.
+01/10/22 06:53:21 oVAoVAloBEvoAI        Parameter search 82 % done.
+01/10/22 06:53:22 oVAoVAloBEvoAI        Parameter search 83 % done.
+01/10/22 06:53:24 oVAoVAloBEvoAI        Parameter search 84 % done.
+01/10/22 06:53:25 oVAoVAloBEvoAI        Parameter search 85 % done.
+01/10/22 06:53:26 oVAoVAloBEvoAI        Parameter search 86 % done.
+01/10/22 06:53:28 oVAoVAloBEvoAI        Parameter search 87 % done.
+01/10/22 06:53:29 oVAoVAloBEvoAI        Parameter search 88 % done.
+01/10/22 06:53:31 oVAoVAloBEvoAI        Parameter search 89 % done.
+01/10/22 06:53:32 oVAoVAloBEvoAI        Parameter search 90 % done.
+01/10/22 06:53:33 oVAoVAloBEvoAI        Parameter search 91 % done.
+01/10/22 06:53:35 oVAoVAloBEvoAI        Parameter search 92 % done.
+01/10/22 06:53:36 oVAoVAloBEvoAI        Parameter search 93 % done.
+01/10/22 06:53:38 oVAoVAloBEvoAI        Parameter search 94 % done.
+01/10/22 06:53:39 oVAoVAloBEvoAI        Parameter search 95 % done.
+01/10/22 06:53:40 oVAoVAloBEvoAI        Parameter search 96 % done.
+01/10/22 06:53:42 oVAoVAloBEvoAI        Parameter search 97 % done.
+01/10/22 06:53:43 oVAoVAloBEvoAI        Parameter search 98 % done.
+01/10/22 06:53:44 oVAoVAloBEvoAI        Parameter search 99 % done.
+01/10/22 06:53:46 oVAoVAloBEvoAI        Parameter search 100 % done.
+01/10/22 06:53:46 oVAoVAloBEvoAI        Parameter search complete.
+01/10/22 06:53:46 oVAoVAloBEvoAI        Saving results of "oVAoVAloBEvoAI" to file "/home/home01/tragma/COMMOTIONSFramework/SCPaper/results/AltShortStopFit_oVAoVAloBEvoAI.pkl"...
+01/10/22 06:53:46 oVAoVAloBEvoAI        Saving done.

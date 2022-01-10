@@ -48,7 +48,8 @@ def run_fit(model_str, param_arrays):
         param_arrays, list_search=True,
         n_repetitions=sc_fitting.N_ONE_AG_SCEN_VARIATIONS, parallel=True,
         n_workers=n_workers, verbosity=verbosity,
-        file_name_format=sc_fitting.ALT_SHORTSTOP_FIT_FILE_NAME_FMT)
+        file_name_format=sc_fitting.ALT_SHORTSTOP_FIT_FILE_NAME_FMT,
+        overwrite_existing=False)
 
 
 if __name__ == '__main__':
