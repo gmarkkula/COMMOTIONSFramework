@@ -804,7 +804,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
                  default_params, default_params_k, param_arrays, 
                  list_search=False, n_repetitions=1, 
                  parallel=False, n_workers=mp.cpu_count()-1,
-                 verbosity=0, file_name_format=DET_FIT_FILE_NAME_FMT):
+                 verbosity=0, file_name_format=DET_FIT_FILE_NAME_FMT,
+                 overwrite_existing=True):
         """
         Construct and run a parameter search for the SCPaper project.
 
@@ -840,12 +841,26 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
             variations, which has to be the same across scenarios. The default is 1.
         verbosity : int, optional
             Verbosity - see parameter_search.ParameterSearch. The default is 0.
+        file_name_format : str, optional
+            The file name to use for saving the results, including a %s for
+            which the parameter search's name will be replaced.
+            Default is sc_fitting.DET_FIT_FILE_NAME_FMT.
+        overwrite_existing : bool, optional
+            If False, aborts the parameter search if the output file already 
+            exists. Default is True.
 
         Returns
         -------
         None.
 
         """
+        # need to check if output file already exists?
+        file_name = FIT_RESULTS_FOLDER + (file_name_format % name)
+        if not overwrite_existing:
+            if os.path.exists(file_name):
+                print(f'Output file {file_name} already exists, not running'
+                      f' parameter search for {name}.')
+                return
         # go through the list of scenarios to (1) check whether there are 
         # kinematic variations, and if so that the number of variations is
         # shared across scenarios, equal to n_repetitions, and (2) build the 
@@ -947,7 +962,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         else:
             self.search_grid(free_param_arrays)
         # save the results
-        self.save(FIT_RESULTS_FOLDER + (file_name_format % name))
+        self.save(file_name)
         
 
         
