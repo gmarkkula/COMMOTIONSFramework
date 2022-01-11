@@ -49,15 +49,23 @@ def get_future_kinematic_state(initial_state, long_acc, yaw_rate, \
     local_state = copy.copy(initial_state)
 
     # do the Euler time-stepping
-    for i in range(i_start_time_step + 1, \
-        i_start_time_step + n_time_steps_to_advance + 1):
+    for i in range(i_start_time_step + 1, 
+                    i_start_time_step + n_time_steps_to_advance + 1):
+        if can_reverse:
+            min_speed = -math.inf
+        else:
+            min_speed = 0
+        # a more exact version of the position update below should also take into
+        # account the effect of non-zero yaw rate
+        local_state.pos = (
+            local_state.pos
+            + max(min_speed, time_step * local_state.long_speed 
+                + get_long_acc(i-1) * (time_step ** 2) / 2)
+            * np.array([math.cos(local_state.yaw_angle), 
+                        math.sin(local_state.yaw_angle)]))
         local_state.long_speed += get_long_acc(i-1) * time_step
-        if (not can_reverse) and local_state.long_speed < 0:
-            local_state.long_speed = 0
+        local_state.long_speed = max(min_speed, local_state.long_speed)
         local_state.yaw_angle += get_yaw_rate(i-1) * time_step
-        local_state.pos = local_state.pos \
-            + time_step * local_state.long_speed \
-            * np.array([math.cos(local_state.yaw_angle), math.sin(local_state.yaw_angle)])
 
     # return the final state, as tuple or as KinematicState object
     if as_tuple:
