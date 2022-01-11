@@ -30,7 +30,7 @@ ExampleParameterisation = collections.namedtuple(
 # constants
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = False
+DO_RETAINED_PARAMS_PLOT = True
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
