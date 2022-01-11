@@ -293,7 +293,7 @@ ONE_AG_SCENARIOS['PedCrossVehYield'] = SCPaperScenario('PedCrossVehYield',
                                                        ped_prio=True,
                                                        ped_start_standing=True, 
                                                        veh_yielding=True,
-                                                       stop_criteria = HALFWAY_STOP,
+                                                       stop_criteria = MOVED_STOP,
                                                        metric_names = ('veh_speed_at_ped_start',))
 
 # - alternative scenario for testing short-stopping
@@ -472,11 +472,11 @@ def metric_veh_stop_margin(sim):
         return veh_agent.signed_CP_dists[idx_veh_stopped[0]] - veh_agent.coll_dist
 
 def metric_veh_speed_at_ped_start(sim):
-    idx_halfway = get_halfway_to_cs_sample(sim, i_PED_AGENT)
-    if math.isnan(idx_halfway):
+    idx_ped_moving = np.nonzero(sim.agents[i_PED_AGENT].trajectory.long_speed > 0)[0]
+    if len(idx_ped_moving) == 0:
         return math.nan
     else:
-        return sim.agents[i_VEH_AGENT].trajectory.long_speed[idx_halfway]
+        return sim.agents[i_VEH_AGENT].trajectory.long_speed[idx_ped_moving[0]]
 
 def metric_collision(sim):
     collision_samples = np.full(len(sim.time_stamps), True)
