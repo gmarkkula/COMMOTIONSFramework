@@ -21,8 +21,9 @@ import sc_scenario
 import sc_fitting
 
 
-INCL_DET_MODELS = ('oVAaoVAloBEvoAI',)
-EXCL_PROB_MODELS = ('oVAoEAoAN',)
+INCL_DET_MODELS = ('oVAaoVAloBEvoAI', 'oVAoVAloBEvoAI') # either 'all' or a tuple of names of models to include
+EXCL_PROB_MODELS = ('oVAoAN', 'oVAoEAoAN')
+MAX_DET_PARAMETERISATIONS = 10
 
 
 def run_fit(model_str, param_arrays):
@@ -54,13 +55,22 @@ if __name__ == '__main__':
     with open(sc_fitting.FIT_RESULTS_FOLDER + '/' 
               + sc_fitting.RETAINED_PROB_FNAME, 'rb') as file_obj:
         prob_models = pickle.load(file_obj)
+        
+    # initialise random number generator
+    rng = np.random.default_rng()
     
     # loop through and fit all combinations of retained deterministic and 
     # probabilistic models
     for det_model in det_models:
-        if not det_model.model in INCL_DET_MODELS:
-            continue
+        
+        # this deterministic model included?
+        if INCL_DET_MODELS != 'all':
+            assert(type(INCL_DET_MODELS) is tuple)
+            if not det_model.model in INCL_DET_MODELS:
+                continue
         for prob_model in prob_models:
+            
+            # this probabilistic model excluded?
             if prob_model.model in EXCL_PROB_MODELS:
                 continue
             
@@ -69,14 +79,24 @@ if __name__ == '__main__':
             model_name = det_model.model + prob_model.model[3:]
             
             # get the combined list of parameterisations
-            # - first construct a big matrix with deterministic parameters to 
-            # - the left, repeating each deterministic row of parameters once
-            # - for each probabilistic set of parameters
+            # - get number of parameters and retained parameterisations
             n_det_params = len(det_model.param_names)
             n_prob_params = len(prob_model.param_names)
             n_det_parameterisations = det_model.params_array.shape[0]
             n_prob_parameterisations = prob_model.params_array.shape[0]
-            params_matrix = np.repeat(det_model.params_array, 
+            # - get the deterministic parameterisations to include
+            if n_det_parameterisations <= MAX_DET_PARAMETERISATIONS:
+                det_params_array = det_model.params_array
+            else:
+                idx_included = rng.choice(n_det_parameterisations, 
+                                          size=MAX_DET_PARAMETERISATIONS, 
+                                          replace=False)
+                det_params_array = det_model.params_array[idx_included, :]
+                n_det_parameterisations = MAX_DET_PARAMETERISATIONS
+            # - first construct a big matrix with deterministic parameters to 
+            # - the left, repeating each deterministic row of parameters once
+            # - for each probabilistic set of parameters
+            params_matrix = np.repeat(det_params_array, 
                                       n_prob_parameterisations, axis=0)
             params_matrix = np.append(params_matrix, np.tile(
                 prob_model.params_array, (n_det_parameterisations, 1)), axis=1)
