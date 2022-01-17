@@ -84,11 +84,20 @@ if __name__ == '__main__':
             if test_upper < baseline_lower:
                 print('\t\t\tPassed.')
                 retained.hesitation_verified[i_param] = True
+                
+                
+    # print overall summary
+    print('\n********** Summary **********\n')
+    for retained in retained_models:
+        print(f'Model {retained.model}; {retained.param_names}:')
+        n_params = retained.params_array.shape[0]
+        n_verified = np.sum(retained.hesitation_verified)
+        print(f'\tPedestrian hesitation verified in {n_verified} out of'
+              f' {n_params} parameterisations ({100 * n_verified/n_params:.1f} %).\n')
 
 
-    # skipping the saving here - don't really think it's needed
-    # # resave the models, with the hesitation verification info added
-    # with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_PROB_FNAME, 
-    #           'wb') as file_obj:
-    #     pickle.dump(retained_models, file_obj)
+    # resave the models, with the hesitation verification info added
+    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_PROB_FNAME, 
+              'wb') as file_obj:
+        pickle.dump(retained_models, file_obj)
             
