@@ -1,0 +1,127 @@
+## WARNING!
+## The current directory is in your home directory. Please use the high-performance
+## cluster filesystem /nobackup. See documentation for information.
+## WARNING!
+
+## Hosts assigned to job 3393833.1:
+##
+## d12s2b2.arc4.leeds.ac.uk 40 slots
+##
+## Resources granted:
+##
+## h_vmem = 1G (per slot)
+## h_rt   = 08:00:00
+## disk   = 1G (per slot)
+
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/ProbFit_oVAoAN.pkl already exists, not running parameter search for oVAoAN.
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/ProbFit_oVAoSNc.pkl already exists, not running parameter search for oVAoSNc.
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/ProbFit_oVAoSNv.pkl already exists, not running parameter search for oVAoSNv.
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/ProbFit_oVAoSNcoPF.pkl already exists, not running parameter search for oVAoSNcoPF.
+Output file /home/home01/tragma/COMMOTIONSFramework/SCPaper/results/ProbFit_oVAoSNvoPF.pkl already exists, not running parameter search for oVAoSNvoPF.
+01/13/22 13:34:26 oVAoEAoAN             Starting a pool of 40 workers for parallel evaluation of parameterisations...
+01/13/22 13:34:26 oVAoEAoAN             Pool of workers initialised.
+01/13/22 13:34:26 oVAoEAoAN             Searching 1000 parameterisations for parameter set ('T', 'DeltaV_th_rel', 'sigma_V')...
+01/13/22 13:39:49 oVAoEAoAN             Parameter search 1 % done.
+01/13/22 13:43:48 oVAoEAoAN             Parameter search 2 % done.
+01/13/22 13:47:35 oVAoEAoAN             Parameter search 3 % done.
+01/13/22 13:51:19 oVAoEAoAN             Parameter search 4 % done.
+01/13/22 13:57:28 oVAoEAoAN             Parameter search 5 % done.
+01/13/22 14:01:54 oVAoEAoAN             Parameter search 6 % done.
+01/13/22 14:06:03 oVAoEAoAN             Parameter search 7 % done.
+01/13/22 14:10:08 oVAoEAoAN             Parameter search 8 % done.
+01/13/22 14:14:37 oVAoEAoAN             Parameter search 9 % done.
+01/13/22 14:17:57 oVAoEAoAN             Parameter search 10 % done.
+01/13/22 14:22:31 oVAoEAoAN             Parameter search 11 % done.
+01/13/22 14:27:02 oVAoEAoAN             Parameter search 12 % done.
+01/13/22 14:32:00 oVAoEAoAN             Parameter search 13 % done.
+01/13/22 14:35:54 oVAoEAoAN             Parameter search 14 % done.
+01/13/22 14:40:14 oVAoEAoAN             Parameter search 15 % done.
+01/13/22 14:44:48 oVAoEAoAN             Parameter search 16 % done.
+01/13/22 14:49:44 oVAoEAoAN             Parameter search 17 % done.
+01/13/22 14:53:49 oVAoEAoAN             Parameter search 18 % done.
+01/13/22 14:57:02 oVAoEAoAN             Parameter search 19 % done.
+01/13/22 15:00:33 oVAoEAoAN             Parameter search 20 % done.
+01/13/22 15:06:27 oVAoEAoAN             Parameter search 21 % done.
+01/13/22 15:10:39 oVAoEAoAN             Parameter search 22 % done.
+01/13/22 15:14:20 oVAoEAoAN             Parameter search 23 % done.
+01/13/22 15:18:26 oVAoEAoAN             Parameter search 24 % done.
+01/13/22 15:23:51 oVAoEAoAN             Parameter search 25 % done.
+01/13/22 15:27:52 oVAoEAoAN             Parameter search 26 % done.
+01/13/22 15:32:04 oVAoEAoAN             Parameter search 27 % done.
+01/13/22 15:35:53 oVAoEAoAN             Parameter search 28 % done.
+01/13/22 15:39:39 oVAoEAoAN             Parameter search 29 % done.
+01/13/22 15:43:20 oVAoEAoAN             Parameter search 30 % done.
+01/13/22 15:48:18 oVAoEAoAN             Parameter search 31 % done.
+01/13/22 15:52:42 oVAoEAoAN             Parameter search 32 % done.
+01/13/22 15:57:03 oVAoEAoAN             Parameter search 33 % done.
+01/13/22 16:01:18 oVAoEAoAN             Parameter search 34 % done.
+01/13/22 16:05:52 oVAoEAoAN             Parameter search 35 % done.
+01/13/22 16:09:48 oVAoEAoAN             Parameter search 36 % done.
+01/13/22 16:13:51 oVAoEAoAN             Parameter search 37 % done.
+01/13/22 16:17:53 oVAoEAoAN             Parameter search 38 % done.
+01/13/22 16:21:19 oVAoEAoAN             Parameter search 39 % done.
+01/13/22 16:24:57 oVAoEAoAN             Parameter search 40 % done.
+01/13/22 16:29:23 oVAoEAoAN             Parameter search 41 % done.
+01/13/22 16:33:56 oVAoEAoAN             Parameter search 42 % done.
+01/13/22 16:37:42 oVAoEAoAN             Parameter search 43 % done.
+01/13/22 16:42:13 oVAoEAoAN             Parameter search 44 % done.
+01/13/22 16:46:22 oVAoEAoAN             Parameter search 45 % done.
+01/13/22 16:50:59 oVAoEAoAN             Parameter search 46 % done.
+01/13/22 16:54:36 oVAoEAoAN             Parameter search 47 % done.
+01/13/22 16:58:16 oVAoEAoAN             Parameter search 48 % done.
+01/13/22 17:01:54 oVAoEAoAN             Parameter search 49 % done.
+01/13/22 17:05:48 oVAoEAoAN             Parameter search 50 % done.
+01/13/22 17:09:37 oVAoEAoAN             Parameter search 51 % done.
+01/13/22 17:13:51 oVAoEAoAN             Parameter search 52 % done.
+01/13/22 17:17:28 oVAoEAoAN             Parameter search 53 % done.
+01/13/22 17:21:22 oVAoEAoAN             Parameter search 54 % done.
+01/13/22 17:25:13 oVAoEAoAN             Parameter search 55 % done.
+01/13/22 17:29:21 oVAoEAoAN             Parameter search 56 % done.
+01/13/22 17:32:42 oVAoEAoAN             Parameter search 57 % done.
+01/13/22 17:36:41 oVAoEAoAN             Parameter search 58 % done.
+01/13/22 17:40:10 oVAoEAoAN             Parameter search 59 % done.
+01/13/22 17:43:59 oVAoEAoAN             Parameter search 60 % done.
+01/13/22 17:47:16 oVAoEAoAN             Parameter search 61 % done.
+01/13/22 17:50:57 oVAoEAoAN             Parameter search 62 % done.
+01/13/22 17:54:19 oVAoEAoAN             Parameter search 63 % done.
+01/13/22 17:57:44 oVAoEAoAN             Parameter search 64 % done.
+01/13/22 18:01:14 oVAoEAoAN             Parameter search 65 % done.
+01/13/22 18:04:42 oVAoEAoAN             Parameter search 66 % done.
+01/13/22 18:08:14 oVAoEAoAN             Parameter search 67 % done.
+01/13/22 18:11:54 oVAoEAoAN             Parameter search 68 % done.
+01/13/22 18:15:21 oVAoEAoAN             Parameter search 69 % done.
+01/13/22 18:18:52 oVAoEAoAN             Parameter search 70 % done.
+01/13/22 18:21:53 oVAoEAoAN             Parameter search 71 % done.
+01/13/22 18:24:51 oVAoEAoAN             Parameter search 72 % done.
+01/13/22 18:28:12 oVAoEAoAN             Parameter search 73 % done.
+01/13/22 18:31:07 oVAoEAoAN             Parameter search 74 % done.
+01/13/22 18:34:29 oVAoEAoAN             Parameter search 75 % done.
+01/13/22 18:37:28 oVAoEAoAN             Parameter search 76 % done.
+01/13/22 18:40:40 oVAoEAoAN             Parameter search 77 % done.
+01/13/22 18:43:48 oVAoEAoAN             Parameter search 78 % done.
+01/13/22 18:47:03 oVAoEAoAN             Parameter search 79 % done.
+01/13/22 18:50:15 oVAoEAoAN             Parameter search 80 % done.
+01/13/22 18:53:00 oVAoEAoAN             Parameter search 81 % done.
+01/13/22 18:55:57 oVAoEAoAN             Parameter search 82 % done.
+01/13/22 18:58:52 oVAoEAoAN             Parameter search 83 % done.
+01/13/22 19:01:50 oVAoEAoAN             Parameter search 84 % done.
+01/13/22 19:04:37 oVAoEAoAN             Parameter search 85 % done.
+01/13/22 19:07:29 oVAoEAoAN             Parameter search 86 % done.
+01/13/22 19:10:22 oVAoEAoAN             Parameter search 87 % done.
+01/13/22 19:13:17 oVAoEAoAN             Parameter search 88 % done.
+01/13/22 19:16:11 oVAoEAoAN             Parameter search 89 % done.
+01/13/22 19:19:07 oVAoEAoAN             Parameter search 90 % done.
+01/13/22 19:21:57 oVAoEAoAN             Parameter search 91 % done.
+01/13/22 19:24:35 oVAoEAoAN             Parameter search 92 % done.
+01/13/22 19:27:08 oVAoEAoAN             Parameter search 93 % done.
+01/13/22 19:30:01 oVAoEAoAN             Parameter search 94 % done.
+01/13/22 19:32:58 oVAoEAoAN             Parameter search 95 % done.
+01/13/22 19:35:38 oVAoEAoAN             Parameter search 96 % done.
+01/13/22 19:38:27 oVAoEAoAN             Parameter search 97 % done.
+01/13/22 19:41:14 oVAoEAoAN             Parameter search 98 % done.
+01/13/22 19:43:40 oVAoEAoAN             Parameter search 99 % done.
+01/13/22 19:45:30 oVAoEAoAN             Parameter search 100 % done.
+01/13/22 19:45:30 oVAoEAoAN             Parameter search complete.
+01/13/22 19:45:30 oVAoEAoAN             Saving results of "oVAoEAoAN" to file "/home/home01/tragma/COMMOTIONSFramework/SCPaper/results/ProbFit_oVAoEAoAN.pkl"...
+01/13/22 19:45:30 oVAoEAoAN             Saving done.
+01/13/22 19:45:30 oVAoEAoSNc            Starting a pool of 40 workers for parallel evaluation of parameterisations...

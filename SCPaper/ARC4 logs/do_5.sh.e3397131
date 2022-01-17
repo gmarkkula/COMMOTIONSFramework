@@ -1,0 +1,403 @@
+Currently Loaded Modulefiles:
+  1) licenses           3) intel/19.0.4       5) user
+  2) sge                4) openmpi/3.1.4      6) anaconda/2019.10
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/sc_scenario.py:1479: RuntimeWarning: invalid value encountered in less_equal
+  <= agent.coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:485: RuntimeWarning: invalid value encountered in less
+  np.abs(agent.signed_CP_dists) < agent.coll_dist)
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:490: RuntimeWarning: invalid value encountered in less
+  < -sim.agents[i_agent].coll_dist)[0]
+/home/home01/tragma/COMMOTIONSFramework/SCPaper/sc_fitting.py:441: RuntimeWarning: invalid value encountered in less_equal
+  idx_past_CS_entry = np.nonzero(ped_agent.signed_CP_dists <= ped_agent.coll_dist)[0]
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
+OMP: Warning #181: GOMP_CPU_AFFINITY: ignored because KMP_AFFINITY has been defined
