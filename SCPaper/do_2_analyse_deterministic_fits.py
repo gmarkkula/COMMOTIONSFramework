@@ -28,7 +28,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_TIME_SERIES_PLOTS = False
+DO_TIME_SERIES_PLOTS = True
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = True
 N_MAIN_CRIT_FOR_PLOT = 4
@@ -195,7 +195,8 @@ def do():
                 det_fit.set_params(params_dict)
                 for scenario in det_fit.scenarios.values():
                     print(f'\n\n\t\t\tScenario "{scenario.name}"')
-                    sc_simulations = det_fit.simulate_scenario(scenario)
+                    sc_simulations = det_fit.simulate_scenario(
+                        scenario, apply_stop_criteria=False)
                     be_plots = 'oBE' in det_fit.name
                     for sim in sc_simulations:
                         sim.do_plots(kinem_states=True, 
