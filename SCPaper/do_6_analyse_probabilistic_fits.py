@@ -87,7 +87,8 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
                 
             elif crit == 'Pedestrian hesitation in constant-speed scenario':
                 ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
-                crit_met_all = ped_av_speed < 0.95 * PED_FREE_SPEED
+                crit_met_all = ((ped_av_speed < 0.95 * PED_FREE_SPEED)
+                                | np.isnan(ped_av_speed))
                 # criterion met for parameterisation if met for enough of the repetitions
                 crit_met = np.sum(crit_met_all, axis=1) >= 4
             
