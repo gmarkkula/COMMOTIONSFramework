@@ -26,7 +26,7 @@ parameter_search.STATUS_REP_HEADER_LEN = 50 # long model names here...
 
 INCL_DET_MODELS = 'all' # ('oVAaoVAloBEvoAI', 'oVAoVAloBEvoAI') # either 'all' or a tuple of names of models to include
 EXCL_PROB_MODELS = ('oVAoAN', 'oVAoEAoAN')
-MAX_PARAMETERISATIONS = np.inf
+MAX_PARAMETERISATIONS = 10000
 
 
 def run_fit(model_str, param_arrays):
@@ -65,6 +65,13 @@ if __name__ == '__main__':
         
     # initialise random number generator
     rng = np.random.default_rng()
+    
+    # check for any specification of determinsistic model to include from
+    # command line
+    if len(sys.argv) > 1:
+        INCL_DET_MODELS = (sys.argv[1],)
+        print(f'Found command line option "{sys.argv[1]}"')
+    print(f'Included deterministic models are: {INCL_DET_MODELS}')
     
     # loop through and fit all combinations of retained deterministic and 
     # probabilistic models

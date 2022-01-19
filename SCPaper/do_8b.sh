@@ -3,7 +3,7 @@
 #$ -V -cwd
 
 #Request some time- min 15 mins - max 48 hours
-#$ -l h_rt=01:00:00
+#$ -l h_rt=26:00:00
 
 #Request cores
 #$ -pe smp 40
@@ -14,6 +14,6 @@
 #Now run the job
 module load anaconda
 source activate base
-python do_8_combined_fitting.py
+python do_8_combined_fitting.py oVAaoVAloBEvoAI
 
 
