@@ -18,12 +18,15 @@ import pickle
 import multiprocessing as mp
 import numpy as np
 import sc_scenario
+import parameter_search
 import sc_fitting
 
+parameter_search.STATUS_REP_HEADER_LEN = 50 # long model names here...
 
-INCL_DET_MODELS = ('oVAaoVAloBEvoAI', 'oVAoVAloBEvoAI') # either 'all' or a tuple of names of models to include
+
+INCL_DET_MODELS = 'all' # ('oVAaoVAloBEvoAI', 'oVAoVAloBEvoAI') # either 'all' or a tuple of names of models to include
 EXCL_PROB_MODELS = ('oVAoAN', 'oVAoEAoAN')
-MAX_DET_PARAMETERISATIONS = 10
+MAX_PARAMETERISATIONS = np.inf
 
 
 def run_fit(model_str, param_arrays):
@@ -47,6 +50,10 @@ def run_fit(model_str, param_arrays):
 
 
 if __name__ == '__main__':
+    
+    # run a dummy probablistic simulation to prevent problems with 
+    # parallelisation on ARC4 (see 2022-01-19 diary notes)
+    sc_fitting.run_dummy_prob_sim()
     
     # load the retained models
     with open(sc_fitting.FIT_RESULTS_FOLDER + '/'
@@ -84,22 +91,22 @@ if __name__ == '__main__':
             n_prob_params = len(prob_model.param_names)
             n_det_parameterisations = det_model.params_array.shape[0]
             n_prob_parameterisations = prob_model.params_array.shape[0]
-            # - get the deterministic parameterisations to include
-            if n_det_parameterisations <= MAX_DET_PARAMETERISATIONS:
-                det_params_array = det_model.params_array
-            else:
-                idx_included = rng.choice(n_det_parameterisations, 
-                                          size=MAX_DET_PARAMETERISATIONS, 
-                                          replace=False)
-                det_params_array = det_model.params_array[idx_included, :]
-                n_det_parameterisations = MAX_DET_PARAMETERISATIONS
+            n_comb_parameterisations = (n_det_parameterisations 
+                                        * n_prob_parameterisations)
             # - first construct a big matrix with deterministic parameters to 
             # - the left, repeating each deterministic row of parameters once
             # - for each probabilistic set of parameters
-            params_matrix = np.repeat(det_params_array, 
+            params_matrix = np.repeat(det_model.params_array, 
                                       n_prob_parameterisations, axis=0)
             params_matrix = np.append(params_matrix, np.tile(
                 prob_model.params_array, (n_det_parameterisations, 1)), axis=1)
+            assert(params_matrix.shape[0] == n_comb_parameterisations)
+            # - subsample the matrix of parameterisations if needed
+            if n_comb_parameterisations > MAX_PARAMETERISATIONS:
+                idx_included = rng.choice(n_comb_parameterisations, 
+                                          size=MAX_PARAMETERISATIONS, 
+                                          replace=False)
+                params_matrix = params_matrix[idx_included, :]
             # - then generate the dict needed for the SCPaperParameterSearch
             # - constructor
             param_names = det_model.param_names + prob_model.param_names
@@ -108,7 +115,7 @@ if __name__ == '__main__':
                 param_arrays_dict[param_name] = params_matrix[:, i_param]
                 
             print(f'Fitting model {model_name} across {n_det_parameterisations}'
-                  f' x {n_prob_parameterisations} = {params_matrix.shape[0]}'
+                  f' x {n_prob_parameterisations} --> {params_matrix.shape[0]}'
                   ' combined parameterisations...')
             
             # run fit across these parameterisations

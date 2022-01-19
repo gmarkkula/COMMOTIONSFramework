@@ -685,6 +685,20 @@ def construct_model_and_simulate_scenario(
         print('Initialising and running simulation took %.3f s.' % (toc - tic,))
 
 
+def run_dummy_prob_sim(verbose=True):
+    """ Run a probabilistic simulation - doing this before starting parallelised
+        fits on the ARC4 cluster prevents a problem with parallelisation for
+        somewhat unclear reasons (see 2022-01-19 diary notes).
+    """
+    if verbose:
+        print('Running one dummy probabilistic simulation')
+    scenario = PROB_FIT_SCENARIOS['Encounter']
+    sim = construct_model_and_simulate_scenario(
+        'oVAoEAoSNvoPF', {'T': 0.2, 'DeltaV_th_rel': 0.01, 'tau_theta': 0.1}, 
+        scenario)
+    if verbose:
+        get_metrics_for_scenario(scenario, sim, verbose=True)
+
 
 # class for searching/testing parameterisations of sc_scenario.SCSimulation
 class SCPaperParameterSearch(parameter_search.ParameterSearch):
