@@ -26,7 +26,7 @@ parameter_search.STATUS_REP_HEADER_LEN = 50 # long model names here...
 
 INCL_DET_MODELS = 'all' # ('oVAaoVAloBEvoAI', 'oVAoVAloBEvoAI') # either 'all' or a tuple of names of models to include
 EXCL_PROB_MODELS = ('oVAoAN', 'oVAoEAoAN')
-MAX_PARAMETERISATIONS = 10000
+MAX_PARAMETERISATIONS = 5000
 
 
 def run_fit(model_str, param_arrays):
