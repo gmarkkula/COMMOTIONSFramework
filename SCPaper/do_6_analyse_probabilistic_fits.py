@@ -179,6 +179,9 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
     with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + retained_fits_file_name, 
               'wb') as file_obj:
         pickle.dump(retained_models, file_obj)
+        
+    # the dict with all of the results may be useful
+    return prob_fits
     
 
 if __name__ == '__main__':

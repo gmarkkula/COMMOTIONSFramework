@@ -12,5 +12,5 @@ do_6_analyse_probabilistic_fits.DO_PARAMS_PLOTS = False
 do_6_analyse_probabilistic_fits.N_CRIT_FOR_TS_PLOT = 3
 
 # same analysis as do_6.., just using different input and output files 
-do_6_analyse_probabilistic_fits.do(sc_fitting.COMB_FIT_FILE_NAME_FMT, 
-                                   sc_fitting.RETAINED_COMB_FNAME)
+comb_fits = do_6_analyse_probabilistic_fits.do(sc_fitting.COMB_FIT_FILE_NAME_FMT, 
+                                               sc_fitting.RETAINED_COMB_FNAME)
