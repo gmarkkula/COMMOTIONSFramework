@@ -18,10 +18,12 @@ import glob
 import pickle
 import copy
 import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.distributions.empirical_distribution import ECDF
 import collections
 import parameter_search
 import sc_fitting
-import do_2_analyse_deterministic_fits
+import sc_plot
 from do_2_analyse_deterministic_fits import SURPLUS_DEC_THRESH
 
 ExampleParameterisation = collections.namedtuple(
@@ -32,18 +34,23 @@ ExampleParameterisation = collections.namedtuple(
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = False
+DO_CRIT_PLOT = True
 N_MAIN_CRIT_FOR_PLOT = 2
 MODELS_TO_ANALYSE = 'all' 
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
-STOP_DIST_THRESH = 2 # m
+STOP_DIST_THRESH = sc_fitting.AGENT_LENGTHS[sc_fitting.i_VEH_AGENT] # m
 CRITERION_GROUPS = ('Main criteria',)
 i_MAIN = 0
 N_CRIT_GROUPS = len(CRITERION_GROUPS)
 CRITERIA = (('Short-stopping - deceleration', 
             'Short-stopping - distance margin'),)
 assert(N_CRIT_GROUPS == len(CRITERIA))
-# PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
-# VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
+CRIT_METRICS = (('$\overline{d}/d_\mathrm{stop}$ (-)',
+                 '$D_\mathrm{stop}$ (m)'),) 
+N_CRITERIA = 0
+CRIT_XMAX = (2.5, 20)
+for grp_criteria in CRITERIA:
+    N_CRITERIA += len(grp_criteria)
 N_MAIN_CRIT_FOR_RETAINING = 2
 PARAMS_JITTER = 0.015
 
@@ -55,6 +62,11 @@ def do():
     det_fit_files.sort()
     print(det_fit_files)
     
+    # need to prepare for criterion plot?
+    if DO_CRIT_PLOT:
+        crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
+                                          sharex='col', sharey=True, 
+                                          figsize=(6, 10), tight_layout=True)
     
     # loop through the deterministic fitting results files
     det_fits = {}
@@ -71,28 +83,44 @@ def do():
         print(f'Analysing model {det_fit.name},'
               f' {n_parameterisations} parameterisations...')
         
+        # split model name into base and variant
+        i_model_base, i_model_variant = sc_plot.split_model_name(det_fit.name)
+        
         # calculate criterion vectors
         criteria_matrices = []
+        i_crit_glob = -1
         for i_crit_grp in range(N_CRIT_GROUPS):
             print(f'\t{CRITERION_GROUPS[i_crit_grp]}:')
             criteria_matrices.append(
                 np.full((len(CRITERIA[i_crit_grp]), n_parameterisations), False))
             for i_crit, crit in enumerate(CRITERIA[i_crit_grp]):
+                i_crit_glob +=1
                 
                 # criterion-specific calculations
                 if crit == 'Short-stopping - deceleration':
                     veh_av_surplus_dec = det_fit.get_metric_results(
                         'VehShortStopAlt_veh_av_surpl_dec')
-                    crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
+                    crit_metric = veh_av_surplus_dec
+                    crit_thresh = SURPLUS_DEC_THRESH
+                    crit_greater_than = True
+                    #crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
                     
                 elif crit == 'Short-stopping - distance margin':
                     veh_stop_margin = det_fit.get_metric_results(
                         'VehShortStopAlt_veh_stop_margin')
-                    crit_met_all = veh_stop_margin > STOP_DIST_THRESH
+                    crit_metric = veh_stop_margin
+                    crit_thresh = STOP_DIST_THRESH
+                    crit_greater_than = True
+                    #crit_met_all = veh_stop_margin > STOP_DIST_THRESH
                 
                 else:
                     raise Exception(f'Unexpected criterion "{crit}".')
                     
+                # apply criterion across all kinematic variants
+                if crit_greater_than:
+                    crit_met_all = crit_metric > crit_thresh
+                else:
+                    crit_met_all = crit_metric < crit_thresh
                 # criterion met for model if met for at least one of the kinematic variants
                 crit_met_all = crit_met_all.reshape(-1, det_fit.n_scenario_variations) # in case there is just one parameterisation
                 crit_met = np.any(crit_met_all, axis=1)
@@ -101,6 +129,29 @@ def do():
                 n_crit_met = np.count_nonzero(crit_met)
                 print(f'\t\t{crit}: Found {n_crit_met}'
                       f' ({100 * n_crit_met / n_parameterisations:.1f} %) parameterisations.') 
+                
+                if DO_CRIT_PLOT:
+                    ax = crit_axs[i_model_base, i_crit_glob]
+                    # use the kinematic variation with max/min metric value,
+                    # depending on direction of criterion (and disregard NaNs)
+                    if crit_greater_than:
+                        ecdf = ECDF(np.nanmax(crit_metric, axis=1))
+                    else:
+                        ecdf = ECDF(np.nanmin(crit_metric, axis=1))
+                    ax.step(ecdf.x, ecdf.y, sc_plot.MVAR_LINESPECS[i_model_variant], 
+                            color=sc_plot.MVAR_COLORS[i_model_variant],
+                            lw=sc_plot.MVAR_LWS[i_model_variant])
+                    if i_model_base == 0:
+                        ax.set_title(crit, fontsize=8)
+                    elif i_model_base == sc_plot.N_BASE_MODELS-1:
+                        ax.set_xlabel(CRIT_METRICS[i_crit_grp][i_crit])
+                        if i_crit_glob == 0:
+                            ax.legend(sc_plot.MODEL_VARIANTS, fontsize=8)
+                    if i_crit_glob == 0:
+                        ax.set_ylabel(sc_plot.BASE_MODELS[i_model_base], 
+                                      fontsize=8)
+                    ax.axvline(crit_thresh, ls=':', color='gray')
+                    ax.set_xlim(0, CRIT_XMAX[i_crit_glob])
      
         
         # - look across multiple criteria

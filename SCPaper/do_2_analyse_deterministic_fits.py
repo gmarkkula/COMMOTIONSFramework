@@ -166,10 +166,12 @@ def do():
                 
                 if DO_CRIT_PLOT:
                     ax = crit_axs[i_model_base, i_crit_glob]
+                    # use the kinematic variation with max/min metric value,
+                    # depending on direction of criterion (and disregard NaNs)
                     if crit_greater_than:
-                        ecdf = ECDF(np.amax(crit_metric, axis=1))
+                        ecdf = ECDF(np.nanmax(crit_metric, axis=1))
                     else:
-                        ecdf = ECDF(np.amin(crit_metric, axis=1))
+                        ecdf = ECDF(np.nanmin(crit_metric, axis=1))
                     ax.step(ecdf.x, ecdf.y, sc_plot.MVAR_LINESPECS[i_model_variant], 
                             color=sc_plot.MVAR_COLORS[i_model_variant],
                             lw=sc_plot.MVAR_LWS[i_model_variant])
