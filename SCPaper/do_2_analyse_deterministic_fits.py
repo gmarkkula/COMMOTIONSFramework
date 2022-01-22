@@ -19,18 +19,23 @@ import glob
 import pickle
 import copy
 import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.distributions.empirical_distribution import ECDF
 import collections
 import parameter_search
 import sc_fitting
+import sc_plot
+
 
 ExampleParameterisation = collections.namedtuple(
     'ExampleParameterisation',['i_parameterisation', 'params_array', 
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-DO_TIME_SERIES_PLOTS = True
+DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = True
+DO_RETAINED_PARAMS_PLOT = False
+DO_CRIT_PLOT = True
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
@@ -48,6 +53,16 @@ CRITERIA = (('Vehicle asserting priority', 'Vehicle short-stopping',
             ('Pedestrian hesitation in constant-speed scenario',)
             )
 assert(N_CRIT_GROUPS == len(CRITERIA))
+CRIT_METRICS = (('$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
+                 '$\overline{d}/d_\mathrm{stop}$ (-)',
+                 '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
+                 '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)'), 
+                ('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',))
+N_CRITERIA = 0
+for grp_criteria in CRITERIA:
+    N_CRITERIA += len(grp_criteria)
+
+
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 N_MAIN_CRIT_FOR_RETAINING = 3
@@ -61,6 +76,11 @@ def do():
     det_fit_files.sort()
     print(det_fit_files)
     
+    # need to prepare for criterion plot?
+    if DO_CRIT_PLOT:
+        crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
+                                          sharex='col', sharey=True, 
+                                          figsize=(15, 10), tight_layout=True)
     
     # loop through the deterministic fitting results files
     det_fits = {}
@@ -77,40 +97,65 @@ def do():
         print(f'Analysing model {det_fit.name},'
               f' {n_parameterisations} parameterisations...')
         
+        # split model name into base and variant
+        i_model_base, i_model_variant = sc_plot.split_model_name(det_fit.name)
+        
         # calculate criterion vectors
         criteria_matrices = []
+        i_crit_glob = -1
         for i_crit_grp in range(N_CRIT_GROUPS):
             print(f'\t{CRITERION_GROUPS[i_crit_grp]}:')
             criteria_matrices.append(
                 np.full((len(CRITERIA[i_crit_grp]), n_parameterisations), False))
             for i_crit, crit in enumerate(CRITERIA[i_crit_grp]):
+                i_crit_glob +=1
                 
                 # criterion-specific calculations
                 if crit == 'Vehicle asserting priority':
                     veh_av_speed = det_fit.get_metric_results('VehPrioAssert_veh_av_speed')
-                    crit_met_all = veh_av_speed > SPEEDUP_FRACT * VEH_FREE_SPEED
+                    crit_metric = veh_av_speed / VEH_FREE_SPEED
+                    crit_thresh = SPEEDUP_FRACT
+                    crit_greater_than = True
+                    # crit_met_all = veh_av_speed > SPEEDUP_FRACT * VEH_FREE_SPEED
                     
                 elif crit == 'Vehicle short-stopping':
                     veh_av_surplus_dec = det_fit.get_metric_results(
                         'VehShortStop_veh_av_surpl_dec')
-                    crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
+                    crit_metric = veh_av_surplus_dec
+                    crit_thresh = SURPLUS_DEC_THRESH
+                    crit_greater_than = True
+                    # crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
                     
                 elif crit == 'Pedestrian hesitation in constant-speed scenario':
                     ped_av_speed = det_fit.get_metric_results('PedHesitateVehConst_ped_av_speed')
-                    crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
+                    crit_metric = ped_av_speed / PED_FREE_SPEED
+                    crit_thresh = HESITATION_SPEED_FRACT
+                    crit_greater_than = False
+                    # crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
                 
                 elif crit == 'Pedestrian hesitation in deceleration scenario':
                     ped_av_speed = det_fit.get_metric_results('PedHesitateVehYield_ped_av_speed')
-                    crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
+                    crit_metric = ped_av_speed / PED_FREE_SPEED
+                    crit_thresh = HESITATION_SPEED_FRACT
+                    crit_greater_than = False
+                    # crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
                     
                 elif crit == 'Pedestrian starting before vehicle at full stop':
                     veh_speed_at_ped_start = det_fit.get_metric_results(
                         'PedCrossVehYield_veh_speed_at_ped_start')
-                    crit_met_all = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
+                    crit_metric = veh_speed_at_ped_start
+                    crit_thresh = VEH_SPEED_AT_PED_START_THRESH
+                    crit_greater_than = True
+                    # crit_met_all = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
                 
                 else:
                     raise Exception(f'Unexpected criterion "{crit}".')
                     
+                # apply criterion across all kinematic variants
+                if crit_greater_than:
+                    crit_met_all = crit_metric > crit_thresh
+                else:
+                    crit_met_all = crit_metric < crit_thresh
                 # criterion met for model if met for at least one of the kinematic variants
                 crit_met = np.any(crit_met_all, axis=1)
                 criteria_matrices[i_crit_grp][i_crit, :] = crit_met
@@ -118,7 +163,30 @@ def do():
                 n_crit_met = np.count_nonzero(crit_met)
                 print(f'\t\t{crit}: Found {n_crit_met}'
                       f' ({100 * n_crit_met / n_parameterisations:.1f} %) parameterisations.') 
-     
+                
+                if DO_CRIT_PLOT:
+                    ax = crit_axs[i_model_base, i_crit_glob]
+                    if crit_greater_than:
+                        ecdf = ECDF(np.amax(crit_metric, axis=1))
+                    else:
+                        ecdf = ECDF(np.amin(crit_metric, axis=1))
+                    ax.step(ecdf.x, ecdf.y, sc_plot.MVAR_LINESPECS[i_model_variant], 
+                            color=sc_plot.MVAR_COLORS[i_model_variant],
+                            lw=sc_plot.MVAR_LWS[i_model_variant])
+                    if i_model_variant == sc_plot.N_MODEL_VARIANTS-1:
+                        if i_model_base == 0:
+                            ax.set_title(crit, fontsize=8)
+                            if i_crit_glob == 0:
+                                ax.legend(sc_plot.MODEL_VARIANTS, fontsize=8)
+                        elif i_model_base == sc_plot.N_BASE_MODELS-1:
+                            ax.set_xlabel(CRIT_METRICS[i_crit_grp][i_crit])
+                        if i_crit_glob == 0:
+                            ax.set_ylabel(sc_plot.BASE_MODELS[i_model_base], 
+                                          fontsize=8)
+                        ax.axvline(crit_thresh, ls=':', color='gray')
+                        
+            # end i_crit, crit for loop
+        # end i_crit_grp for loop
         
         # - look across multiple criteria
         main_criteria_matrix = criteria_matrices[i_MAIN]
