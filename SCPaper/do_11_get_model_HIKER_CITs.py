@@ -49,6 +49,10 @@ def run_fit(model_str, param_arrays):
 
 if __name__ == '__main__':
     
+    # run a dummy probablistic simulation to prevent problems with 
+    # parallelisation on ARC4 (see 2022-01-19 diary notes)
+    sc_fitting.run_dummy_prob_sim()
+    
     # load the retained models
     with open(sc_fitting.FIT_RESULTS_FOLDER + '/'
               + sc_fitting.RETAINED_COMB_FNAME, 'rb') as file_obj:
