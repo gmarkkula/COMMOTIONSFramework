@@ -16,11 +16,15 @@ if not PARENT_DIR in sys.path:
 # other imports
 import pickle
 import multiprocessing as mp
-#import numpy as np
+import numpy as np
 import sc_scenario
+import parameter_search
 import sc_fitting
 
+parameter_search.STATUS_REP_HEADER_LEN = 50 # long model names here...
+
 N_SCENARIO_REPS = 6
+MAX_PARAMETERISATIONS = 500
 
 
 def run_fit(model_str, param_arrays):
@@ -49,13 +53,29 @@ if __name__ == '__main__':
     with open(sc_fitting.FIT_RESULTS_FOLDER + '/'
               + sc_fitting.RETAINED_COMB_FNAME, 'rb') as file_obj:
         comb_models = pickle.load(file_obj)
+        
+    # initialise random number generator
+    rng = np.random.default_rng()
 
     for comb_model in comb_models:
+        
+        # - subsample the matrix of parameterisations if needed
+        n_parameterisations = comb_model.params_array.shape[0]
+        if n_parameterisations > MAX_PARAMETERISATIONS:
+            idx_included = rng.choice(n_parameterisations, 
+                                      size=MAX_PARAMETERISATIONS, 
+                                      replace=False)
+            params_matrix = comb_model.params_array[idx_included, :]
+        else:
+            params_matrix = comb_model.params_array
+            
+        print(f'Model {comb_model.model}: Testing'
+              f' {params_matrix.shape[0]} parameterisations...')
         
         # build a dict of the parameter values to test
         param_arrays_dict = {}
         for i_param, param_name in enumerate(comb_model.param_names):
-            param_arrays_dict[param_name] = comb_model.params_array[:, i_param]
+            param_arrays_dict[param_name] = params_matrix[:, i_param]
         
         # run fit across these parameterisations
         run_fit(comb_model.model, param_arrays_dict)
