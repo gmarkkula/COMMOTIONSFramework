@@ -301,6 +301,25 @@ class SCAgent(commotions.AgentWithGoal):
                                                     state.long_acc),
                                   color=plot_color, alpha=alpha_val,
                                   ha='center', va='center', size=8)
+            
+            
+    def add_snapshot_info(self, snapshot_str, snapshot_loc, snapshot_color):
+        if snapshot_loc == 'topleft':
+            text_x = 0.05
+            text_y = 0.95
+            halign = 'left'
+            valign = 'top'
+        elif snapshot_loc == 'bottomright':
+            text_x = 0.95
+            text_y = 0.05
+            halign = 'right'
+            valign = 'bottom'
+        else:
+            raise Exception('Unexpected location for snapshot info.')
+        self.snapshot_axs[0].text(text_x, text_y, snapshot_str, 
+                              transform=self.snapshot_axs[0].transAxes,
+                              ha=halign, va=valign, fontsize=7,
+                              color=snapshot_color)
     
     
     def noisy_lp_filter(self, T, sigma, prevXhat, currXtilde):
@@ -489,33 +508,33 @@ class SCAgent(commotions.AgentWithGoal):
                 # is this behaviour valid for this time step? 
                 # (if not leave values as NaNs)
                 if beh_is_valid[i_beh]:
+                    # doing snapshot?
+                    if self.do_snapshot_now:
+                        # create a temporary list of the snapshot axes for
+                        # the current action-behaviour combination
+                        # (used also for more detailed snapshot plotting)
+                        self.snapshot_axs = []
+                        for fig_ax in fig_axs:
+                            self.snapshot_axs.append(fig_ax[i_beh, i_action])
+                        # plot basic state snapshot info
+                        self.plot_state_snapshot(self.curr_state, 
+                                                 self.plot_color, 
+                                                 alpha=True)
+                        self.plot_state_snapshot(self.other_agent.curr_state, 
+                                                 'lightgray', 
+                                                 alpha=True)
+                        self.plot_state_snapshot(self.perception.perc_oth_state, 
+                                                 self.other_agent.plot_color, 
+                                                 alpha=True)
+                        self.plot_state_snapshot(pred_own_states[i_action],
+                                                 self.plot_color, 
+                                                 speed_label = True)
+                        self.plot_state_snapshot(pred_oth_states[i_beh],
+                                                 self.other_agent.plot_color, 
+                                                 speed_label = True)
                     # what type of value functions (affordance-based or not?)
                     if self.assumptions[OptionalAssumption.oVA]:
                         # affordance-based value functions
-                        # doing snapshot?
-                        if self.do_snapshot_now:
-                            # create a temporary list of the snapshot axes for
-                            # the current action-behaviour combination
-                            # (used also for more detailed snapshot plotting)
-                            self.snapshot_axs = []
-                            for fig_ax in fig_axs:
-                                self.snapshot_axs.append(fig_ax[i_beh, i_action])
-                            # plot basic state snapshot info
-                            self.plot_state_snapshot(self.curr_state, 
-                                                     self.plot_color, 
-                                                     alpha=True)
-                            self.plot_state_snapshot(self.other_agent.curr_state, 
-                                                     'lightgray', 
-                                                     alpha=True)
-                            self.plot_state_snapshot(self.perception.perc_oth_state, 
-                                                     self.other_agent.plot_color, 
-                                                     alpha=True)
-                            self.plot_state_snapshot(pred_own_states[i_action],
-                                                     self.plot_color, 
-                                                     speed_label = True)
-                            self.plot_state_snapshot(pred_oth_states[i_beh],
-                                                     self.other_agent.plot_color, 
-                                                     speed_label = True)
                         # get value for me of this action/behavior combination,
                         # storing both the per-access-order values and the max value
                         # of those                        
@@ -972,22 +991,7 @@ class SCAgent(commotions.AgentWithGoal):
             
         # snapshot info
         if self.do_snapshot_now:
-            if snapshot_loc == 'topleft':
-                text_x = 0.05
-                text_y = 0.95
-                halign = 'left'
-                valign = 'top'
-            elif snapshot_loc == 'bottomright':
-                text_x = 0.95
-                text_y = 0.05
-                halign = 'right'
-                valign = 'bottom'
-            else:
-                raise Exception('Unexpected location for snapshot info.')
-            self.snapshot_axs[0].text(text_x, text_y, snapshot_str, 
-                                  transform=self.snapshot_axs[0].transAxes,
-                                  ha=halign, va=valign, fontsize=7,
-                                  color=snapshot_color)
+            self.add_snapshot_info(snapshot_str, snapshot_loc, snapshot_color)
             
         return access_order_values
         
@@ -1021,7 +1025,8 @@ class SCAgent(commotions.AgentWithGoal):
 
 
     def get_value_of_state_for_agent(self, own_image, own_state, own_goal, 
-                                     oth_image, oth_state):
+                                     oth_image, oth_state, 
+                                     snapshot_color, snapshot_loc):
 
         heading_vector = np.array([math.cos(own_state.yaw_angle), \
             math.sin(own_state.yaw_angle)])
@@ -1069,6 +1074,10 @@ class SCAgent(commotions.AgentWithGoal):
                 value += -own_image.params.k._sc * (own_state.long_speed \
                     / (2 * time_to_agent_collision)) ** 2  
         
+        
+        if self.do_snapshot_now:
+            snapshot_str = 'V = %.2f' % value
+            self.add_snapshot_info(snapshot_str, snapshot_loc, snapshot_color)
                     
         # squash the value with a sigmoid
         value = self.squash_value(value)
@@ -1081,7 +1090,8 @@ class SCAgent(commotions.AgentWithGoal):
         value = -self.params.k._e * self.params.ctrl_deltas[i_action] ** 2
         # add value of the state
         value += self.get_value_of_state_for_agent(
-            self.self_image, my_state, self.goal, self.oth_image, oth_state)
+            self.self_image, my_state, self.goal, self.oth_image, oth_state,
+            snapshot_color = self.plot_color, snapshot_loc = 'topleft')
         return value
 
 
@@ -1093,7 +1103,9 @@ class SCAgent(commotions.AgentWithGoal):
         # add value of the state
         value += self.get_value_of_state_for_agent(
                 self.oth_image, oth_state, self.other_agent.goal, 
-                self.self_image, my_state) 
+                self.self_image, my_state,
+                snapshot_color = self.other_agent.plot_color,
+                snapshot_loc = 'bottomright') 
         return value
 
 
