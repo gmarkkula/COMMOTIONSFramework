@@ -1494,7 +1494,7 @@ class SCSimulation(commotions.Simulation):
             self.first_passer = self.agents[i_first_passer]
             
     
-    def do_kinem_states_plot(self, axs, veh_stop_dec=False):
+    def do_kinem_states_plot(self, axs, veh_stop_dec=False, axis_labels=False):
         """
         Plot kinematic simulation states.
 
@@ -1527,7 +1527,8 @@ class SCSimulation(commotions.Simulation):
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
                          '-' + agent.plot_color)
                 axs[0].set_xlim(self.time_stamps[0], self.actual_end_time)
-                axs[0].set_ylabel('a (m/s^2)') 
+                if axis_labels:
+                    axs[0].set_ylabel('a (m/s^2)') 
                 
             # speed
             if len(axs) > 1 and (not(axs[1] == None)):
@@ -1537,7 +1538,8 @@ class SCSimulation(commotions.Simulation):
                 axs[1].plot(self.time_stamps, agent.trajectory.long_speed, 
                          '-' + agent.plot_color)
                 axs[1].set_ylim(-1, 15)
-                axs[1].set_ylabel('v (m/s)') 
+                if axis_labels:
+                    axs[1].set_ylabel('v (m/s)') 
             
             # distance to conflict point
             if len(axs) > 2 and (not(axs[2] == None)):
@@ -1569,7 +1571,8 @@ class SCSimulation(commotions.Simulation):
                 axs[2].plot(self.time_stamps, agent.signed_CP_dists, 
                          '-' + agent.plot_color)
                 axs[2].set_ylim(-5, 5)
-                axs[2].set_ylabel('$d_{CP}$ (m)') 
+                if axis_labels:
+                    axs[2].set_ylabel('$d_{CP}$ (m)') 
             
             # apparent time to conflict space entry
             if len(axs) > 3 and (not(axs[3] == None)):
@@ -1580,7 +1583,8 @@ class SCSimulation(commotions.Simulation):
                                 (agent.signed_CP_dists - agent.coll_dist) 
                                 / agent.trajectory.long_speed, '-' + agent.plot_color)
                 axs[3].set_ylim(-1, 8)
-                axs[3].set_ylabel('$TTCS_{app}$ (s)')
+                if axis_labels:
+                    axs[3].set_ylabel('$TTCS_{app}$ (s)')
             
         # distance margin to agent collision
         if len(axs) > 4 and (not(axs[4] == None)):
@@ -1594,8 +1598,9 @@ class SCSimulation(commotions.Simulation):
             axs[4].plot(self.time_stamps[coll_idxs], 
                      coll_margins[coll_idxs], 'r-')
             axs[4].set_ylim(-1, 10)
-            axs[4].set_ylabel('$d_{coll}$ (m)')
-            axs[4].set_xlabel('t (s)')      
+            if axis_labels:
+                axs[4].set_ylabel('$d_{coll}$ (m)')
+                axs[4].set_xlabel('t (s)')      
     
             
     def do_plots(self, trajs = False, action_vals = False, action_probs = False, 
