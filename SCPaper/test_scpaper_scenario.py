@@ -69,10 +69,10 @@ if True:
         tic = time.perf_counter()
         sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
                                            i_variation=i_var, 
-                                           snapshots=((6,), None),
+                                           snapshots=(None, None),
                                            detailed_snapshots=True,
                                            noise_seeds=(None, None), 
-                                           apply_stop_criteria=True)
+                                           apply_stop_criteria=False)
         toc = time.perf_counter()
         print('Initialising and running simulation took %.3f s.' % (toc - tic,))
         sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 

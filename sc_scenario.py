@@ -1493,7 +1493,110 @@ class SCSimulation(commotions.Simulation):
             # at least one agent entered the conflict area
             self.first_passer = self.agents[i_first_passer]
             
-                                
+    
+    def do_kinem_states_plot(self, axs, veh_stop_dec=False):
+        """
+        Plot kinematic simulation states.
+
+        Parameters
+        ----------
+        axs : array of Matplotlib Axes.
+            The axes to plot into: (0) acceleration, (1) speed, (2) distance
+            to conflict point, (3) apparent time to conflict space entry,
+            (4) collision distance margin. Provide a shorter array or set any
+            element to None to omit that plot.
+        veh_stop_dec : bool, optional
+            Include require yielding deceleration for cars in the acceleration
+            plot. The default is False.
+
+        Returns
+        -------
+        None.
+
+        """
+        for i_agent, agent in enumerate(self.agents):
+                
+            # acceleration
+            if not(axs[0] == None):
+                if veh_stop_dec and agent.ctrl_type == CtrlType.ACCELERATION:
+                    stop_dists = (agent.signed_CP_dists - agent.coll_dist 
+                                  - agent.params.D_s)
+                    stop_accs = -(agent.trajectory.long_speed ** 2 / (2 * stop_dists))
+                    axs[0].plot(self.time_stamps, stop_accs, 
+                                '--' + agent.plot_color, alpha = 0.5)
+                axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
+                         '-' + agent.plot_color)
+                axs[0].set_xlim(self.time_stamps[0], self.actual_end_time)
+                axs[0].set_ylabel('a (m/s^2)') 
+                
+            # speed
+            if len(axs) > 1 and (not(axs[1] == None)):
+                axs[1].plot(self.time_stamps, 
+                            agent.other_agent.perception.states.x_perceived[1, :], 
+                            '-' + agent.plot_color, lw=1, alpha=0.3)
+                axs[1].plot(self.time_stamps, agent.trajectory.long_speed, 
+                         '-' + agent.plot_color)
+                axs[1].set_ylim(-1, 15)
+                axs[1].set_ylabel('v (m/s)') 
+            
+            # distance to conflict point
+            if len(axs) > 2 and (not(axs[2] == None)):
+                # - get CS entry/exit times
+                in_CS_idxs = np.nonzero(np.abs(agent.signed_CP_dists) 
+                                        <= agent.coll_dist)[0]
+                if len(in_CS_idxs) > 0:
+                    t_en = self.time_stamps[in_CS_idxs[0]]
+                    t_ex = self.time_stamps[in_CS_idxs[-1]]
+                else:
+                    t_en = math.nan
+                    t_ex = math.nan
+                # - illustrate when agent is in CS
+                axs[2].fill(np.array((t_en, t_ex, t_ex, t_en)), 
+                         np.array((-1, -1, 1, 1)) * agent.coll_dist, 
+                         color = agent.plot_color, alpha = 0.3,
+                         edgecolor = None)
+                # - horizontal lines
+                axs[2].axhline(agent.coll_dist, color=agent.plot_color, 
+                               linestyle='--', lw=0.5, alpha=0.5)
+                axs[2].axhline(-agent.coll_dist, color=agent.plot_color, 
+                               linestyle='--', lw=0.5, alpha=0.5)
+                if i_agent == 0:
+                    axs[2].axhline(0, color='k', linestyle=':')
+                # - plot the distance itself
+                axs[2].plot(self.time_stamps, 
+                            agent.other_agent.perception.states.x_perceived[0, :], 
+                            '-' + agent.plot_color, lw=1, alpha=0.3)
+                axs[2].plot(self.time_stamps, agent.signed_CP_dists, 
+                         '-' + agent.plot_color)
+                axs[2].set_ylim(-5, 5)
+                axs[2].set_ylabel('$d_{CP}$ (m)') 
+            
+            # apparent time to conflict space entry
+            if len(axs) > 3 and (not(axs[3] == None)):
+                if i_agent == 0:
+                    axs[3].axhline(0, color='k', linestyle=':')
+                with np.errstate(divide='ignore'):
+                    axs[3].plot(self.time_stamps, 
+                                (agent.signed_CP_dists - agent.coll_dist) 
+                                / agent.trajectory.long_speed, '-' + agent.plot_color)
+                axs[3].set_ylim(-1, 8)
+                axs[3].set_ylabel('$TTCS_{app}$ (s)')
+            
+        # distance margin to agent collision
+        if len(axs) > 4 and (not(axs[4] == None)):
+            axs[4].axhline(0, color='k', linestyle=':')
+            coll_margins, coll_idxs = \
+                get_sc_agent_collision_margins(self.agents[0].signed_CP_dists, 
+                                               self.agents[1].signed_CP_dists,
+                                               self.agents[0].coll_dist, 
+                                               self.agents[1].coll_dist)
+            axs[4].plot(self.time_stamps, coll_margins, 'k-')
+            axs[4].plot(self.time_stamps[coll_idxs], 
+                     coll_margins[coll_idxs], 'r-')
+            axs[4].set_ylim(-1, 10)
+            axs[4].set_ylabel('$d_{coll}$ (m)')
+            axs[4].set_xlabel('t (s)')      
+    
             
     def do_plots(self, trajs = False, action_vals = False, action_probs = False, 
                  action_val_ests = False, surplus_action_vals = False, 
@@ -1701,107 +1804,10 @@ class SCSimulation(commotions.Simulation):
             # - kinematic/action states
             fig = plt.figure('Kinematic and action states', figsize = (5, 6))
             plt.clf()
-            """             N_PLOTROWS = 3
-            for i_agent, agent in enumerate(self.agents):
-                # position
-                plt.subplot(N_PLOTROWS, N_AGENTS, 0 * N_AGENTS +  i_agent + 1)
-                plt.plot(self.time_stamps, agent.trajectory.pos.T)
-                plt.title('Agent %s' % agent.name)
-                if i_agent == 0:
-                    plt.ylabel('pos (m)')
-                else:
-                    plt.legend(('x', 'y'))
-                # speed
-                plt.subplot(N_PLOTROWS, N_AGENTS, 1 * N_AGENTS +  i_agent + 1)
-                plt.plot(self.time_stamps, agent.trajectory.long_speed)
-                #plt.ylim(-1, 2)
-                if i_agent == 0:
-                    plt.ylabel('v (m/s)')
-                # acceleration
-                plt.subplot(N_PLOTROWS, N_AGENTS, 2 * N_AGENTS +  i_agent + 1)
-                plt.plot(self.time_stamps, agent.trajectory.long_acc)
-                plt.ylim(-6, 6)
-                if i_agent == 0:
-                    plt.ylabel('a (m/s^2)') """
             N_PLOTROWS = 5
             axs = fig.subplots(N_PLOTROWS, 1, sharex=True)
-            for i_agent, agent in enumerate(self.agents):
-                
-                # acceleration
-                if veh_stop_dec and agent.ctrl_type == CtrlType.ACCELERATION:
-                    stop_dists = (agent.signed_CP_dists - agent.coll_dist 
-                                  - agent.params.D_s)
-                    stop_accs = -(agent.trajectory.long_speed ** 2 / (2 * stop_dists))
-                    axs[0].plot(self.time_stamps, stop_accs, 
-                                '--' + agent.plot_color, alpha = 0.5)
-                axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
-                         '-' + agent.plot_color)
-                axs[0].set_xlim(self.time_stamps[0], self.actual_end_time)
-                axs[0].set_ylabel('a (m/s^2)') 
-                
-                # speed
-                axs[1].plot(self.time_stamps, 
-                            agent.other_agent.perception.states.x_perceived[1, :], 
-                            '-' + agent.plot_color, lw=1, alpha=0.3)
-                axs[1].plot(self.time_stamps, agent.trajectory.long_speed, 
-                         '-' + agent.plot_color)
-                axs[1].set_ylim(-1, 15)
-                axs[1].set_ylabel('v (m/s)') 
-                
-                # distance to conflict point
-                # - get CS entry/exit times
-                in_CS_idxs = np.nonzero(np.abs(agent.signed_CP_dists) 
-                                        <= agent.coll_dist)[0]
-                if len(in_CS_idxs) > 0:
-                    t_en = self.time_stamps[in_CS_idxs[0]]
-                    t_ex = self.time_stamps[in_CS_idxs[-1]]
-                else:
-                    t_en = math.nan
-                    t_ex = math.nan
-                # - illustrate when agent is in CS
-                axs[2].fill(np.array((t_en, t_ex, t_ex, t_en)), 
-                         np.array((-1, -1, 1, 1)) * agent.coll_dist, 
-                         color = agent.plot_color, alpha = 0.3,
-                         edgecolor = None)
-                # - horizontal lines
-                axs[2].axhline(agent.coll_dist, color=agent.plot_color, 
-                               linestyle='--', lw=0.5, alpha=0.5)
-                axs[2].axhline(-agent.coll_dist, color=agent.plot_color, 
-                               linestyle='--', lw=0.5, alpha=0.5)
-                if i_agent == 0:
-                    axs[2].axhline(0, color='k', linestyle=':')
-                # - plot the distance itself
-                axs[2].plot(self.time_stamps, 
-                            agent.other_agent.perception.states.x_perceived[0, :], 
-                            '-' + agent.plot_color, lw=1, alpha=0.3)
-                axs[2].plot(self.time_stamps, agent.signed_CP_dists, 
-                         '-' + agent.plot_color)
-                axs[2].set_ylim(-5, 5)
-                axs[2].set_ylabel('$d_{CP}$ (m)') 
-                
-                # apparent time to conflict space entry
-                if i_agent == 0:
-                    axs[3].axhline(0, color='k', linestyle=':')
-                with np.errstate(divide='ignore'):
-                    axs[3].plot(self.time_stamps, 
-                                (agent.signed_CP_dists - agent.coll_dist) 
-                                / agent.trajectory.long_speed, '-' + agent.plot_color)
-                axs[3].set_ylim(-1, 8)
-                axs[3].set_ylabel('$TTCS_{app}$ (s)')
-                
-            # distance margin to agent collision
-            axs[4].axhline(0, color='k', linestyle=':')
-            coll_margins, coll_idxs = \
-                get_sc_agent_collision_margins(self.agents[0].signed_CP_dists, 
-                                               self.agents[1].signed_CP_dists,
-                                               self.agents[0].coll_dist, 
-                                               self.agents[1].coll_dist)
-            axs[4].plot(self.time_stamps, coll_margins, 'k-')
-            axs[4].plot(self.time_stamps[coll_idxs], 
-                     coll_margins[coll_idxs], 'r-')
-            axs[4].set_ylim(-1, 10)
-            axs[4].set_ylabel('$d_{coll}$ (m)')
-            axs[4].set_xlabel('t (s)')      
+            self.do_kinem_states_plot(axs, veh_stop_dec)
+            
             
 
         if times_to_ca:
