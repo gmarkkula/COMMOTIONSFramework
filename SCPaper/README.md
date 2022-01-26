@@ -56,33 +56,33 @@
                 * ~~To think about:~~
                     * ~~Should the estimated entry/exit times take safety margins into account, to prevent the kinds of problems discussed below under "`oVAaoVAl[oBEo]BEv`..." in the 2021-11-27 notes?~~
                     * ~~Possibly modify so that the ego agent doesn't assume that the other agent sees the ego agent's acceleration - when calculating values of behaviours for the other agent. ... I have looked at this now and it seems to create some unintended knock-on effects, so leaving as is at least for now.~~
-    * Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).
+    * ~~Circle back and rerun the deterministic fits, since some of the implementation for the probabilistic fits may have changed these results slightly (see e.g. 2021-11-09 diary notes).~~
         * ~~Maybe first on my own computer...?~~
         * ~~... And then on a faster computer, with an expanded grid? Feels like it would be possible to aim for a factor ten increase in parameterisations tested (i.e., about 10<sup>5</sup> parameterisations tested for the most complex models).~~
             * ~~Requires restructuring the fitting classes a bit to allow parallel processing of parameterisations within a model variant fit.~~
         * ~~Get ready to run (near-)final large-scale fits on ARC:~~
             * ~~Verify all steps of the probabilistic fits on small/medium grids.~~
-            * Tweaks identified 2022-01-02:
+            * ~~Tweaks identified 2022-01-02~~:
                 * ~~Fix the bug in the looming value calculations, giving non-zero looming values also when $\dot{\theta} < \dot{\theta}_0$.~~
                 * ~~Fix the awkward assumption combination for the `oVAaoBE*` models, I think preferably by considering ego-accelerations for acceleration-controlling but not speed-controlling ego agents, when generating other-behaviour hypotheses in these models.~~
                 * ~~Possibly: Update the numerical looming integration to also include movement after regaining free speed, if still not fully clear of the conflict space. (Deciding now that this is probably not needed; see 2022-01-03 notes.)~~
                 * ~~Extend the search range for $\dot{\theta}_1$ downward, and probably also set $\dot{\theta}_0$ = 0.~~
-        * Run large-scale ARC fits.
-        * Sensitivity analysis on the criterion thresholds.
-    * Run probabilistic fits       
+        * ~~Run large-scale ARC fits.~~
+        * ~~Sensitivity analysis on the criterion thresholds.~~
+    * ~~Run probabilistic fits~~       
         * ~~Preparing the fitting class in `sc_fitting.py` for probabilistic fitting.~~
             * ~~Add support for multiple repetitions.~~
             * ~~Move the functionality in `get_metrics_for_params()` outside of the class, to allow for parallelisation of parameterisations.~~
-        * `oVA` only
+        * ~~`oVA` only~~
             * ~~Make sure scenarios and metrics are in order.~~
             * ~~Decide on a parameter grid.~~
             * Run a medium-sized grid for the noisy `oVA` models.
-            * Decide in some structured way (based on the updated large deterministic fits?) on a fixed value of $T_\delta$ for the `oVA` fits.
-        * With `oBE*` etc
-            * Think through `oBEo` in light of the noisy perception -> requires a slightly updated expression for the Bayesian update I think?
+            * ~~Decide in some structured way (based on the updated large deterministic fits?) on a fixed value of $T_\delta$ for the `oVA` fits.~~
+        * ~~With `oBE*` etc~~
+            * ~~Think through `oBEo` in light of the noisy perception -> requires a slightly updated expression for the Bayesian update I think? (dropping this)~~
             * ~~Add support for combining a list of parameterisations for some parameters with a list/grid of some other parameters.~~
-            * Expand noise magnitude grid to both smaller and larger values (see 2022-01-01 diary notes).
-            * Run retained `oVAoBE*` models with retained noisy assumptions from the noisy `oVA` fits.
+            * ~~Expand noise magnitude grid to both smaller and larger values (see 2022-01-01 diary notes).~~
+            * ~~Run retained `oVAoBE*` models with retained noisy assumptions from the noisy `oVA` fits.~~
         * ~~Speedups:~~
             * ~~Add support for specifying additional simulation stopping criteria, in the `sc_fitting.SCPaperScenario` and `sc_scenario.SCSimulation` classes etc.~~
             * ~~Add option to keep agent acceleration constant after an agent has exited the conflict space: new init argument `const_acc_after_exit` in `SCSimulation` and `SCAgent`.~~
@@ -95,13 +95,20 @@
         * ~~Allow piecewise constant acceleration of agents - to account for the deceleration of the second vehicle in the HIKER paradigm not occurring from start of trial.~~
     * ~~Create a class derived from `SCPaperScenario` for the (non-eHMI) HIKER scenarios.~~
         * ~~Extend `SCPaperScenario` with support for early conflict space entry penalisation and piecewise constant acceleration of agents.~~
-        * Next steps:
+        * ~~Next steps:~~
             * ~~Look at test simulations of the various scenarios; look through the distances at start/end of deceleration, from front bumper etc...~~
             * ~~Look through the previously defined scenarios for deterministic/probabilistic fitting, to make sure they have not become broken/modified.~~
             * ~~Implement `metric_hiker_cit`~~
     * ~~Implement and run a script for testing combined-fit models on the HIKER scenarios.~~
     * ~~Read the empirical HIKER CITs.~~
     * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
+* Results analysis and plotting todos:
+    * Sensitivity analysis for the probabilistic and combined fits
+    * Example deterministic time-series plots
+    * Illustration of oBEvoAI for base model and oVA model
+    * Plot illustrating oSN* hesitation
+    * Illustration of the mechanism behind oSN* hesitation
+    * Analysis/plot of interaction outcomes in probabilistic and combined fits (first-passer and interaction duration)
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
 
