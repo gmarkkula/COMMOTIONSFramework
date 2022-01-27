@@ -102,9 +102,9 @@
     * ~~Implement and run a script for testing combined-fit models on the HIKER scenarios.~~
     * ~~Read the empirical HIKER CITs.~~
     * Implement some metric for quantifying model goodness of fit of the HIKER data. Likelihood for some binning of the model/data crossing initiation times?
-* Results analysis and plotting todos:
-    * Sensitivity analysis for the probabilistic and combined fits
-    * Example deterministic time-series plots
+* Fist round of results analysis and plotting todos:
+    * ~~Sensitivity analysis for the probabilistic and combined fits~~
+    * ~~Example deterministic time-series plots~~
     * Illustration of oBEvoAI for base model and oVA model
     * Plot illustrating oSN* hesitation
     * Illustration of the mechanism behind oSN* hesitation
