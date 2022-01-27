@@ -488,7 +488,7 @@ class SCAgent(commotions.AgentWithGoal):
                 # - which snapshots to do?
                 snapshots = []
                 snapshots.append('') # basic state info
-                if self.detailed_snapshots:
+                if self.detailed_snapshots and self.assumptions[OptionalAssumption.oVA]:
                     snapshots.append('(kinematics) ') # kinematics details
                     if self.assumptions[OptionalAssumption.oVAl]:
                         snapshots.append('(looming) ') # looming details
