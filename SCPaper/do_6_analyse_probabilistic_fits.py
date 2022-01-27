@@ -18,6 +18,8 @@ import glob
 import pickle
 import copy
 import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.distributions.empirical_distribution import ECDF
 import collections
 import parameter_search
 import sc_fitting
@@ -28,14 +30,16 @@ ExampleParameterisation = collections.namedtuple(
                                 'params_dict', 'crit_dict'])
 
 # constants
-DO_TIME_SERIES_PLOTS = True
+DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = True
+DO_RETAINED_PARAMS_PLOT = False
+DO_CRIT_PLOT = True
 N_CRIT_FOR_PARAMS_PLOT = 4
 N_CRIT_FOR_RETAINING = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
+HESITATION_SPEED_FRACT = 0.95
 CRITERIA = ('Collision-free encounter', 
             'Collision-free encounter with pedestrian priority', 
             'Collision-free pedestrian lead situation', 
@@ -46,7 +50,9 @@ PARAMS_JITTER = 0.015
 #N_MAIN_CRIT_FOR_RETAINING = 3
 
 
-def do(prob_fit_file_name_fmt, retained_fits_file_name):
+
+def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
+       ylabel_rotation='vertical'):
 
     # find pickle files from probabilistic fitting
     prob_fit_files = glob.glob(sc_fitting.FIT_RESULTS_FOLDER + 
@@ -54,11 +60,19 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
     prob_fit_files.sort()
     print(prob_fit_files)
     
+    # need to prepare for criterion plot?
+    if DO_CRIT_PLOT:
+        fig_height = 2 + len(prob_fit_files)
+        crit_fig, crit_axs = plt.subplots(nrows=len(prob_fit_files), 
+                                          ncols=len(CRITERIA),
+                                          sharex='col', sharey=True, 
+                                          figsize=(12, fig_height), 
+                                          tight_layout=True)
     
     # loop through the fitting results files
     prob_fits = {}
     retained_models = []
-    for prob_fit_file in prob_fit_files:
+    for i_prob_fit_file, prob_fit_file in enumerate(prob_fit_files):
         print()
         prob_fit = parameter_search.load(prob_fit_file, verbose=True)
         if ((not(MODELS_TO_ANALYSE == 'all') and not (prob_fit.name in MODELS_TO_ANALYSE))
@@ -74,6 +88,19 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
         criteria_matrix = np.full((len(CRITERIA), n_parameterisations), False)
         for i_crit, crit in enumerate(CRITERIA):
             
+            # prepare criterion plot axes?
+            if DO_CRIT_PLOT:
+                if model_plot_order == None:
+                    i_row = i_prob_fit_file
+                else:
+                    i_row = model_plot_order.index(prob_fit.name)
+                ax = crit_axs[i_row, i_crit]
+                if i_prob_fit_file == 0:
+                    ax.set_title(crit, fontsize=8)
+                if i_crit == 0:
+                    ax.set_ylabel(prob_fit.name, fontsize=8, 
+                                  rotation=ylabel_rotation)
+            
             # criterion-specific calculations
             if 'Collision-free' in crit:
                 # note that the next line of code assumes ordering of criteria is
@@ -84,13 +111,37 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
                 coll_free_rep = np.logical_not(collisions)
                 # criterion met for parameterisation if no collisions for any of the repetitions
                 crit_met = np.all(coll_free_rep, axis=1)
+                # criterion plot?
+                if DO_CRIT_PLOT:
+                    perc_coll_free_reps = 100 * (np.sum(coll_free_rep, axis=1)
+                                                 / prob_fit.n_repetitions)
+                    ecdf = ECDF(perc_coll_free_reps)
+                    ax.step(ecdf.x, ecdf.y, 'r-', lw=1)
+                    ax.set_xlim(-5, 105)
+                    if i_row == len(prob_fit_files)-1:
+                        ax.set_xlabel('Collision-free repetitions (%)')
+                    
                 
             elif crit == 'Pedestrian hesitation in constant-speed scenario':
                 ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
-                crit_met_all = ((ped_av_speed < 0.95 * PED_FREE_SPEED)
+                crit_met_all = ((ped_av_speed 
+                                 < HESITATION_SPEED_FRACT * PED_FREE_SPEED)
                                 | np.isnan(ped_av_speed))
                 # criterion met for parameterisation if met for enough of the repetitions
                 crit_met = np.sum(crit_met_all, axis=1) >= 4
+                # criterion plot?
+                if DO_CRIT_PLOT:
+                    metric = ped_av_speed / PED_FREE_SPEED
+                    metric_sorted = np.sort(metric, axis=1)
+                    for n_reps in range(prob_fit.n_repetitions):
+                        ecdf = ECDF(metric_sorted[:, n_reps])
+                        ax.step(ecdf.x, ecdf.y, 'k-', lw=2, 
+                                alpha=(n_reps+1)/prob_fit.n_repetitions)
+                    ax.set_xlim(0.2, 1.2)
+                    ax.axvline(HESITATION_SPEED_FRACT, ls=':', color='gray')
+                    if i_row == len(prob_fit_files)-1:
+                        ax.set_xlabel('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
+                        
             
             else:
                 raise Exception(f'Unexpected criterion "{crit}".')
@@ -186,4 +237,8 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name):
 
 if __name__ == '__main__':
     # run the analysis on the "pure" probabilistic fits
-    do(sc_fitting.PROB_FIT_FILE_NAME_FMT, sc_fitting.RETAINED_PROB_FNAME)
+    MODEL_PLOT_ORDER = ('oVAoAN', 'oVAoEAoAN',
+                        'oVAoSNc', 'oVAoEAoSNc', 'oVAoSNcoPF', 'oVAoEAoSNcoPF',
+                        'oVAoSNv', 'oVAoEAoSNv', 'oVAoSNvoPF', 'oVAoEAoSNvoPF')
+    do(sc_fitting.PROB_FIT_FILE_NAME_FMT, sc_fitting.RETAINED_PROB_FNAME,
+       model_plot_order=MODEL_PLOT_ORDER)
