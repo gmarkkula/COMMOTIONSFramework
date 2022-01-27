@@ -23,7 +23,7 @@ import sc_scenario_helper
 import sc_fitting
 
 # set model
-MODEL = 'oVAoBEvoAI'
+MODEL = 'oBEvoAI'
 # get assumptions and default parameters for chosen model
 assumptions = sc_scenario.get_assumptions_dict_from_string(MODEL)
 params = copy.deepcopy(sc_fitting.DEFAULT_PARAMS)
@@ -39,20 +39,22 @@ params_k = copy.deepcopy(sc_fitting.get_default_params_k(MODEL))
 params.T_delta = 60
 #params.thetaDot_1 = 0.00
 #params.thetaDot_1 = 0.001
-params.beta_V = 20
+params.beta_V = 40
 #params.T_Of = 3.7
 #params.sigma_O = 1.2
-# for ctrl_type in sc_scenario_helper.CtrlType:
-#     params_k[ctrl_type]._c = 0.55651188
-#     params_k[ctrl_type]._sc = 0.055651188
+for ctrl_type in sc_scenario_helper.CtrlType:
+    params_k[ctrl_type]._c = 1
+    params_k[ctrl_type]._sc = 0.02
 
-
+params.T_s = 0.5
+params.D_s = 0.5
+params.ctrl_deltas *= 2
 
 
 
 if True:
     
-    SCENARIO = sc_fitting.ONE_AG_SCENARIOS['PedCrossVehYield']
+    SCENARIO = sc_fitting.ONE_AG_SCENARIOS['VehPrioAssert']
     # SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['Encounter']
     # SCENARIO = sc_fitting.SCPaperScenario('TestScenario', 
     #                                         initial_ttcas=(3, 8), 
@@ -63,7 +65,7 @@ if True:
     #                                         end_time = sc_fitting.PROB_SIM_END_TIME)
     #SCENARIO.end_time = 10
     i_variations = range(SCENARIO.n_variations)
-    #i_variations = (2,)
+    #i_variations = (0,)
     for i_var in i_variations:
         print(f'\n{SCENARIO.name} variation {i_var+1}/{SCENARIO.n_variations}:')
         tic = time.perf_counter()

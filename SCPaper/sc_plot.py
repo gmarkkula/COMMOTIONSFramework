@@ -15,6 +15,15 @@ MVAR_COLORS = ('gray', 'orange', 'green', 'green', 'blue', 'blue')
 MVAR_LWS = (1, 1, 1, 2, 1, 2)
 
 
+def get_rgb_tuple(r, g, b):
+    return (r/255, g/255, b/255)
+
+COLORS = {}
+COLORS['active agent blue'] = get_rgb_tuple(47, 156, 255)
+COLORS['passive agent grey'] = get_rgb_tuple(190, 190, 190)
+COLORS['other passes second green'] = get_rgb_tuple(76, 162, 123)
+COLORS['other passes first red'] = get_rgb_tuple(120, 0, 37)
+
 
 def split_model_name(full_name):
     for base_name in reversed(BASE_MODELS):
