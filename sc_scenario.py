@@ -1535,9 +1535,9 @@ class SCSimulation(commotions.Simulation):
                                   - agent.params.D_s)
                     stop_accs = -(agent.trajectory.long_speed ** 2 / (2 * stop_dists))
                     axs[0].plot(self.time_stamps, stop_accs, 
-                                '--' + agent.plot_color, alpha = 0.5)
+                                '--', c=agent.plot_color, alpha = 0.5)
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
-                         '-' + agent.plot_color)
+                         '-', c=agent.plot_color)
                 axs[0].set_xlim(self.time_stamps[0], self.actual_end_time)
                 if axis_labels:
                     axs[0].set_ylabel('a (m/s^2)') 
@@ -1546,9 +1546,9 @@ class SCSimulation(commotions.Simulation):
             if len(axs) > 1 and (not(axs[1] == None)):
                 axs[1].plot(self.time_stamps, 
                             agent.other_agent.perception.states.x_perceived[1, :], 
-                            '-' + agent.plot_color, lw=1, alpha=0.3)
+                            '-', c=agent.plot_color, lw=1, alpha=0.3)
                 axs[1].plot(self.time_stamps, agent.trajectory.long_speed, 
-                         '-' + agent.plot_color)
+                         '-', c=agent.plot_color)
                 axs[1].set_ylim(-1, 15)
                 if axis_labels:
                     axs[1].set_ylabel('v (m/s)') 
@@ -1571,17 +1571,17 @@ class SCSimulation(commotions.Simulation):
                          edgecolor = None)
                 # - horizontal lines
                 axs[2].axhline(agent.coll_dist, color=agent.plot_color, 
-                               linestyle='--', lw=0.5, alpha=0.5)
+                               linestyle='--', lw=0.5, alpha=0.9)
                 axs[2].axhline(-agent.coll_dist, color=agent.plot_color, 
-                               linestyle='--', lw=0.5, alpha=0.5)
+                               linestyle='--', lw=0.5, alpha=0.9)
                 if i_agent == 0:
                     axs[2].axhline(0, color='k', linestyle=':')
                 # - plot the distance itself
                 axs[2].plot(self.time_stamps, 
                             agent.other_agent.perception.states.x_perceived[0, :], 
-                            '-' + agent.plot_color, lw=1, alpha=0.3)
+                            '-', c=agent.plot_color, lw=1, alpha=0.3)
                 axs[2].plot(self.time_stamps, agent.signed_CP_dists, 
-                         '-' + agent.plot_color)
+                         '-', c=agent.plot_color)
                 axs[2].set_ylim(-5, 5)
                 if axis_labels:
                     axs[2].set_ylabel('$d_{CP}$ (m)') 
@@ -1593,7 +1593,7 @@ class SCSimulation(commotions.Simulation):
                 with np.errstate(divide='ignore'):
                     axs[3].plot(self.time_stamps, 
                                 (agent.signed_CP_dists - agent.coll_dist) 
-                                / agent.trajectory.long_speed, '-' + agent.plot_color)
+                                / agent.trajectory.long_speed, '-', c=agent.plot_color)
                 axs[3].set_ylim(-1, 8)
                 if axis_labels:
                     axs[3].set_ylabel('$TTCS_{app}$ (s)')
