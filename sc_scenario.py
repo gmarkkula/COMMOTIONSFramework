@@ -1038,45 +1038,56 @@ class SCAgent(commotions.AgentWithGoal):
             np.dot(heading_vector, heading_to_goal_vector)
         goal_distance_change_rate = \
             -heading_toward_goal_component * own_state.long_speed
-        value = -own_image.params.k._g * goal_distance_change_rate \
-            - own_image.params.k._dv * own_state.long_speed ** 2 
+        progress_value = -own_image.params.k._g * goal_distance_change_rate
+        spd_disc_value = -own_image.params.k._dv * own_state.long_speed ** 2
+        value = progress_value + spd_disc_value
         
         if own_image.ctrl_type is CtrlType.ACCELERATION:
             # acceleration discomfort cost
-            value += -own_image.params.k._da * own_state.long_acc ** 2
+            acc_disc_value = -own_image.params.k._da * own_state.long_acc ** 2
+            value += acc_disc_value
             # cost for acceleration required to stop at goal
             goal_distance = np.linalg.norm(vector_to_goal)
             req_acc_to_goal = -(own_state.long_speed ** 2 / (2 * goal_distance))
-            value += -own_image.params.k._sg * req_acc_to_goal ** 2
+            goal_stop_value = -own_image.params.k._sg * req_acc_to_goal ** 2
+            value += goal_stop_value
             # priority cost for vehicle of passing first
+            pass1st_value = 0  
             if own_image.params.V_ny != 0:
                 (__, acc_for_2nd) = sc_scenario_helper.get_access_order_accs(
                     own_image, own_state, oth_image, oth_state, 
                     consider_oth_acc = False)
                 if own_state.long_acc > acc_for_2nd:
-                    value += (own_image.params.V_ny 
-                              * (2 - own_state.long_acc / acc_for_2nd))
-
+                    pass1st_value = (own_image.params.V_ny
+                                     * (2 - own_state.long_acc / acc_for_2nd)) 
+                    value += pass1st_value
+        else:
+            acc_disc_value = 0
+            goal_stop_value = 0
+            pass1st_value = 0
 
         # cost for being on collision course with the other agent
         time_to_agent_collision = \
             sc_scenario_helper.get_time_to_sc_agent_collision(own_state, 
                                                               oth_state,
                                                               consider_acc=False)
-        
         if time_to_agent_collision == 0:
             time_to_agent_collision = TTC_FOR_COLLISION
-
         if time_to_agent_collision < math.inf:
             if own_image.ctrl_type is CtrlType.SPEED:
-                value += -own_image.params.k._c / time_to_agent_collision  
+                coll_value = -own_image.params.k._c / time_to_agent_collision  
             elif own_image.ctrl_type is CtrlType.ACCELERATION:
-                value += -own_image.params.k._sc * (own_state.long_speed \
+                coll_value = -own_image.params.k._sc * (own_state.long_speed \
                     / (2 * time_to_agent_collision)) ** 2  
-        
+        else:
+            coll_value = 0
+        value += coll_value
         
         if self.do_snapshot_now:
-            snapshot_str = 'V = %.2f' % value
+            snapshot_str = (f'V = {value:.2f}\n'
+                            f'({progress_value:.1f}, {spd_disc_value:.1f},'
+                            f' {acc_disc_value:.1f}, {goal_stop_value:.1f},'
+                            f' {pass1st_value:.1f}, {coll_value:.1f})')
             self.add_snapshot_info(snapshot_str, snapshot_loc, snapshot_color)
                     
         # squash the value with a sigmoid
@@ -1506,7 +1517,7 @@ class SCSimulation(commotions.Simulation):
             self.first_passer = self.agents[i_first_passer]
             
     
-    def do_kinem_states_plot(self, axs, veh_stop_dec=False, axis_labels=False):
+    def do_kinem_states_plot(self, axs, veh_stop_dec=False, axis_labels=True):
         """
         Plot kinematic simulation states.
 
@@ -1824,7 +1835,7 @@ class SCSimulation(commotions.Simulation):
             N_PLOTROWS = 5
             axs = fig.subplots(N_PLOTROWS, 1, sharex=True)
             self.do_kinem_states_plot(axs, veh_stop_dec)
-            
+            fig.tight_layout()
             
 
         if times_to_ca:
