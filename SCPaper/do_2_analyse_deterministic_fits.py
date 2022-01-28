@@ -18,11 +18,13 @@ if not PARENT_DIR in sys.path:
 import glob
 import pickle
 import copy
+from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 from statsmodels.distributions.empirical_distribution import ECDF
 import collections
 import parameter_search
+import sc_scenario
 import sc_fitting
 import sc_plot
 
@@ -32,6 +34,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
+DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = False
@@ -68,8 +71,23 @@ VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 N_MAIN_CRIT_FOR_RETAINING = 3
 PARAMS_JITTER = 0.015
 
+@dataclass
+class ScenarioPlotInfo():
+    end_time: int
+    metric_max: bool
+PLOT_INFO = {}
+PLOT_INFO['VehPrioAssert'] = ScenarioPlotInfo(end_time=3, metric_max=True)
+PLOT_INFO['VehShortStop'] = ScenarioPlotInfo(end_time=10, metric_max=True)
+PLOT_INFO['PedHesitateVehConst'] = ScenarioPlotInfo(end_time=9, metric_max=False)
+PLOT_INFO['PedHesitateVehYield'] = ScenarioPlotInfo(end_time=8, metric_max=False)
+PLOT_INFO['PedCrossVehYield'] = ScenarioPlotInfo(end_time=6, metric_max=True)
+
+
+
+# *** the main analysis functionality
 
 def do():
+    
     # find pickle files from deterministic fitting
     det_fit_files = glob.glob(sc_fitting.FIT_RESULTS_FOLDER + 
                                 (sc_fitting.DET_FIT_FILE_NAME_FMT % '*'))
@@ -164,7 +182,7 @@ def do():
                 print(f'\t\t{crit}: Found {n_crit_met}'
                       f' ({100 * n_crit_met / n_parameterisations:.1f} %) parameterisations.') 
                 
-                if DO_CRIT_PLOT:
+                if DO_PLOTS and DO_CRIT_PLOT:
                     ax = crit_axs[i_model_base, i_crit_glob]
                     # use the kinematic variation with max/min metric value,
                     # depending on direction of criterion (and disregard NaNs)
@@ -218,6 +236,7 @@ def do():
         print(f'\tNaNs in main crit: {np.sum(np.isnan(main_criteria_matrix), axis=1)}'
               f'; sec crit: {np.sum(np.isnan(sec_criteria_matrix), axis=1)}')
         # -- store these analysis results as object attributes
+        det_fit.criterion_names = CRITERIA
         det_fit.main_criteria_matrix = main_criteria_matrix
         det_fit.n_main_criteria_met = n_main_criteria_met
         det_fit.sec_criteria_matrix = sec_criteria_matrix
@@ -256,7 +275,7 @@ def do():
             params_dict=params_dict, main_crit_dict=main_crit_dict, 
             sec_crit_dict=sec_crit_dict)
         if np.sum(main_crit_met_somewhere) >= N_MAIN_CRIT_FOR_PLOT:
-            if DO_TIME_SERIES_PLOTS:
+            if DO_PLOTS and DO_TIME_SERIES_PLOTS:
                 print('\tLooking at one of the parameterisations meeting'
                       f' {n_main_criteria_met[i_parameterisation]} criteria:')
                 print(f'\t\t{params_dict}')
@@ -273,7 +292,7 @@ def do():
                                      veh_stop_dec=(scenario.name == 'VehShortStop'), 
                                      beh_probs=be_plots)
                         sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
-            if DO_PARAMS_PLOTS:
+            if DO_PLOTS and DO_PARAMS_PLOTS:
                 #sc_fitting.do_crit_params_plot(det_fit, main_criteria_matrix, log=True)
                 print(f'\tParameterisations meeting at least {N_MAIN_CRIT_FOR_PLOT} criteria:')
                 sc_fitting.do_params_plot(
@@ -281,9 +300,6 @@ def do():
                         n_main_criteria_met >= N_MAIN_CRIT_FOR_PLOT], 
                     param_ranges, log=True, jitter=PARAMS_JITTER)
                                 
-                            
-                
-            
         
     # provide info on retained models
     print('\n\n*** Retained models (meeting all main criteria at least somewhere in parameter space) ***')
@@ -295,7 +311,7 @@ def do():
               f' ({100 * n_ret_params / n_total:.1f} %) parameterisations meeting'
               f' at least {N_MAIN_CRIT_FOR_RETAINING} main criteria, across:')
         print(ret_model.param_names)
-        if DO_RETAINED_PARAMS_PLOT:
+        if DO_PLOTS and DO_RETAINED_PARAMS_PLOT:
             sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
                                       ret_model.param_ranges, log=True, jitter=PARAMS_JITTER)
         print('\n***********************')
@@ -309,7 +325,95 @@ def do():
     
     # return the full dict of analysed deterministic models
     return det_fits
+
+
+
+# *** additional functions
+
+# get indices of parameterisations with max number of met main criteria for model
+def get_max_crit_parameterisations(fit):
+    n_max_crit_met = np.amax(fit.n_main_criteria_met)
+    return np.nonzero(fit.n_main_criteria_met == n_max_crit_met)[0]
+
+# simulate and plot an example parameterisation, choosing the kinematic variants
+# of scenarios for which the model was maximally successful wrt each criterion
+def plot_example(fit, idx_example):
+    params_array = fit.results.params_matrix[idx_example, :]
+    params_dict = fit.get_params_dict(params_array)
+    print(f'****** Plotting model "{fit.name}" with parameters {params_dict}, achieving:')
+    print(dict(zip(fit.criterion_names[0], fit.main_criteria_matrix[:, idx_example])))
+    print(dict(zip(fit.criterion_names[1], fit.sec_criteria_matrix[:, idx_example])))
+    beh_est = 'oBE' in fit.name
+    if beh_est:
+        nrows = 4
+    else:
+        nrows = 3
+    fig, axs = plt.subplots(nrows = nrows, ncols = len(sc_fitting.ONE_AG_SCENARIOS),
+                           sharex='col', sharey='row', figsize=(10, 4))
+    for i_scenario, scenario in enumerate(sc_fitting.ONE_AG_SCENARIOS.values()):
+        print(f'*** {scenario.name}')
+        
+        # figure out which kinematic variant to use
+        metric_name = sc_fitting.ONE_AG_SCENARIOS[scenario.name].full_metric_names[0]
+        metric_vals = fit.get_metric_results(metric_name)
+        ex_metric_vals = metric_vals[idx_example, :]
+        print(f'\tStored metric values across kinematic variants: {ex_metric_vals}')
+        if np.all(np.isnan(ex_metric_vals)):
+            i_variation = 0
+        else:
+            if PLOT_INFO[scenario.name].metric_max:
+                i_variation = np.nanargmax(ex_metric_vals)
+            else:
+                i_variation = np.nanargmin(ex_metric_vals)
+                
+        # run simulation
+        print(f'\tSimulating kinematic variant {i_variation}... ', end='')
+        scenario.end_time = PLOT_INFO[scenario.name].end_time
+        sim = sc_fitting.construct_model_and_simulate_scenario(
+            model_name=fit.name, params_dict=params_dict, scenario=scenario,
+        i_variation = i_variation, apply_stop_criteria=False)
+        
+        # get the active agent and set colours
+        act_agent = None
+        for agent in sim.agents:
+            if agent.const_acc == None:
+                act_agent = agent
+                break
+        act_agent.plot_color = sc_plot.COLORS['active agent blue']
+        act_agent.other_agent.plot_color = sc_plot.COLORS['passive agent grey']
+        
+        # plot kinematic states
+        this_axs = axs[0:3, i_scenario]
+        sim.do_kinem_states_plot(axs=this_axs, veh_stop_dec=(scenario.name=='VehShortStop'),
+                                axis_labels=(i_scenario==0))
+        sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=True)
+        
+        # plot behaviour probabilities if and as appropriate
+        if beh_est:
+            BEH_PLOT_COLORS = ('blue', sc_plot.COLORS['other passes first red'], 
+                               sc_plot.COLORS['other passes second green'])
+            if 'oBEc' in fit.name:
+                behs = (sc_scenario.i_CONSTANT, sc_scenario.i_PASS1ST, sc_scenario.i_PASS2ND)
+            else:
+                behs = (sc_scenario.i_PASS1ST, sc_scenario.i_PASS2ND)
+            if 'oAI' in fit.name:
+                acts = act_agent.i_no_action + np.array((-1, 1))
+                act_ls = (':', '-')
+                ylabel = '$P_{b|a}$ (-)'
+            else:
+                acts = (act_agent.i_no_action,)
+                act_ls = ('-')
+                ylabel = '$P_b$ (-)'
+            for i_beh, beh in enumerate(behs):
+                for i_act, act in enumerate(acts):
+                    axs[-1, i_scenario].plot(sim.time_stamps, act_agent.states.beh_probs_given_actions[beh, act, :],
+                                            c=BEH_PLOT_COLORS[beh], ls=act_ls[i_act])
+            if i_scenario == 0:
+                axs[-1, 0].set_ylabel(ylabel)   
+        axs[-1, i_scenario].set_xlabel('Time (s)')
+        
         
     
 if __name__ == '__main__':
     det_fits = do()
+    
