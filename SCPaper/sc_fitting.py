@@ -17,6 +17,7 @@ if not PARENT_DIR in sys.path:
 import os
 import math
 import copy
+import pickle
 from dataclasses import dataclass
 import multiprocessing as mp
 import numpy as np
@@ -698,6 +699,38 @@ def run_dummy_prob_sim(verbose=True):
         scenario)
     if verbose:
         get_metrics_for_scenario(scenario, sim, verbose=True)
+        
+
+def save_results(results, file_name, verbose=True):
+    file_path = FIT_RESULTS_FOLDER + file_name
+    if verbose:
+        print(f'Saving "{file_path}"...')
+    with open(file_path, 'wb') as file_obj:
+        pickle.dump(results, file_obj)
+    if verbose:
+        print('\tDone.')
+
+
+def load_results(file_name, verbose=True):
+    file_path = FIT_RESULTS_FOLDER + file_name
+    if verbose:
+        print(f'Loading "{file_path}"...')
+    with open(file_path, 'rb') as file_obj:
+        results = pickle.load(file_obj)
+        if verbose:
+            print('\tDone.')
+        return results
+    
+    
+def results_exist(file_name, verbose=False):
+    file_path = FIT_RESULTS_FOLDER + file_name
+    exists = os.path.exists(file_path)
+    if verbose:
+        if exists:
+            print(f'Found {file_path}')
+        else:
+            print(f'Did not find {file_path}')
+    return exists
 
 
 # class for searching/testing parameterisations of sc_scenario.SCSimulation
