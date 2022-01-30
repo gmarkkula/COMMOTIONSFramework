@@ -106,9 +106,13 @@
     * ~~Sensitivity analysis for the probabilistic and combined fits~~
     * ~~Example deterministic time-series plots~~
     * Illustration of oBEvoAI for base model and oVA model
-    * Plot illustrating oSN* hesitation
+    * ~~Plot illustrating oSN* hesitation~~
     * Illustration of the mechanism behind oSN* hesitation
     * Analysis/plot of interaction outcomes in probabilistic and combined fits (first-passer and interaction duration)
+* Changing retention approach and rerunning some fits:
+    * Changing retention of deterministic fits to avoid parameterisations with pedestrians that get stuck (see 2022-01-27 notes).
+    * Something similar seems needed for the probabilistic fits also (see 2022-01-30 notes).
+    * --> Rerun combined fits and HIKER fits.
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
 
