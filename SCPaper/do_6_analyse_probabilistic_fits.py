@@ -30,11 +30,13 @@ ExampleParameterisation = collections.namedtuple(
                                 'params_dict', 'crit_dict'])
 
 # constants
+DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = False
-DO_CRIT_PLOT = True
+DO_CRIT_PLOT = False
+DO_OUTCOME_PLOT = True
 N_CRIT_FOR_PARAMS_PLOT = 4
 N_CRIT_FOR_RETAINING = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
@@ -44,6 +46,7 @@ CRITERIA = ('Collision-free encounter',
             'Collision-free encounter with pedestrian priority', 
             'Collision-free pedestrian lead situation', 
             'Pedestrian hesitation in constant-speed scenario')
+N_INTERACTIVE_SCENARIOS = 3
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
 PARAMS_JITTER = 0.015
@@ -61,7 +64,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
     print(prob_fit_files)
     
     # need to prepare for criterion plot?
-    if DO_CRIT_PLOT:
+    if DO_PLOTS and DO_CRIT_PLOT:
         fig_height = 2 + len(prob_fit_files)
         crit_fig, crit_axs = plt.subplots(nrows=len(prob_fit_files), 
                                           ncols=len(CRITERIA),
@@ -89,7 +92,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
         for i_crit, crit in enumerate(CRITERIA):
             
             # prepare criterion plot axes?
-            if DO_CRIT_PLOT:
+            if DO_PLOTS and DO_CRIT_PLOT:
                 if model_plot_order == None:
                     i_row = i_prob_fit_file
                 else:
@@ -112,7 +115,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                 # criterion met for parameterisation if no collisions for any of the repetitions
                 crit_met = np.all(coll_free_rep, axis=1)
                 # criterion plot?
-                if DO_CRIT_PLOT:
+                if DO_PLOTS and DO_CRIT_PLOT:
                     perc_coll_free_reps = 100 * (np.sum(coll_free_rep, axis=1)
                                                  / prob_fit.n_repetitions)
                     ecdf = ECDF(perc_coll_free_reps)
@@ -130,7 +133,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                 # criterion met for parameterisation if met for enough of the repetitions
                 crit_met = np.sum(crit_met_all, axis=1) >= 4
                 # criterion plot?
-                if DO_CRIT_PLOT:
+                if DO_PLOTS and DO_CRIT_PLOT:
                     metric = ped_av_speed / PED_FREE_SPEED
                     metric_sorted = np.sort(metric, axis=1)
                     for n_reps in range(prob_fit.n_repetitions):
@@ -193,7 +196,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
         prob_fit.example = ExampleParameterisation(
             i_parameterisation=i_parameterisation, params_array=params_array,
             params_dict=params_dict, crit_dict=crit_dict)
-        if n_max_criteria_met >= N_CRIT_FOR_TS_PLOT and DO_TIME_SERIES_PLOTS:
+        if n_max_criteria_met >= N_CRIT_FOR_TS_PLOT and DO_PLOTS and DO_TIME_SERIES_PLOTS:
             print('\tLooking at one of the parameterisations meeting'
                   f' {n_max_criteria_met} criteria:')
             print(f'\t\t{params_dict}')
@@ -207,8 +210,10 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                 be_plots = 'oBE' in prob_fit.name
                 sc_simulation.do_plots(kinem_states=True, beh_probs=be_plots)
                 sc_fitting.get_metrics_for_scenario(scenario, sc_simulation, verbose=True)
-        if n_max_criteria_met >= N_CRIT_FOR_PARAMS_PLOT and DO_PARAMS_PLOTS:
+        if n_max_criteria_met >= N_CRIT_FOR_PARAMS_PLOT and DO_PLOTS and DO_PARAMS_PLOTS:
             sc_fitting.do_crit_params_plot(prob_fit, criteria_matrix, log=True)
+            
+    # end for loop through prob_fit_files
     
         
     # provide info on retained models
@@ -220,16 +225,85 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
               f' out of {n_total}'
               f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
         print(ret_model.param_names)
-        if DO_RETAINED_PARAMS_PLOT:
+        if DO_PLOTS and DO_RETAINED_PARAMS_PLOT:
             sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
                                       ret_model.param_ranges, log=True, jitter=PARAMS_JITTER)
         print('\n***********************')
         
     
     # save the retained models
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + retained_fits_file_name, 
-              'wb') as file_obj:
-        pickle.dump(retained_models, file_obj)
+    sc_fitting.save_results(retained_models, retained_fits_file_name)        
+        
+        
+    # provide interaction outcome plots for the retained models?
+    if DO_PLOTS and DO_OUTCOME_PLOT:
+        fig_height = 2 + len(retained_models)
+        fig_width = 4 * N_INTERACTIVE_SCENARIOS
+        outc_fig, outc_axs = plt.subplots(nrows=len(retained_models), 
+                                          ncols=2*N_INTERACTIVE_SCENARIOS,
+                                          sharex='col', sharey=False, 
+                                          figsize=(fig_width, fig_height), 
+                                          tight_layout=True)
+        for i_ret_model, ret_model in enumerate(retained_models):
+            prob_fit = prob_fits[ret_model.model]
+            for i_scenario in range(N_INTERACTIVE_SCENARIOS):
+                
+                idx_retained = np.nonzero(prob_fit.n_criteria_met == len(CRITERIA))[0]
+                assert(len(idx_retained > 0))
+                
+                # first-exiter
+                # - array for storing results
+                n_total = len(idx_retained) * prob_fit.n_repetitions
+                first_exiter = np.full(n_total, np.nan)
+                # - get model exit times for both agents, for the retained parameterisations
+                scenario = list(prob_fit.scenarios.values())[i_scenario]
+                ped_metric_name = scenario.get_full_metric_name('ped_exit_time')
+                ped_exit_t = prob_fit.get_metric_results(ped_metric_name)[idx_retained, :]
+                veh_metric_name = scenario.get_full_metric_name('veh_exit_time')
+                veh_exit_t = prob_fit.get_metric_results(veh_metric_name)[idx_retained, :]
+                # - rearrange exit times into 1D arrays
+                ped_exit_t = np.reshape(ped_exit_t, -1)
+                veh_exit_t = np.reshape(veh_exit_t, -1)
+                # - get cases where agents exited conflict space within simulation
+                bidx_ped_exited = np.logical_not(np.isnan(ped_exit_t))
+                bidx_veh_exited = np.logical_not(np.isnan(veh_exit_t))
+                # - both agents exited
+                bidx_both_exited = bidx_ped_exited & bidx_veh_exited
+                bidx_both_exited_ped_first = bidx_both_exited & (ped_exit_t < veh_exit_t)
+                first_exiter[bidx_both_exited_ped_first] = sc_fitting.i_PED_AGENT
+                bidx_both_exited_veh_first = bidx_both_exited & (ped_exit_t > veh_exit_t)
+                first_exiter[bidx_both_exited_veh_first] = sc_fitting.i_VEH_AGENT
+                # - only ped exited
+                bidx_only_ped_exited = bidx_ped_exited & np.logical_not(bidx_veh_exited)
+                first_exiter[bidx_only_ped_exited] = sc_fitting.i_PED_AGENT
+                # - only ped exited
+                bidx_only_veh_exited = np.logical_not(bidx_ped_exited) & bidx_veh_exited
+                first_exiter[bidx_only_veh_exited] = sc_fitting.i_VEH_AGENT
+                # - totals
+                n_ped_first = np.count_nonzero(first_exiter == sc_fitting.i_PED_AGENT)
+                n_veh_first = np.count_nonzero(first_exiter == sc_fitting.i_VEH_AGENT)
+                n_noone_first = np.count_nonzero(np.isnan(first_exiter))
+                # - plot
+                ax = outc_axs[i_ret_model, i_scenario * 2]
+                ax.bar(0, n_ped_first)
+                ax.bar(0, n_noone_first, bottom=n_ped_first)
+                ax.bar(0, n_veh_first, bottom=n_ped_first+n_noone_first)
+                if i_ret_model == 0:
+                    ax.set_title(scenario.name)
+                if i_scenario == 0:
+                    ax.set_ylabel(prob_fit.name, fontsize=8, 
+                                  rotation=ylabel_rotation)
+                
+                # interaction duration
+                # durations = np.maximum(ped_exit_t[bidx_both_exited],
+                #                        veh_exit_t[bidx_both_exited])
+                ax = outc_axs[i_ret_model, i_scenario * 2 + 1]
+                ped_exit_t[np.isnan(ped_exit_t)] = 15
+                veh_exit_t[np.isnan(veh_exit_t)] = 15
+                ax.hist(ped_exit_t, bins = np.arange(16), color='b', alpha=0.5)
+                ax.hist(veh_exit_t, bins = np.arange(16), color='g', alpha=0.5)
+                
+        
         
     # the dict with all of the results may be useful
     return prob_fits
