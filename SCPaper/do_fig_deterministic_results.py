@@ -53,9 +53,9 @@ def run_one_sim(model_name, i_paramet, n_paramets, params_dict, scenario):
 if __name__ == '__main__':
     
     # run do_2... without any output
+    do_2_analyse_deterministic_fits.SAVE_RETAINED_MODELS = False
     do_2_analyse_deterministic_fits.DO_PLOTS = False 
     do_2_analyse_deterministic_fits.SPEEDUP_FRACT = 1.005
-    
     with open(os.devnull, 'w') as devnull:
         with contextlib.redirect_stdout(devnull):
             det_fits = do_2_analyse_deterministic_fits.do()
@@ -119,6 +119,10 @@ if __name__ == '__main__':
     T_MAXS = (3, 7.5, 8, 8, 6)
     plt.close('all')
     for model_name in MODEL_NAMES:
+        n_paramets = len(sims[model_name]['idx_paramets'])
+        n_paramets_total = det_fits[model_name].results.params_matrix.shape[0]
+        print(f'\n*** Model "{model_name}" (showing {n_paramets} out of {n_paramets_total}'
+              ' parameterisations) ***')
         det_fit = det_fits[model_name]
         fig_width = 2 + 2 * len(SCENARIOS)
         fig, fig_axs = plt.subplots(nrows=2, ncols=len(SCENARIOS), 
@@ -157,10 +161,13 @@ if __name__ == '__main__':
                                          plot_fill=False)
                 # if i_sim_vars == 20:
                 #     break
+            axs[1].set_title(scenario_name)
             axs[1].set_xlim(0, T_MAXS[i_scenario])
             axs[1].set_ylim(V_LIMS[i_scenario][0], V_LIMS[i_scenario][1])
             axs[2].set_ylim(-4, 15)
             axs[2].set_xlabel('Time (s)')
+        
+        plt.show()
                 
             
             

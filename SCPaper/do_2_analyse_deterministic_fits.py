@@ -34,6 +34,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
+SAVE_RETAINED_MODELS = True
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
@@ -318,9 +319,8 @@ def do():
         
     
     # save the retained models
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_DET_FNAME,
-              'wb') as file_obj:
-        pickle.dump(retained_models, file_obj)
+    if SAVE_RETAINED_MODELS:
+        sc_fitting.save_results(retained_models, sc_fitting.RETAINED_DET_FNAME)
         
     
     # return the full dict of analysed deterministic models
