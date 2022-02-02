@@ -335,6 +335,25 @@ def get_max_crit_parameterisations(fit):
     n_max_crit_met = np.amax(fit.n_main_criteria_met)
     return np.nonzero(fit.n_main_criteria_met == n_max_crit_met)[0]
 
+# get the kinematic variation for which a model parameterisation performed best
+# in a given scenario
+def get_best_scen_var_for_paramet(fit, idx_parameterisation, scenario_name, 
+                                  verbose=True):
+    metric_name = sc_fitting.ONE_AG_SCENARIOS[scenario_name].full_metric_names[0]
+    metric_vals = fit.get_metric_results(metric_name)
+    ex_metric_vals = metric_vals[idx_parameterisation, :]
+    if np.all(np.isnan(ex_metric_vals)):
+        i_variation = 0
+    else:
+        if PLOT_INFO[scenario_name].metric_max:
+            i_variation = np.nanargmax(ex_metric_vals)
+        else:
+            i_variation = np.nanargmin(ex_metric_vals)
+    if verbose:
+        print(f'\tStored metric values across variants of "{scenario_name}": {ex_metric_vals}')
+        print(f'\t\tSo choosing variant #{i_variation+1}/{len(ex_metric_vals)}.')
+    return i_variation
+
 # simulate and plot an example parameterisation, choosing the kinematic variants
 # of scenarios for which the model was maximally successful wrt each criterion
 def plot_example(fit, idx_example):
@@ -354,17 +373,7 @@ def plot_example(fit, idx_example):
         print(f'*** {scenario.name}')
         
         # figure out which kinematic variant to use
-        metric_name = sc_fitting.ONE_AG_SCENARIOS[scenario.name].full_metric_names[0]
-        metric_vals = fit.get_metric_results(metric_name)
-        ex_metric_vals = metric_vals[idx_example, :]
-        print(f'\tStored metric values across kinematic variants: {ex_metric_vals}')
-        if np.all(np.isnan(ex_metric_vals)):
-            i_variation = 0
-        else:
-            if PLOT_INFO[scenario.name].metric_max:
-                i_variation = np.nanargmax(ex_metric_vals)
-            else:
-                i_variation = np.nanargmin(ex_metric_vals)
+        i_variation = get_best_scen_var_for_paramet(fit, idx_example, scenario.name)
                 
         # run simulation
         print(f'\tSimulating kinematic variant {i_variation}... ', end='')
