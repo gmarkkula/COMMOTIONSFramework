@@ -1517,7 +1517,10 @@ class SCSimulation(commotions.Simulation):
             self.first_passer = self.agents[i_first_passer]
             
     
-    def do_kinem_states_plot(self, axs, veh_stop_dec=False, axis_labels=True):
+    def do_kinem_states_plot(self, axs, veh_stop_dec=False, axis_labels=True,
+                             alpha=1, i_plot_agents=range(N_AGENTS),
+                             agent_alpha=np.ones(N_AGENTS),
+                             plot_const_guides=True, plot_fill=True):
         """
         Plot kinematic simulation states.
 
@@ -1536,8 +1539,10 @@ class SCSimulation(commotions.Simulation):
         -------
         None.
 
-        """
-        for i_agent, agent in enumerate(self.agents):
+        """     
+        for idx_agent, i_agent in enumerate(i_plot_agents):
+            agent = self.agents[i_agent]
+            alpha = agent_alpha[idx_agent]
                 
             # acceleration
             if not(axs[0] == None):
@@ -1546,9 +1551,9 @@ class SCSimulation(commotions.Simulation):
                                   - agent.params.D_s)
                     stop_accs = -(agent.trajectory.long_speed ** 2 / (2 * stop_dists))
                     axs[0].plot(self.time_stamps, stop_accs, 
-                                '--', c=agent.plot_color, alpha = 0.5)
+                                '--', c=agent.plot_color, alpha = alpha/2)
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
-                         '-', c=agent.plot_color)
+                         '-', c=agent.plot_color, alpha=alpha)
                 axs[0].set_xlim(self.time_stamps[0], self.actual_end_time)
                 if axis_labels:
                     axs[0].set_ylabel('a (m/s^2)') 
@@ -1557,9 +1562,9 @@ class SCSimulation(commotions.Simulation):
             if len(axs) > 1 and (not(axs[1] == None)):
                 axs[1].plot(self.time_stamps, 
                             agent.other_agent.perception.states.x_perceived[1, :], 
-                            '-', c=agent.plot_color, lw=1, alpha=0.3)
+                            '-', c=agent.plot_color, lw=1, alpha=alpha/3)
                 axs[1].plot(self.time_stamps, agent.trajectory.long_speed, 
-                         '-', c=agent.plot_color)
+                         '-', c=agent.plot_color, alpha=alpha)
                 axs[1].set_ylim(-1, 15)
                 if axis_labels:
                     axs[1].set_ylabel('v (m/s)') 
@@ -1575,51 +1580,55 @@ class SCSimulation(commotions.Simulation):
                 else:
                     t_en = math.nan
                     t_ex = math.nan
-                # - illustrate when agent is in CS
-                axs[2].fill(np.array((t_en, t_ex, t_ex, t_en)), 
-                         np.array((-1, -1, 1, 1)) * agent.coll_dist, 
-                         color = agent.plot_color, alpha = 0.3,
-                         edgecolor = None)
-                # - horizontal lines
-                axs[2].axhline(agent.coll_dist, color=agent.plot_color, 
-                               linestyle='--', lw=0.5, alpha=0.9)
-                axs[2].axhline(-agent.coll_dist, color=agent.plot_color, 
-                               linestyle='--', lw=0.5, alpha=0.9)
-                if i_agent == 0:
-                    axs[2].axhline(0, color='k', linestyle=':')
+                if plot_fill:
+                    # - illustrate when agent is in CS
+                    axs[2].fill(np.array((t_en, t_ex, t_ex, t_en)), 
+                             np.array((-1, -1, 1, 1)) * agent.coll_dist, 
+                             color = agent.plot_color, alpha = alpha/3,
+                             edgecolor = None)
+                if plot_const_guides:
+                    # - horizontal lines
+                    axs[2].axhline(agent.coll_dist, color=agent.plot_color, 
+                                   linestyle='--', lw=0.5, alpha=0.9)
+                    axs[2].axhline(-agent.coll_dist, color=agent.plot_color, 
+                                   linestyle='--', lw=0.5, alpha=0.9)
+                    if i_agent == i_plot_agents[0]:
+                        axs[2].axhline(0, color='k', linestyle=':')
                 # - plot the distance itself
                 axs[2].plot(self.time_stamps, 
                             agent.other_agent.perception.states.x_perceived[0, :], 
-                            '-', c=agent.plot_color, lw=1, alpha=0.3)
+                            '-', c=agent.plot_color, lw=1, alpha=alpha/3)
                 axs[2].plot(self.time_stamps, agent.signed_CP_dists, 
-                         '-', c=agent.plot_color)
+                         '-', c=agent.plot_color, alpha=alpha)
                 axs[2].set_ylim(-5, 5)
                 if axis_labels:
                     axs[2].set_ylabel('$d_{CP}$ (m)') 
             
             # apparent time to conflict space entry
             if len(axs) > 3 and (not(axs[3] == None)):
-                if i_agent == 0:
+                if i_agent == i_plot_agents[0]:
                     axs[3].axhline(0, color='k', linestyle=':')
                 with np.errstate(divide='ignore'):
                     axs[3].plot(self.time_stamps, 
                                 (agent.signed_CP_dists - agent.coll_dist) 
-                                / agent.trajectory.long_speed, '-', c=agent.plot_color)
+                                / agent.trajectory.long_speed, '-', 
+                                c=agent.plot_color, alpha=alpha)
                 axs[3].set_ylim(-1, 8)
                 if axis_labels:
                     axs[3].set_ylabel('$TTCS_{app}$ (s)')
             
         # distance margin to agent collision
         if len(axs) > 4 and (not(axs[4] == None)):
-            axs[4].axhline(0, color='k', linestyle=':')
+            if plot_const_guides:
+                axs[4].axhline(0, color='k', linestyle=':')
             coll_margins, coll_idxs = \
                 get_sc_agent_collision_margins(self.agents[0].signed_CP_dists, 
                                                self.agents[1].signed_CP_dists,
                                                self.agents[0].coll_dist, 
                                                self.agents[1].coll_dist)
-            axs[4].plot(self.time_stamps, coll_margins, 'k-')
+            axs[4].plot(self.time_stamps, coll_margins, 'k-', alpha=alpha)
             axs[4].plot(self.time_stamps[coll_idxs], 
-                     coll_margins[coll_idxs], 'r-')
+                     coll_margins[coll_idxs], 'r-', alpha=alpha)
             axs[4].set_ylim(-1, 10)
             if axis_labels:
                 axs[4].set_ylabel('$d_{coll}$ (m)')
