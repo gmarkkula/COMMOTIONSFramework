@@ -98,7 +98,7 @@ def do():
     print(det_fit_files)
     
     # need to prepare for criterion plot?
-    if DO_CRIT_PLOT:
+    if DO_PLOTS and DO_CRIT_PLOT:
         crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
                                           sharex='col', sharey=True, 
                                           figsize=(15, 10), tight_layout=True)

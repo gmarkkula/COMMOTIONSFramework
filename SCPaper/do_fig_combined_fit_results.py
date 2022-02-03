@@ -21,6 +21,8 @@ import sc_fitting
 
 
 OVERWRITE_SAVED_SIM_RESULTS = False
+DO_DIST_DIST_PLOT = False
+DO_TIME_SERIES_PLOT = True
     
 TTCP = 3
 INITIAL_TTCAS = []
@@ -101,28 +103,50 @@ if __name__ == '__main__':
         
     
     for model_name in MODEL_NAMES:
-        fig, axs = plt.subplots(nrows=1, ncols=len(SCENARIOS), figsize=(6, 5),
-                                sharex='col', sharey='row', tight_layout=True)
-        for i_scenario, scenario in enumerate(SCENARIOS.values()):
-            if len(SCENARIOS) > 1:
-                ax = axs[i_scenario]
-            else:
-                ax = axs
-            for sim in sims[model_name][scenario.name]:
-                veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
-                ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
-                ax.plot(-veh_agent.signed_CP_dists, -ped_agent.signed_CP_dists, 'k',
-                        alpha=ALPHA)
-                # if sc_fitting.metric_collision(sim):
-                #     sim.do_plots(kinem_states=True)
-            ax.set_xlim(-50, 50)
-            ax.set_xlabel('Vehicle position (m)')
-            ax.set_ylim(-6, 6)
-            ax.set_ylabel('Pedestrian position (m)')
-            ax.fill(np.array((1, 1, -1, -1)) * veh_agent.coll_dist, 
-                    np.array((-1, 1, 1, -1)) * ped_agent.coll_dist, color='r',
-                    alpha=0.3, edgecolor=None)
+        if DO_DIST_DIST_PLOT:
+            fig, axs = plt.subplots(nrows=1, ncols=len(SCENARIOS), figsize=(6, 5),
+                                    sharex='col', sharey='row', tight_layout=True)
+            for i_scenario, scenario in enumerate(SCENARIOS.values()):
+                if len(SCENARIOS) > 1:
+                    ax = axs[i_scenario]
+                else:
+                    ax = axs
+                for sim in sims[model_name][scenario.name]:
+                    veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
+                    ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
+                    ax.plot(-veh_agent.signed_CP_dists, -ped_agent.signed_CP_dists, 'k',
+                            alpha=ALPHA)
+                    # if sc_fitting.metric_collision(sim):
+                    #     sim.do_plots(kinem_states=True)
+                ax.set_xlim(-50, 50)
+                ax.set_xlabel('Vehicle position (m)')
+                ax.set_ylim(-6, 6)
+                ax.set_ylabel('Pedestrian position (m)')
+                ax.fill(np.array((1, 1, -1, -1)) * veh_agent.coll_dist, 
+                        np.array((-1, 1, 1, -1)) * ped_agent.coll_dist, color='r',
+                        alpha=0.3, edgecolor=None)
+            plt.show()
+        
+        if DO_TIME_SERIES_PLOT:
+            fig, axs = plt.subplots(nrows=1, ncols=len(SCENARIOS), figsize=(5, 3),
+                                    sharex='col', sharey='row', tight_layout=True)
+            for i_scenario, scenario in enumerate(SCENARIOS.values()):
+                if len(SCENARIOS) > 1:
+                    ax = axs[i_scenario]
+                else:
+                    ax = axs
+                for sim in sims[model_name][scenario.name]:
+                    veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
+                    ax.plot(sim.time_stamps, veh_agent.trajectory.long_speed, 
+                            'k-', alpha=ALPHA)
+                    ax.set_ylim(10, 15)
+                    ax.set_xlabel('Time (s)')
+                    ax.set_ylabel('Vehicle speed (m/s)')
+            plt.show()
                 
+        
+                
+        
                 
                 
                 
