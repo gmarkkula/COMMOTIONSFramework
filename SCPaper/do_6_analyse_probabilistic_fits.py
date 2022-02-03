@@ -34,18 +34,18 @@ DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = False
-DO_CRIT_PLOT = False
-DO_OUTCOME_PLOT = True
+DO_RETAINED_PARAMS_PLOT = True
+DO_CRIT_PLOT = True
+DO_OUTCOME_PLOT = False
 N_CRIT_FOR_PARAMS_PLOT = 4
-N_CRIT_FOR_RETAINING = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 HESITATION_SPEED_FRACT = 0.95
 CRITERIA = ('Collision-free encounter', 
             'Collision-free encounter with pedestrian priority', 
             'Collision-free pedestrian lead situation', 
-            'Pedestrian hesitation in constant-speed scenario')
+            'Pedestrian hesitation in constant-speed scenario',
+            'Pedestrian progress in constant-speed scenario')
 N_INTERACTIVE_SCENARIOS = 3
 PED_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_PED_AGENT]
 VEH_FREE_SPEED = sc_fitting.AGENT_FREE_SPEEDS[sc_fitting.i_VEH_AGENT]
@@ -69,7 +69,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
         crit_fig, crit_axs = plt.subplots(nrows=len(prob_fit_files), 
                                           ncols=len(CRITERIA),
                                           sharex='col', sharey=True, 
-                                          figsize=(12, fig_height), 
+                                          figsize=(15, fig_height), 
                                           tight_layout=True)
     
     # loop through the fitting results files
@@ -123,7 +123,6 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                     ax.set_xlim(-5, 105)
                     if i_row == len(prob_fit_files)-1:
                         ax.set_xlabel('Collision-free repetitions (%)')
-                    
                 
             elif crit == 'Pedestrian hesitation in constant-speed scenario':
                 ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
@@ -145,6 +144,15 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                     if i_row == len(prob_fit_files)-1:
                         ax.set_xlabel('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
                         
+            elif crit == 'Pedestrian progress in constant-speed scenario':
+                ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
+                n_non_progress = np.count_nonzero(np.isnan(ped_av_speed), axis=1)
+                crit_met = n_non_progress == 0
+                if DO_PLOTS and DO_CRIT_PLOT:
+                    ecdf = ECDF(100 * n_non_progress / prob_fit.n_repetitions)
+                    ax.step(ecdf.x, ecdf.y, 'm-', lw=1)
+                    if i_row == len(prob_fit_files)-1:
+                        ax.set_xlabel('Non-progress repetitions (%)')
             
             else:
                 raise Exception(f'Unexpected criterion "{crit}".')
@@ -215,6 +223,9 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
             
     # end for loop through prob_fit_files
     
+    
+    if DO_PLOTS and DO_CRIT_PLOT:
+        plt.show()
         
     # provide info on retained models
     print('\n\n*** Retained models ***')
