@@ -38,12 +38,12 @@ SAVE_RETAINED_MODELS = True
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = False
-DO_CRIT_PLOT = False
+DO_RETAINED_PARAMS_PLOT = True
+DO_CRIT_PLOT = True
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
-SPEEDUP_FRACT = 1.01
+SPEEDUP_FRACT = 1.005
 SURPLUS_DEC_THRESH = 0.5 # m/s^2
 HESITATION_SPEED_FRACT = 0.95
 VEH_SPEED_AT_PED_START_THRESH = 0.5 # m/s
@@ -54,14 +54,16 @@ N_CRIT_GROUPS = len(CRITERION_GROUPS)
 CRITERIA = (('Vehicle asserting priority', 'Vehicle short-stopping', 
              'Pedestrian hesitation in deceleration scenario', 
              'Pedestrian starting before vehicle at full stop'),
-            ('Pedestrian hesitation in constant-speed scenario',)
+            ('Pedestrian hesitation in constant-speed scenario',
+             'Pedestrian progressing after vehicle yield')
             )
 assert(N_CRIT_GROUPS == len(CRITERIA))
 CRIT_METRICS = (('$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
                  '$\overline{d}/d_\mathrm{stop}$ (-)',
                  '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
                  '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)'), 
-                ('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',))
+                ('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
+                 '# of non-progress variants (-)'))
 N_CRITERIA = 0
 for grp_criteria in CRITERIA:
     N_CRITERIA += len(grp_criteria)
@@ -96,7 +98,7 @@ def do():
     print(det_fit_files)
     
     # need to prepare for criterion plot?
-    if DO_CRIT_PLOT:
+    if DO_PLOTS and DO_CRIT_PLOT:
         crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
                                           sharex='col', sharey=True, 
                                           figsize=(15, 10), tight_layout=True)
@@ -166,6 +168,19 @@ def do():
                     crit_thresh = VEH_SPEED_AT_PED_START_THRESH
                     crit_greater_than = True
                     # crit_met_all = veh_speed_at_ped_start > VEH_SPEED_AT_PED_START_THRESH
+                    
+                elif crit == 'Pedestrian progressing after vehicle yield':
+                    veh_speed_at_ped_start = det_fit.get_metric_results(
+                        'PedCrossVehYield_veh_speed_at_ped_start')
+                    # slightly different from the other metrics: counting
+                    # across all kinematic variants already here, so make sure
+                    # to return as a 1-column matrix such that for the rest of
+                    # the code this looks effectively like a metric tested 
+                    # across just one variant
+                    crit_metric = np.count_nonzero(
+                        np.isnan(veh_speed_at_ped_start), axis=1).reshape(-1, 1)
+                    crit_thresh = 1
+                    crit_greater_than = False
                 
                 else:
                     raise Exception(f'Unexpected criterion "{crit}".')
@@ -196,7 +211,11 @@ def do():
                             lw=sc_plot.MVAR_LWS[i_model_variant])
                     if i_model_variant == sc_plot.N_MODEL_VARIANTS-1:
                         if i_model_base == 0:
-                            ax.set_title(crit, fontsize=8)
+                            if len(crit) > 40:
+                                title_str = crit[0:38] + '...'
+                            else:
+                                title_str = crit
+                            ax.set_title(title_str, fontsize=8)
                             if i_crit_glob == 0:
                                 ax.legend(sc_plot.MODEL_VARIANTS, fontsize=8)
                         elif i_model_base == sc_plot.N_BASE_MODELS-1:
@@ -230,6 +249,8 @@ def do():
         n_max_sec_crit_met_among_best = np.max(n_sec_criteria_met_among_best)
         n_met_max_sec_crit_among_best = np.count_nonzero(
             n_sec_criteria_met_among_best == n_max_sec_crit_met_among_best)
+        ped_progress_met = sec_criteria_matrix[
+            CRITERIA[i_SEC].index('Pedestrian progressing after vehicle yield'), :]
         print('\t\tOut of these, the max number of secondary criteria met was'
               f' {n_max_sec_crit_met_among_best}, for {n_met_max_sec_crit_among_best}'
               ' parameterisations.')
@@ -248,13 +269,11 @@ def do():
             param_ranges.append((np.amin(det_fit.results.params_matrix[:, i_param]),
                                  np.amax(det_fit.results.params_matrix[:, i_param])))
         
-        # did the model meet all main criteria at least somewhere, even if not in
-        # a single parameterisation? 
-        main_crit_met_somewhere = np.amax(main_criteria_matrix, axis=1)
-        all_main_crit_met_somewhere = np.all(main_crit_met_somewhere)
-        if all_main_crit_met_somewhere:
+        # did the model meet all main criteria for at least one parameterisation?
+        if n_max_main_criteria_met == len(CRITERIA[i_MAIN]):
             # yes, so retain this model for further analysis
-            retained_params = (n_main_criteria_met >= N_MAIN_CRIT_FOR_RETAINING)
+            retained_params = ((n_main_criteria_met >= N_MAIN_CRIT_FOR_RETAINING)
+                               & ped_progress_met)
             retained_models.append(sc_fitting.ModelWithParams(
                 model=det_fit.name, param_names=copy.copy(det_fit.param_names), 
                 param_ranges=param_ranges,
@@ -275,7 +294,7 @@ def do():
             i_parameterisation=i_parameterisation, params_array=params_array,
             params_dict=params_dict, main_crit_dict=main_crit_dict, 
             sec_crit_dict=sec_crit_dict)
-        if np.sum(main_crit_met_somewhere) >= N_MAIN_CRIT_FOR_PLOT:
+        if n_max_main_criteria_met >= N_MAIN_CRIT_FOR_PLOT:
             if DO_PLOTS and DO_TIME_SERIES_PLOTS:
                 print('\tLooking at one of the parameterisations meeting'
                       f' {n_main_criteria_met[i_parameterisation]} criteria:')
@@ -300,17 +319,22 @@ def do():
                     det_fit.param_names, det_fit.results.params_matrix[
                         n_main_criteria_met >= N_MAIN_CRIT_FOR_PLOT], 
                     param_ranges, log=True, jitter=PARAMS_JITTER)
-                                
+                
+    # end det_fit_file for loop
+    
+    if DO_PLOTS and DO_CRIT_PLOT:
+        plt.show()                           
         
     # provide info on retained models
-    print('\n\n*** Retained models (meeting all main criteria at least somewhere in parameter space) ***')
+    print('\n\n*** Retained models (having at least one parameterisation meeting all main criteria) ***')
     for ret_model in retained_models:
         n_ret_params = ret_model.params_array.shape[0]
         n_total = det_fits[ret_model.model].n_parameterisations
         print(f'\nModel {ret_model.model}\nRetaining {n_ret_params}'
               f' out of {n_total}'
               f' ({100 * n_ret_params / n_total:.1f} %) parameterisations meeting'
-              f' at least {N_MAIN_CRIT_FOR_RETAINING} main criteria, across:')
+              f' at least {N_MAIN_CRIT_FOR_RETAINING} main criteria,'
+              ' and the pedestrian progress criterion, across:')
         print(ret_model.param_names)
         if DO_PLOTS and DO_RETAINED_PARAMS_PLOT:
             sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
