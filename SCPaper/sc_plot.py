@@ -4,7 +4,17 @@ Created on Sat Jan 22 07:22:42 2022
 
 @author: tragma
 """
+import os
+import matplotlib.pyplot as plt
 
+# expecting a figures subfolder in the folder where this file is located
+SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
+FIGS_FOLDER = SCPAPER_PATH + 'figs/'
+
+FULL_WIDTH = 14 # inches
+DPI = 300
+
+plt.rc('font',**{'family':'sans-serif','sans-serif':['Arial'],'size':8})
 
 BASE_MODELS = ('', 'oVA', 'oVAa', 'oVAaoBEc', 'oVAoVAl', 'oVAaoVAl')  
 N_BASE_MODELS = len(BASE_MODELS)
