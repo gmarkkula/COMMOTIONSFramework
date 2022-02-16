@@ -61,6 +61,7 @@ if __name__ == '__main__':
     # initialise random number generator
     rng = np.random.default_rng()
 
+    n_total = 0
     for comb_model in comb_models:
         
         # - subsample the matrix of parameterisations if needed
@@ -73,6 +74,7 @@ if __name__ == '__main__':
         else:
             params_matrix = comb_model.params_array
             
+        n_total += params_matrix.shape[0]
         print(f'Model {comb_model.model}: Testing'
               f' {params_matrix.shape[0]} parameterisations...')
         
@@ -84,3 +86,5 @@ if __name__ == '__main__':
         # run fit across these parameterisations
         run_fit(comb_model.model, param_arrays_dict)
         
+    print(f'Total parameterisations tested: {n_total}.')
+    
