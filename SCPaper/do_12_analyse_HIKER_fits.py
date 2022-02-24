@@ -17,11 +17,12 @@ if not PARENT_DIR in sys.path:
 import glob
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import parameter_search
 import sc_fitting
 
 
-MAX_NON_CROSS_TRIALS = 60
+MAX_NON_CROSS_TRIALS = np.inf
 if not np.isinf(MAX_NON_CROSS_TRIALS):
     print(f'NB: Excluding parameterisations with more than {MAX_NON_CROSS_TRIALS}'
           ' non-crossing trials.\n')
@@ -44,9 +45,18 @@ for hiker_fit_file in hiker_fit_files:
     
     # go through
     i_included_params = []
+    n_non_cross_trials = []
     for i_param in range(hiker_fit.n_parameterisations):
-        if np.count_nonzero(np.isnan(hiker_fit.results.metrics_matrix[i_param, :, :])) <= MAX_NON_CROSS_TRIALS:
+        n_non_cross_trials.append(np.count_nonzero(np.isnan(hiker_fit.results.metrics_matrix[i_param, :, :])))
+        if n_non_cross_trials[-1] <= MAX_NON_CROSS_TRIALS:
             i_included_params.append(i_param)
+    n_non_cross_trials = np.array(n_non_cross_trials)
+    idx_max_non_cross_trials = np.nonzero(n_non_cross_trials == np.amax(n_non_cross_trials))[0]
+    print(f'Example parameterisations with max for model of'
+          f' {np.amax(n_non_cross_trials)} non-cross trials:')
+    params_array = hiker_fit.results.params_matrix[idx_max_non_cross_trials[0]]
+    print(hiker_fit.get_params_dict(params_array))
+    
     
     if len(i_included_params) > 0:
         print(f'Plotting for {len(i_included_params)} included parameterisations:')
