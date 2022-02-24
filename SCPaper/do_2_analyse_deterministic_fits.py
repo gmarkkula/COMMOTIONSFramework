@@ -51,10 +51,10 @@ CRITERION_GROUPS = ('Main criteria', 'Secondary criteria')
 i_MAIN = 0
 i_SEC = 1
 N_CRIT_GROUPS = len(CRITERION_GROUPS)
-CRITERIA = (('Vehicle asserting priority', 'Vehicle short-stopping', 
-             'Pedestrian hesitation in deceleration scenario', 
-             'Pedestrian starting before vehicle at full stop'),
-            ('Pedestrian hesitation in constant-speed scenario',
+CRITERIA = (('Priority assertion', 'Short-stopping', 
+             'Yield acceptance hesitation', 
+             'Early yield acceptance'),
+            ('Gap acceptance hesitation',
              'Pedestrian progressing after vehicle yield')
             )
 assert(N_CRIT_GROUPS == len(CRITERIA))
@@ -85,6 +85,11 @@ PLOT_INFO['PedHesitateVehConst'] = ScenarioPlotInfo(end_time=9, metric_max=False
 PLOT_INFO['PedHesitateVehYield'] = ScenarioPlotInfo(end_time=8, metric_max=False)
 PLOT_INFO['PedCrossVehYield'] = ScenarioPlotInfo(end_time=6, metric_max=True)
 
+@dataclass
+class CriterionDetails():
+    metric_values: np.ndarray
+    metric_thresh: float
+    crit_greater_than: bool
 
 
 # *** the main analysis functionality
@@ -123,6 +128,7 @@ def do():
         
         # calculate criterion vectors
         criteria_matrices = []
+        crit_details = {}
         i_crit_glob = -1
         for i_crit_grp in range(N_CRIT_GROUPS):
             print(f'\t{CRITERION_GROUPS[i_crit_grp]}:')
@@ -132,14 +138,14 @@ def do():
                 i_crit_glob +=1
                 
                 # criterion-specific calculations
-                if crit == 'Vehicle asserting priority':
+                if crit == 'Priority assertion':
                     veh_av_speed = det_fit.get_metric_results('VehPrioAssert_veh_av_speed')
                     crit_metric = veh_av_speed / VEH_FREE_SPEED
                     crit_thresh = SPEEDUP_FRACT
                     crit_greater_than = True
                     # crit_met_all = veh_av_speed > SPEEDUP_FRACT * VEH_FREE_SPEED
                     
-                elif crit == 'Vehicle short-stopping':
+                elif crit == 'Short-stopping':
                     veh_av_surplus_dec = det_fit.get_metric_results(
                         'VehShortStop_veh_av_surpl_dec')
                     crit_metric = veh_av_surplus_dec
@@ -147,21 +153,21 @@ def do():
                     crit_greater_than = True
                     # crit_met_all = veh_av_surplus_dec > SURPLUS_DEC_THRESH
                     
-                elif crit == 'Pedestrian hesitation in constant-speed scenario':
+                elif crit == 'Gap acceptance hesitation':
                     ped_av_speed = det_fit.get_metric_results('PedHesitateVehConst_ped_av_speed')
                     crit_metric = ped_av_speed / PED_FREE_SPEED
                     crit_thresh = HESITATION_SPEED_FRACT
                     crit_greater_than = False
                     # crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
                 
-                elif crit == 'Pedestrian hesitation in deceleration scenario':
+                elif crit == 'Yield acceptance hesitation':
                     ped_av_speed = det_fit.get_metric_results('PedHesitateVehYield_ped_av_speed')
                     crit_metric = ped_av_speed / PED_FREE_SPEED
                     crit_thresh = HESITATION_SPEED_FRACT
                     crit_greater_than = False
                     # crit_met_all = ped_av_speed < HESITATION_SPEED_FRACT * PED_FREE_SPEED
                     
-                elif crit == 'Pedestrian starting before vehicle at full stop':
+                elif crit == 'Early yield acceptance':
                     veh_speed_at_ped_start = det_fit.get_metric_results(
                         'PedCrossVehYield_veh_speed_at_ped_start')
                     crit_metric = veh_speed_at_ped_start
@@ -224,6 +230,11 @@ def do():
                             ax.set_ylabel(sc_plot.BASE_MODELS[i_model_base], 
                                           fontsize=8)
                         ax.axvline(crit_thresh, ls=':', color='gray')
+                    
+                # store the criterion details
+                crit_details[crit] = CriterionDetails(metric_values=crit_metric,
+                                                      metric_thresh=crit_thresh,
+                                                      crit_greater_than=crit_greater_than)
                         
             # end i_crit, crit for loop
         # end i_crit_grp for loop
@@ -262,6 +273,7 @@ def do():
         det_fit.main_criteria_matrix = main_criteria_matrix
         det_fit.n_main_criteria_met = n_main_criteria_met
         det_fit.sec_criteria_matrix = sec_criteria_matrix
+        det_fit.crit_details = crit_details
         
         # get the parameter ranges, for possible retaining and/or plotting below
         param_ranges = []

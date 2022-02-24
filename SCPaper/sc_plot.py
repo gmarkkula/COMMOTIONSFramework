@@ -6,6 +6,8 @@ Created on Sat Jan 22 07:22:42 2022
 """
 import os
 import matplotlib.pyplot as plt
+from matplotlib import colors
+import numpy as np
 
 # expecting a figures subfolder in the folder where this file is located
 SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
@@ -28,9 +30,26 @@ MVAR_LWS = (1, 1, 1, 2, 1, 2)
 def get_rgb_tuple(r, g, b):
     return (r/255, g/255, b/255)
 
+def mix_colors(rgb_tuple1, rgb_tuple2, pos=0.5):
+    rgb1 = np.array(rgb_tuple1)
+    rgb2 = np.array(rgb_tuple2)
+    w1 = 1-pos
+    w2 = pos
+    rgb_mix = w1 * rgb1 + w2 * rgb2 
+    return tuple(rgb_mix)
+    
+def lighten_color(color, light_factor):
+    return mix_colors(colors.to_rgb(color), colors.to_rgb('white'), light_factor)
+    
+    
+    
+
 COLORS = {}
 COLORS['active agent blue'] = get_rgb_tuple(47, 156, 255)
 COLORS['passive agent grey'] = get_rgb_tuple(190, 190, 190)
+COLORS['base variant black'] = get_rgb_tuple(0, 8, 20)
+COLORS['oBEo variant yellow'] = get_rgb_tuple(255, 195, 0)
+COLORS['oBEvoAI variant blue'] = get_rgb_tuple(0, 53, 102)
 COLORS['other passes second green'] = get_rgb_tuple(76, 162, 123)
 COLORS['other passes first red'] = get_rgb_tuple(120, 0, 37)
 
