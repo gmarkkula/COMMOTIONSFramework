@@ -21,8 +21,8 @@ from do_2_analyse_deterministic_fits import get_max_crit_parameterisations, get_
 
 
 OVERWRITE_SAVED_SIM_RESULTS = False
-PLOT_ILLUSTRATIONS = False
-PLOT_METRICS = False
+PLOT_ILLUSTRATIONS = True
+PLOT_METRICS = True
 PLOT_METRIC_VALUES = True
 SAVE_PDF = False
 
@@ -126,42 +126,42 @@ if PLOT_METRICS:
             
 #for i_scenario, scenario in enumerate(scenario_names)
 
-print('Plotting deterministic model time series examples...')
+# print('Plotting deterministic model time series examples...')
 
-DET_MODEL_NAMES = ('', 'oBEo', 'oVAoBEvoAI')   
+# DET_MODEL_NAMES = ('', 'oBEo', 'oVAoBEvoAI')   
          
-# get simulation results, by loading existing, or looping through models and simulating
-if sc_fitting.results_exist(DET_SIM_RESULTS_FNAME) and not OVERWRITE_SAVED_SIM_RESULTS:
-    sims = sc_fitting.load_results(DET_SIM_RESULTS_FNAME)
-else:
-    sims = {}
-    for model_name in DET_MODEL_NAMES:
-        det_fit = det_fits[model_name]
+# # get simulation results, by loading existing, or looping through models and simulating
+# if sc_fitting.results_exist(DET_SIM_RESULTS_FNAME) and not OVERWRITE_SAVED_SIM_RESULTS:
+#     sims = sc_fitting.load_results(DET_SIM_RESULTS_FNAME)
+# else:
+#     sims = {}
+#     for model_name in DET_MODEL_NAMES:
+#         det_fit = det_fits[model_name]
             
-        # get parameterisation to simulate
+#         # get parameterisation to simulate
 
 
-        # - loop through scenarios and run simulations
-        sims[model_name] = {}
-        for scenario in SCENARIOS.values():
-            sim_iter = ((model_name, i, n_paramets, params_dicts[i], scenario) 
-                        for i in range(n_paramets))
-            if PARALLEL:
-                sims[model_name][scenario.name] = list(
-                    pool.starmap(run_one_sim, sim_iter)) 
-            else:
-                sims[model_name][scenario.name] = list(
-                    itertools.starmap(run_one_sim, sim_iter)) 
-            # also store the parameterisation indices
-            sims[model_name]['idx_paramets'] = idx_paramets
-            # sim = sc_fitting.construct_model_and_simulate_scenario(
-            #     model_name, params_dict, scenario, apply_stop_criteria=False,
-            #     zero_acc_after_exit=False)
-            #sims[model_name][scenario_name].append(sim)
-    # save simulation results
-    sc_fitting.save_results(sims, SIM_RESULTS_FNAME)
+#         # - loop through scenarios and run simulations
+#         sims[model_name] = {}
+#         for scenario in SCENARIOS.values():
+#             sim_iter = ((model_name, i, n_paramets, params_dicts[i], scenario) 
+#                         for i in range(n_paramets))
+#             if PARALLEL:
+#                 sims[model_name][scenario.name] = list(
+#                     pool.starmap(run_one_sim, sim_iter)) 
+#             else:
+#                 sims[model_name][scenario.name] = list(
+#                     itertools.starmap(run_one_sim, sim_iter)) 
+#             # also store the parameterisation indices
+#             sims[model_name]['idx_paramets'] = idx_paramets
+#             # sim = sc_fitting.construct_model_and_simulate_scenario(
+#             #     model_name, params_dict, scenario, apply_stop_criteria=False,
+#             #     zero_acc_after_exit=False)
+#             #sims[model_name][scenario_name].append(sim)
+#     # save simulation results
+#     sc_fitting.save_results(sims, SIM_RESULTS_FNAME)
 
-if SAVE_PDF:
-    file_name = sc_plot.FIGS_FOLDER + 'fig1.pdf'
-    print(f'Saving {file_name}...')
-    plt.savefig(file_name, bbox_inches='tight')
+# if SAVE_PDF:
+#     file_name = sc_plot.FIGS_FOLDER + 'fig1.pdf'
+#     print(f'Saving {file_name}...')
+#     plt.savefig(file_name, bbox_inches='tight')
