@@ -1013,7 +1013,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         
 
         
-def do_params_plot(param_names, params_array, param_ranges=None, log=False, jitter=0):
+def do_params_plot(param_names, params_array, param_ranges=None, 
+                   log=True, jitter=0, param_subsets=None, color='k', show=True):
     def get_plot_lims(minv, maxv):
         ZOOM = 0.1
         if log:
@@ -1027,16 +1028,27 @@ def do_params_plot(param_names, params_array, param_ranges=None, log=False, jitt
     PARAM_VAL_FOR_INF = 10 # for T_Of = Inf
     n_params = len(param_names)
     assert(params_array.shape[1] == n_params)
+    # parse any parameter subsets
+    if param_subsets == None:
+        param_subsets = (np.arange(params_array.shape[0]),)
+    # parse colors
+    if not type(color) is tuple:
+        color = (color,)
+    assert(len(color) == len(param_subsets))
+    # prepare figure
     figsize = min(12, 3 * n_params)
     fig, axs = plt.subplots(n_params, n_params, 
                             figsize=(figsize,figsize))
+    # get parameter ranges if not provided
     if param_ranges == None:
         param_ranges = []
         for i_param in range(n_params):
             param_ranges.append((np.amin(params_array[:, i_param]),
                                  np.amax(params_array[:, i_param])))
+    # prepare for adding any jitter
     if jitter > 0:
         rng = np.random.default_rng()
+    # loop through panels
     for i_x_param in range(n_params):
         for i_y_param in range(n_params):
             if n_params > 1:
@@ -1060,7 +1072,9 @@ def do_params_plot(param_names, params_array, param_ranges=None, log=False, jitt
                                        N_PARAM_BINS+1)
                 else:
                     bins = np.linspace(xmin, max_bin_edge, N_PARAM_BINS+1)
-                ax.hist(params_array[:, i_x_param], bins=bins)
+                for i_subset, param_subset in enumerate(param_subsets):
+                    ax.hist(params_array[param_subset, i_x_param], bins=bins, 
+                            color=color[i_subset], alpha=0.5, ec=None)
             else:
                 xdata = np.copy(params_array[:, i_x_param])
                 ydata = np.copy(params_array[:, i_y_param])
@@ -1077,7 +1091,10 @@ def do_params_plot(param_names, params_array, param_ranges=None, log=False, jitt
                                             size = xdata.shape)
                         ydata += rng.normal(scale = jitter * (ymax - ymin),
                                             size = xdata.shape)
-                ax.plot(xdata, ydata,'ko', ms=2, alpha=0.2)
+                
+                for i_subset, param_subset in enumerate(param_subsets):
+                    ax.plot(xdata[param_subset], ydata[param_subset],'o', 
+                            ms=2, alpha=0.2, color=color[i_subset])
                 if np.isinf(ymax):
                     ymax = PARAM_VAL_FOR_INF
                 yplotmin, yplotmax = get_plot_lims(ymin, ymax)
@@ -1086,7 +1103,8 @@ def do_params_plot(param_names, params_array, param_ranges=None, log=False, jitt
                 ax.set_ylabel(param_names[i_y_param])
             if i_y_param == n_params-1:
                 ax.set_xlabel(param_names[i_x_param]) 
-    plt.show()
+    if show:
+        plt.show()
    
 
 def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs'):
