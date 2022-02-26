@@ -17,7 +17,8 @@ from scipy import stats
 import sc_fitting
 import sc_plot
 import do_2_analyse_deterministic_fits
-from do_2_analyse_deterministic_fits import get_max_crit_parameterisations, get_best_scen_var_for_paramet
+from do_2_analyse_deterministic_fits import (get_max_crit_parameterisations, 
+                                             get_best_scen_var_for_paramet)
 
 
 PLOT_ILLUSTRATIONS = True
