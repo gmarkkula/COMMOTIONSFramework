@@ -18,6 +18,7 @@ import sc_fitting
 import sc_plot
 import do_2_analyse_deterministic_fits
 from do_2_analyse_deterministic_fits import (get_max_crit_parameterisations, 
+                                             get_best_parameterisations_for_crit,
                                              get_best_scen_var_for_paramet)
 
 
@@ -156,17 +157,10 @@ else:
     for i_model, model_name in enumerate(DET_MODEL_NAMES):
         det_fit = det_fits[model_name]
         idx_max_crit_params = get_max_crit_parameterisations(det_fit)
-        crit_details = det_fit.crit_details[MODEL_FOCUS_CRITS[i_model]]
-        max_crit_metric_vals = crit_details.metric_values[idx_max_crit_params, :]
-        if crit_details.crit_greater_than:
-            best_metric_val_per_param = np.nanmax(max_crit_metric_vals, axis=1)
-            best_metric_val = np.nanmax(best_metric_val_per_param)
-        else:
-            best_metric_val_per_param = np.nanmin(max_crit_metric_vals, axis=1)
-            best_metric_val = np.nanmin(best_metric_val_per_param)
-        idx_best_among_max_crit = np.nonzero(
-            best_metric_val_per_param == best_metric_val)[0][0]
-        idx_plot_params.append(idx_max_crit_params[idx_best_among_max_crit])
+        idx_best_params_for_focus_crit = get_best_parameterisations_for_crit(
+            det_fit, MODEL_FOCUS_CRITS[i_model], 
+            idx_params_subset=idx_max_crit_params)
+        idx_plot_params.append(idx_best_params_for_focus_crit[0])
         
     # then, figure out which kinematic variant to use for each scenario
     i_plot_kinem_vars = []

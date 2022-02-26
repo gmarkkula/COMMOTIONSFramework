@@ -390,6 +390,22 @@ def get_best_scen_var_for_paramet(fit, idx_parameterisation, scenario_name,
         print(f'\t\tSo choosing variant #{i_variation+1}/{len(ex_metric_vals)}.')
     return i_variation
 
+# get indices of parameterisations with optimum metric value for criterion
+def get_best_parameterisations_for_crit(fit, criterion, idx_params_subset=None):
+    if idx_params_subset == None:
+        idx_params_subset = np.arange(fit.n_parameterisations)
+    crit_details = fit.crit_details[criterion]
+    subset_metric_vals = crit_details.metric_values[idx_params_subset, :]
+    if crit_details.crit_greater_than:
+        best_metric_val_per_param = np.nanmax(subset_metric_vals, axis=1)
+        best_metric_val = np.nanmax(best_metric_val_per_param)
+    else:
+        best_metric_val_per_param = np.nanmin(subset_metric_vals, axis=1)
+        best_metric_val = np.nanmin(best_metric_val_per_param)
+    idx_best_among_subset = np.nonzero(
+        best_metric_val_per_param == best_metric_val)[0]
+    return idx_params_subset[idx_best_among_subset]
+
 # simulate and plot an example parameterisation, choosing the kinematic variants
 # of scenarios for which the model was maximally successful wrt each criterion
 def plot_example(fit, idx_example):
