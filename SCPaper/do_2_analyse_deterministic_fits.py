@@ -392,7 +392,7 @@ def get_best_scen_var_for_paramet(fit, idx_parameterisation, scenario_name,
 
 # get indices of parameterisations with optimum metric value for criterion
 def get_best_parameterisations_for_crit(fit, criterion, idx_params_subset=None):
-    if idx_params_subset == None:
+    if type(idx_params_subset) == type(None):
         idx_params_subset = np.arange(fit.n_parameterisations)
     crit_details = fit.crit_details[criterion]
     subset_metric_vals = crit_details.metric_values[idx_params_subset, :]
