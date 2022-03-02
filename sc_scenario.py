@@ -1265,6 +1265,7 @@ class SCAgent(commotions.AgentWithGoal):
         """
         stop_dists = (self.signed_CP_dists - self.coll_dist - self.params.D_s)
         stop_accs = -(self.trajectory.long_speed ** 2 / (2 * stop_dists))
+        stop_accs[stop_dists <= 0] = np.nan
         return stop_accs
     
 
