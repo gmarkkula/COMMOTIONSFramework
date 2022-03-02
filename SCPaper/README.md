@@ -109,10 +109,10 @@
     * ~~Plot illustrating oSN* hesitation~~
     * Illustration of the mechanism behind oSN* hesitation
     * ~~Analysis/plot of interaction outcomes in probabilistic and combined fits (first-passer and interaction duration)~~
-* Changing retention approach and rerunning some fits:
-    * Changing retention of deterministic fits to avoid parameterisations with pedestrians that get stuck (see 2022-01-27 notes).
-    * Something similar seems needed for the probabilistic fits also (see 2022-01-30 notes).
-    * --> Rerun combined fits and HIKER fits.
+* ~~Changing retention approach and rerunning some fits:~~
+    * ~~Changing retention of deterministic fits to avoid parameterisations with pedestrians that get stuck (see 2022-01-27 notes).~~
+    * ~~Something similar seems needed for the probabilistic fits also (see 2022-01-30 notes).~~
+    * ~~--> Rerun combined fits and HIKER fits.~~
 * Optional stuff
     * ~~Parallelisation in `parameter_search.py`?~~ 
 
@@ -132,6 +132,7 @@
     * ~~The calculations in `sc_scenario_helper.get_access_order_implications()` can conclude that just accelerating to free speed is enough to pass first in some cases where this is in fact not enough. (I have added some commented-out draft code that I think should fix it, but would need more testing to see that it doesn't introduce some other problem.)~~ 
     * The looming anticipation in `sc_scenario_helper.get_access_order_values()` does not currently count any looming after the ego agent has reached its free speed. As noted in the 2022-01-03, more detailed checking suggests this imperfection might be quite inconsequential, as the actual apparent collision courses in practice tend to happen before free speed has been regained. It should also be born in mind that these calculations always include a "regain free speed" time interval, even if the "access-achieving" acceleration already takes the agent to this speed (in which case that interval will be just an interval of constant speed), which should further reduce any impact of this imperfection. 
     * The looming anticipation together with the pass 1st/2nd outcome formulation of the model, can in some situations and with some model parameterisations result in the model finding slightly awkward "solutions" where speeding up first and then decelerating seems more attractive than just slowing down to begin with. See 2021-11-27 diary notes, under "`oVAoVAloBEo/oBEv` achieves priority assertion" for an example.
+    * Noticed 2022-03-02: It seems I have an indexing error in `sc_scenario_helper.get_access_order_values()` when setting the back end of `oth_accs` to `oth_cont_acc`. Have marked with a comment but not changed for now. Affects only `oVAl` models, and judging by some (limited) tests now possibly not by much.
 * Other stuff:
     * The pedestrian hesitation metrics could return NaN if the pedestrian hesitates itself to a full stop and never gets halfway to the conflict space before the simulation time runs out. I haven't seen that it is a problem, but it might be.
 

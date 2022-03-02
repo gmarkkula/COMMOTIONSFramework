@@ -424,7 +424,7 @@ def get_access_order_values(
                                                 -speeds, -accelerations)
             # get anticipated speeds and conflict point distances for the other agent
             oth_accs = np.full(n_time_steps, oth_first_acc)
-            oth_accs[idx_phase_starts[i_ACTION]+1:] = oth_cont_acc
+            oth_accs[idx_phase_starts[i_ACTION]+1:] = oth_cont_acc # seems like a bug: ]+1: should be +1]: I believe
             oth_speeds = np.maximum(0, anticipation_integration(
                 oth_curr_state.long_speed, oth_accs))
             oth_cp_dists = anticipation_integration(oth_curr_state.signed_CP_dist,
