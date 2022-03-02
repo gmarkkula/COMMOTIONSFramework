@@ -1258,6 +1258,15 @@ class SCAgent(commotions.AgentWithGoal):
         return max(prob_density, np.finfo(float).eps) # don't return zero probability
                 
     
+    def get_stop_accs(self):
+        """ Return a vector of accelerations that would, for each time step
+            in the (alreadly run) simulation have the agent stop
+            at its safety distance (D_s).
+        """
+        stop_dists = (self.signed_CP_dists - self.coll_dist - self.params.D_s)
+        stop_accs = -(self.trajectory.long_speed ** 2 / (2 * stop_dists))
+        return stop_accs
+    
 
     def __init__(self, name, ctrl_type, width, length, simulation, goal_pos, 
                  initial_state, optional_assumptions = get_assumptions_dict(False), 
@@ -1582,10 +1591,7 @@ class SCSimulation(commotions.Simulation):
             # acceleration
             if not(axs[0] == None):
                 if veh_stop_dec and agent.ctrl_type == CtrlType.ACCELERATION:
-                    stop_dists = (agent.signed_CP_dists - agent.coll_dist 
-                                  - agent.params.D_s)
-                    stop_accs = -(agent.trajectory.long_speed ** 2 / (2 * stop_dists))
-                    axs[0].plot(self.time_stamps, stop_accs, 
+                    axs[0].plot(self.time_stamps, agent.get_stop_accs(), 
                                 '--', c=agent.plot_color, alpha = alpha/2)
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
                          '-', c=agent.plot_color, alpha=alpha)
