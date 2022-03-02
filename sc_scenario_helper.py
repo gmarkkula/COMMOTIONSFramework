@@ -62,6 +62,8 @@ AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
                                                   'kinematics_values',
                                                   'looming_values',
                                                   'discount_factors',
+                                                  'discounted_values',
+                                                  'post_value_discounted',
                                                   'phase_kinem_values',
                                                   'phase_looming_values',
                                                   'inh_access_value'])
@@ -505,6 +507,8 @@ def get_access_order_values(
                 kinematics_values = kinematics_values,
                 looming_values = looming_values,
                 discount_factors = discount_factors,
+                discounted_values = discounted_values,
+                post_value_discounted = post_value_discounted,
                 phase_kinem_values = phase_kinem_values,
                 phase_looming_values = phase_looming_values,
                 inh_access_value = inh_access_value)
