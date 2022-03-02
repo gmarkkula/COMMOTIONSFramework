@@ -322,6 +322,19 @@ class SCAgent(commotions.AgentWithGoal):
                               color=snapshot_color)
     
     
+    def prep_for_snapshot_details(self, is_act_val_details, 
+                                  i_action=None, i_beh=None):
+        self.curr_snapshot_is_act_val = is_act_val_details
+        self.i_curr_snapshot_action = i_action
+        self.i_curr_snapshot_beh = i_beh
+        
+        
+    def store_snapshot_details(self, snapshot_details):
+        if self.curr_snapshot_is_act_val:
+            self.snapshot_act_val_details[self.i_curr_snapshot_action, 
+                                          self.i_curr_snapshot_beh] = snapshot_details
+    
+    
     def noisy_lp_filter(self, T, sigma, prevXhat, currXtilde):
         f = self.simulation.settings.time_step / T
         currXhat = (1 - f) * prevXhat + f * currXtilde
@@ -488,10 +501,15 @@ class SCAgent(commotions.AgentWithGoal):
                 # - which snapshots to do?
                 snapshots = []
                 snapshots.append('') # basic state info
-                if self.detailed_snapshots and self.assumptions[OptionalAssumption.oVA]:
+                if self.detailed_snapshots:
                     snapshots.append('(kinematics) ') # kinematics details
                     if self.assumptions[OptionalAssumption.oVAl]:
                         snapshots.append('(looming) ') # looming details
+                    # prepare for storing snapshot action value details
+                    # (only supporting storing details for the last snapshot,
+                    # if more than one snapshots in a simulation)
+                    self.snapshot_act_val_details = np.full((self.n_actions, 
+                                                             N_BEHAVIORS), None)
                 for snapshot in snapshots:
                     fig_name = 'Snapshot %sfor %s at t = %.2f s' % (
                         snapshot, self.name, time_stamp)
@@ -537,7 +555,11 @@ class SCAgent(commotions.AgentWithGoal):
                         # affordance-based value functions
                         # get value for me of this action/behavior combination,
                         # storing both the per-access-order values and the max value
-                        # of those                        
+                        # of those    
+                        if self.detailed_snapshots:
+                            # prepare for receiving and storing snapshot 
+                            # details about the action value estimates
+                            self.prep_for_snapshot_details(True, i_action, i_beh)                    
                         self.states.action_vals_given_behs_outcs[
                                 i_action, i_beh, i_time_step, :] = (
                                 self.get_access_order_values_for_me_v02(
@@ -550,6 +572,9 @@ class SCAgent(commotions.AgentWithGoal):
                         # get value for for the other agent of this 
                         # action/behavior combination
                         # - first across both possible outcomes
+                        if self.detailed_snapshots:
+                            # not storing snapshot details for behaviour value estimates
+                            self.prep_for_snapshot_details(False)    
                         if self.assumptions[OptionalAssumption.oAI]:
                             # considering impact of own actions on value for other agent
                             self.states.beh_vals_given_actions_outcs[
@@ -841,6 +866,8 @@ class SCAgent(commotions.AgentWithGoal):
             
             # doing a snapshot?
             if self.do_snapshot_now:
+                if self.detailed_snapshots:
+                    self.store_snapshot_details(access_ord_values_dict)
                 snapshot_str = ''
                 for access_order in AccessOrder:
                     snapshot_str += ('(%.1f m/s^2, %.2f s, %.1f s)' %
@@ -871,8 +898,12 @@ class SCAgent(commotions.AgentWithGoal):
                                                       '-', lw=2, color=color, 
                                                       alpha=0.5)
                             self.snapshot_axs[1].plot(deets.time_stamps, 
-                                                      deets.oth_cp_dists,
+                                                      deets.oth_speeds,
                                                       '--', lw=1, color='gray', 
+                                                      alpha=0.5)
+                            self.snapshot_axs[1].plot(deets.time_stamps, 
+                                                      deets.oth_cp_dists,
+                                                      '-', lw=1, color='gray', 
                                                       alpha=0.5)
                             if self.assumptions[OptionalAssumption.oVAl]:
                                 self.snapshot_axs[2].plot(deets.time_stamps,
@@ -1328,6 +1359,10 @@ class SCAgent(commotions.AgentWithGoal):
                               ' disabling oBEc.')
                 self.assumptions[OptionalAssumption.oBEc] = False
         if not self.assumptions[OptionalAssumption.oVA]:
+            if self.detailed_snapshots:
+                warnings.warn('Detailed snapshots for non-oVA* models not'
+                              ' supported, so disabling snapshot details.')
+                self.detailed_snapshots = False
             if self.assumptions[OptionalAssumption.oVAa]:
                 warnings.warn('Cannot have oVAa without oVA, so disabling oVAa.')
                 self.assumptions[OptionalAssumption.oVAa] = False

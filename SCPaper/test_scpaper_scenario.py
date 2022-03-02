@@ -23,7 +23,7 @@ import sc_scenario_helper
 import sc_fitting
 
 # set model
-MODEL = 'oVAoBEvoAIoEAoSNvoPF'
+MODEL = 'oVAoBEvoAI'
 # # get assumptions and default parameters for chosen model
 # assumptions = sc_scenario.get_assumptions_dict_from_string(MODEL)
 # params = copy.deepcopy(sc_fitting.DEFAULT_PARAMS)
@@ -53,7 +53,7 @@ params_dict = {'T_delta': 35.938136638046274, 'T': 0.5, 'DeltaV_th_rel': 0.001,
           'beta_V': 61.615502775833434, 'tau_theta': 0.0049999999999999994}
 
 
-if False:
+if True:
     
     SCENARIO = sc_fitting.ONE_AG_SCENARIOS['VehShortStop']
     # SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['Encounter']
@@ -70,12 +70,12 @@ if False:
     for i_var in i_variations:
         print(f'\n{SCENARIO.name} variation {i_var+1}/{SCENARIO.n_variations}:')
         tic = time.perf_counter()
-        sim = sc_fitting.simulate_scenario(SCENARIO, assumptions, params, params_k, 
-                                           i_variation=i_var, 
-                                           snapshots=(None, (1,)),
-                                           detailed_snapshots=True,
-                                           noise_seeds=(None, None), 
-                                           apply_stop_criteria=False)
+        sim = sc_fitting.construct_model_and_simulate_scenario(MODEL, params_dict, SCENARIO,
+                                                               i_variation=i_var, 
+                                                               snapshots=(None, (1,)),
+                                                               detailed_snapshots=True,
+                                                               noise_seeds=(None, None), 
+                                                               apply_stop_criteria=False)
         toc = time.perf_counter()
         print('Initialising and running simulation took %.3f s.' % (toc - tic,))
         sim.do_plots(kinem_states=True, beh_probs=True, beh_activs=False, 
@@ -84,7 +84,7 @@ if False:
         metrics = sc_fitting.get_metrics_for_scenario(SCENARIO, sim, verbose=True)
 
 
-if True:
+if False:
     
     SCENARIOS = sc_fitting.HIKER_SCENARIOS
         
