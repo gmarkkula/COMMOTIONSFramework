@@ -4,7 +4,15 @@ Created on Sat Feb 26 08:01:59 2022
 
 @author: tragma
 """
-
+# assuming this file is in a subfolder to the COMMOTIONS framework root, so 
+# add parent directory to Python path
+import os 
+import sys
+THIS_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR, __ = os.path.split(THIS_FILE_DIR)
+if not PARENT_DIR in sys.path:
+    sys.path.append(PARENT_DIR)
+# other imports
 import os, contextlib
 import matplotlib.pyplot as plt
 import sc_scenario
