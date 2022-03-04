@@ -143,7 +143,7 @@ if PLOT_MODEL_STATES:
         # plot acceleration
         ax = ts_axs[3, i_model]
         ax.plot(sim.time_stamps, veh_agent.get_stop_accs(), lw=1, 
-                ls='--', color='k')
+                ls=':', color='k')
         ax.plot(sim.time_stamps, veh_agent.trajectory.long_acc, lw=1, 
                 ls='-', color='k')
                     
