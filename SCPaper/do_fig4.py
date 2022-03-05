@@ -37,7 +37,7 @@ SCENARIOS = (sc_fitting.PROB_FIT_SCENARIOS['Encounter'],
 
 MODEL_NAMES = ('oVAoEAoSNvoPF', 'oVAoBEvoAIoEAoSNvoPF')
 N_PARAMETS_PER_MODEL_AND_SCEN = 50
-SIM_RESULTS_FNAME = 'fig_CombinedFitSimResults.pkl'
+SIM_RESULTS_FNAME = 'fig_4_SimResults.pkl'
 ALPHA = 0.1
 
 
