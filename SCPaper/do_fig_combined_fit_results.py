@@ -21,26 +21,22 @@ import sc_fitting
 
 
 OVERWRITE_SAVED_SIM_RESULTS = False
-DO_DIST_DIST_PLOT = False
+DO_DIST_DIST_PLOT = True
 DO_TIME_SERIES_PLOT = True
     
+
 TTCP = 3
 INITIAL_TTCAS = []
 for i_agent in range(2):
     INITIAL_TTCAS.append(TTCP - sc_fitting.AGENT_COLL_DISTS[i_agent] 
                          / sc_fitting.AGENT_FREE_SPEEDS[i_agent])
 SCENARIO_END_TIME = 15
-SCENARIOS = {}
-SCENARIOS['Encounter'] = sc_fitting.SCPaperScenario('Encounter', 
-                                    initial_ttcas=INITIAL_TTCAS, 
-                                    stop_criteria = sc_fitting.EXITED_STOP,
-                                    metric_names = sc_fitting.TWO_AG_METRIC_NAMES,
-                                    time_step = sc_fitting.PROB_SIM_TIME_STEP,
-                                    end_time = SCENARIO_END_TIME)
+SCENARIOS = (sc_fitting.PROB_FIT_SCENARIOS['Encounter'], 
+             sc_fitting.PROB_FIT_SCENARIOS['EncounterPedPrio'])
 
 
-MODEL_NAMES = ('oVAoVAloBEooBEvoAIoEAoSNvoPF',)
-N_PARAMETS_PER_MODEL_AND_SCEN = 30
+MODEL_NAMES = ('oVAoEAoSNvoPF', 'oVAoBEvoAIoEAoSNvoPF')
+N_PARAMETS_PER_MODEL_AND_SCEN = 50
 SIM_RESULTS_FNAME = 'fig_CombinedFitSimResults.pkl'
 ALPHA = 0.1
 
@@ -60,9 +56,12 @@ if __name__ == '__main__':
     # initialise random number generator
     rng = np.random.default_rng(seed=0)
     
-    # load info on retained combined models - and get as dict instead
-    ret_models_tmp = sc_fitting.load_results(sc_fitting.RETAINED_COMB_FNAME)
+    # load info on retained probabilistic and combined models - and get as dict instead
+    ret_models_tmp = sc_fitting.load_results(sc_fitting.RETAINED_PROB_FNAME)
     ret_models = {}
+    for ret_model in ret_models_tmp:
+        ret_models[ret_model.model] = ret_model
+    ret_models_tmp = sc_fitting.load_results(sc_fitting.RETAINED_COMB_FNAME)
     for ret_model in ret_models_tmp:
         ret_models[ret_model.model] = ret_model
     del ret_models_tmp
@@ -89,7 +88,8 @@ if __name__ == '__main__':
                 params_dicts.append(dict(
                     zip(ret_model.param_names, params_array)))
             # - loop through scenarios and run simulations
-            for scenario in SCENARIOS.values():
+            for scenario in SCENARIOS:
+                scenario.end_time = SCENARIO_END_TIME
                 sim_iter = ((model_name, i, params_dicts[i], scenario) 
                             for i in range(N_PARAMETS_PER_MODEL_AND_SCEN))
                 sims[model_name][scenario.name] = list(
@@ -100,13 +100,15 @@ if __name__ == '__main__':
                 #sims[model_name][scenario_name].append(sim)
         # save simulation results
         sc_fitting.save_results(sims, SIM_RESULTS_FNAME)
-        
+    
+    
+    plt.close('all')
     
     for model_name in MODEL_NAMES:
         if DO_DIST_DIST_PLOT:
             fig, axs = plt.subplots(nrows=1, ncols=len(SCENARIOS), figsize=(6, 5),
                                     sharex='col', sharey='row', tight_layout=True)
-            for i_scenario, scenario in enumerate(SCENARIOS.values()):
+            for i_scenario, scenario in enumerate(SCENARIOS):
                 if len(SCENARIOS) > 1:
                     ax = axs[i_scenario]
                 else:
@@ -130,7 +132,7 @@ if __name__ == '__main__':
         if DO_TIME_SERIES_PLOT:
             fig, axs = plt.subplots(nrows=1, ncols=len(SCENARIOS), figsize=(5, 3),
                                     sharex='col', sharey='row', tight_layout=True)
-            for i_scenario, scenario in enumerate(SCENARIOS.values()):
+            for i_scenario, scenario in enumerate(SCENARIOS):
                 if len(SCENARIOS) > 1:
                     ax = axs[i_scenario]
                 else:
@@ -139,7 +141,7 @@ if __name__ == '__main__':
                     veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
                     ax.plot(sim.time_stamps, veh_agent.trajectory.long_speed, 
                             'k-', alpha=ALPHA)
-                    ax.set_ylim(10, 15)
+                    ax.set_ylim(0, 15)
                     ax.set_xlabel('Time (s)')
                     ax.set_ylabel('Vehicle speed (m/s)')
             plt.show()
