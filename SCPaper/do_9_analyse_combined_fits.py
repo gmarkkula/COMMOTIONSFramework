@@ -9,6 +9,9 @@ import do_6_analyse_probabilistic_fits
 
 do_6_analyse_probabilistic_fits.DO_TIME_SERIES_PLOTS = False
 do_6_analyse_probabilistic_fits.DO_PARAMS_PLOTS = False
+do_6_analyse_probabilistic_fits.DO_RETAINED_PARAMS_PLOT = False
+do_6_analyse_probabilistic_fits.DO_OUTCOME_PLOT = True
+
 do_6_analyse_probabilistic_fits.N_CRIT_FOR_TS_PLOT = 3
 
 # same analysis as do_6.., just using different input and output files 
