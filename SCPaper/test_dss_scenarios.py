@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jan 31 07:42:17 2022
+Created on Sun Mar  6 12:35:10 2022
 
 @author: tragma
 """
@@ -13,26 +13,53 @@ PARENT_DIR, __ = os.path.split(THIS_FILE_DIR)
 if not PARENT_DIR in sys.path:
     sys.path.append(PARENT_DIR)
     
-# other imports
+import math
+import itertools
 import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import sc_scenario
 import sc_fitting
 
 
 OVERWRITE_SAVED_SIM_RESULTS = False
-    
+
+PARALLEL = True
+
+PED_STEP_DELAY = 1
 SCENARIO_END_TIME = 20
-SCENARIOS = (sc_fitting.PROB_FIT_SCENARIOS['Encounter'], 
-             sc_fitting.PROB_FIT_SCENARIOS['EncounterPedPrio'],
-             sc_fitting.PROB_FIT_SCENARIOS['PedLead'])
-
-
-MODEL_NAMES = ('oVAoEAoSNvoPF', 'oVAoBEvoAIoEAoSNvoPF')
-N_PARAMETS_PER_MODEL_AND_SCEN = 50
-SIM_RESULTS_FNAME = 'fig_4_SimResults.pkl'
 ALPHA = 0.1
+
+
+
+def get_scen_name(zebra, gap):
+    if zebra:
+        return f'z{gap}'
+    else:
+        return f'nz{gap}'
+
+GAPS = np.arange(3, 8)    
+
+SCENARIOS = {}
+for zebra in (False, True):
+    for gap in GAPS:
+        scen_name = get_scen_name(zebra, gap)
+        SCENARIOS[scen_name] = sc_fitting.SCPaperScenario(
+            scen_name, initial_ttcas = (math.nan, gap - PED_STEP_DELAY),  
+            ped_start_standing = True, ped_standing_margin = 2,
+            ped_prio = zebra,
+            time_step = sc_fitting.PROB_SIM_TIME_STEP,
+            end_time = SCENARIO_END_TIME,
+            stop_criteria = (sc_scenario.SimStopCriterion.BOTH_AGENTS_EXITED_CS,),
+            metric_names = ('ped_entry_time', 'ped_exit_time',
+                            'veh_entry_time', 'veh_exit_time'))
+
+
+
+MODEL_NAMES = ('oVAoBEvoAIoEAoSNvoPF',)
+N_PARAMETS_PER_MODEL_AND_SCEN = 50
+SIM_RESULTS_FNAME = 'fig_dss_SimResults.pkl'
 
 
 def run_one_sim(model_name, i_sim, params_dict, scenario):
@@ -45,9 +72,6 @@ def run_one_sim(model_name, i_sim, params_dict, scenario):
 
 
 if __name__ == '__main__':
-    
-    # load Zhu et al (2021) Fig 13 data
-    zhu_et_al = np.genfromtxt(THIS_FILE_DIR + '/data/ZhuEtAl2021Fig13PedPET.csv', delimiter=',')
 
     # initialise random number generator
     rng = np.random.default_rng(seed=0)
@@ -84,29 +108,31 @@ if __name__ == '__main__':
                 params_dicts.append(dict(
                     zip(ret_model.param_names, params_array)))
             # - loop through scenarios and run simulations
-            for scenario in SCENARIOS:
-                scenario.end_time = SCENARIO_END_TIME
+            for scenario in SCENARIOS.values():
                 sim_iter = ((model_name, i, params_dicts[i], scenario) 
                             for i in range(N_PARAMETS_PER_MODEL_AND_SCEN))
-                sims[model_name][scenario.name] = list(
-                    pool.starmap(run_one_sim, sim_iter))   
+                if PARALLEL:
+                    sims[model_name][scenario.name] = list(
+                        pool.starmap(run_one_sim, sim_iter))   
+                else:
+                    sims[model_name][scenario.name] = list(
+                        itertools.starmap(run_one_sim, sim_iter))   
                 # sim = sc_fitting.construct_model_and_simulate_scenario(
                 #     model_name, params_dict, scenario, apply_stop_criteria=False,
                 #     zero_acc_after_exit=False)
                 #sims[model_name][scenario_name].append(sim)
         # save simulation results
         sc_fitting.save_results(sims, SIM_RESULTS_FNAME)
-    
-    
-    # excluding parameterisations which get stuck (either agent not entering 
-    # the conflict space in one or more scenarios)
+
+        
     for model_name in MODEL_NAMES:
         i_sim = 0
         n_excluded = 0
-        n_sims = len(sims[model_name][SCENARIOS[0].name])
+        first_scen_name = tuple(SCENARIOS.keys())[0]
+        n_sims = len(sims[model_name][first_scen_name])
         while i_sim <= n_sims - 1:
             exclude_sim = False
-            for scenario in SCENARIOS:
+            for scenario in SCENARIOS.values():
                 sim = sims[model_name][scenario.name][i_sim]
                 ped_entry_time = sc_fitting.metric_ped_entry_time(sim)
                 veh_entry_time = sc_fitting.metric_veh_entry_time(sim)
@@ -114,27 +140,24 @@ if __name__ == '__main__':
                     exclude_sim = True
                     break
             if exclude_sim:
-                for scenario in SCENARIOS:
+                for scenario in SCENARIOS.values():
                     sims[model_name][scenario.name].pop(i_sim)
                 n_excluded += 1
                 n_sims -= 1
             else:
                 i_sim += 1
         print(f'Excluded {n_excluded} parameterisations for {model_name}.')
-                
-    
-    
+        
     plt.close('all')
     
     N_ROWS = 5
     for model_name in MODEL_NAMES:
-        fig, axs = plt.subplots(nrows=N_ROWS, ncols=len(SCENARIOS), figsize=(6, 8),
+        fig, axs = plt.subplots(nrows=N_ROWS, ncols=len(SCENARIOS), figsize=(15, 8),
                                 sharex='row', sharey='row', tight_layout=True,
                                 num=model_name)
-        print(f'Plotting for {model_name}...')
         axs = axs.reshape((N_ROWS, len(SCENARIOS)))
         all_pets = np.empty(0)
-        for i_scenario, scenario in enumerate(SCENARIOS):
+        for i_scenario, scenario in enumerate(SCENARIOS.values()):
             
             n_sims = len(sims[model_name][scenario.name])
             
@@ -150,9 +173,9 @@ if __name__ == '__main__':
                 # if sc_fitting.metric_collision(sim):
                 #     sim.do_plots(kinem_states=True)
             ax.set_xlim(-50, 50)
-            ax.set_xlabel('Vehicle position (m)')
+            ax.set_xlabel('Vehicle pos. (m)')
             ax.set_ylim(-6, 6)
-            ax.set_ylabel('Pedestrian position (m)')
+            ax.set_ylabel('Pedestrian pos. (m)')
             ax.set_title(scenario.name)
             ax.fill(np.array((1, 1, -1, -1)) * veh_agent.coll_dist, 
                     np.array((-1, 1, 1, -1)) * ped_agent.coll_dist, color='r',
@@ -167,6 +190,7 @@ if __name__ == '__main__':
                 ax.set_ylim(-1, 15)
                 ax.set_xlabel('Time (s)')
                 ax.set_ylabel('Vehicle speed (m/s)')
+            
                 
             # pedestrian speed
             ax = axs[2, i_scenario]
@@ -215,25 +239,31 @@ if __name__ == '__main__':
             # pet distribution
             ax = axs[4, i_scenario]
             #ax.hist(pets, bins=np.arange(0, 10, 0.5))
-            ax.plot(zhu_et_al[:, 0], zhu_et_al[:, 1] / 100)
             sns.ecdfplot(pets, ax=ax)
-            ax.set_xlim(0, 10)
+            ax.set_xlim(0, 6)
             ax.set_xlabel('PET (s)')
-            if i_scenario == 0:
-                ax.legend(('Zhu et al.', 'Model'))
  
-        fig, ax = plt.subplots(num = 'PET ' + model_name)
-        ax.plot(zhu_et_al[:, 0], zhu_et_al[:, 1] / 100)
-        sns.ecdfplot(all_pets, ax=ax)
-        ax.legend(('Zhu et al.', 'Model'))
-        ax.set_xlabel('PET (s; across all scenarios)')
         
-        plt.show()
-                
+        fig, ax = plt.subplots(num='Ped cross ' + model_name, figsize=(4, 4),
+                               tight_layout=True)
+        ped_cross = {}
+        for zebra in (True, False):
+            ped_cross[zebra] = np.zeros(len(GAPS))
+            for i_gap, gap in enumerate(GAPS):
+                scen_name = get_scen_name(zebra, gap)
+                for i_sim, sim in enumerate(sims[model_name][scen_name]):
+                    ped_entry_time = sc_fitting.metric_ped_entry_time(sim)
+                    veh_entry_time = sc_fitting.metric_veh_entry_time(sim)
+                    if ped_entry_time < veh_entry_time:
+                        ped_cross[zebra][i_gap] += 1
+                ped_cross[zebra][i_gap] /= len(sims[model_name][scen_name])
+            if zebra:
+                ls = '--'
+            else:
+                ls = '-'
+            ax.plot(GAPS, ped_cross[zebra], 'k-o', ls=ls)
+        ax.legend(('Zebra', 'Non-zebra'))
+        ax.set_xlabel('Time gap (s)')
+        ax.set_ylabel('Prop. ped. crossing first (-)')
         
-                
-        
-                
-                
-                
-            
+    

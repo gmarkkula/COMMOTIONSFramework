@@ -486,6 +486,20 @@ def metric_collision(sim):
             np.abs(agent.signed_CP_dists) < agent.coll_dist)
     return np.any(collision_samples)
 
+def metric_agent_entry_time(sim, i_agent):
+    past_cs_entrance_samples = np.nonzero(sim.agents[i_agent].signed_CP_dists 
+                                   <= sim.agents[i_agent].coll_dist)[0]
+    if len(past_cs_entrance_samples) == 0:
+        return math.nan
+    else:
+        return sim.time_stamps[past_cs_entrance_samples[0]]
+
+def metric_ped_entry_time(sim):
+    return metric_agent_entry_time(sim, i_PED_AGENT)
+
+def metric_veh_entry_time(sim):
+    return metric_agent_entry_time(sim, i_VEH_AGENT)
+
 def metric_agent_exit_time(sim, i_agent):
     beyond_cs_samples = np.nonzero(sim.agents[i_agent].signed_CP_dists 
                                    < -sim.agents[i_agent].coll_dist)[0]
