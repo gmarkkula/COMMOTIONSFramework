@@ -135,6 +135,9 @@ class Perception:
                         )
                    )
                 )
+            # very rarely, for small D, the expression above can yield a negative
+            # value
+            curr_obs_noise_stddev = max(0, curr_obs_noise_stddev)
         else:
             # constant spatial noise
             curr_obs_noise_stddev = self.pos_obs_noise_stddev
