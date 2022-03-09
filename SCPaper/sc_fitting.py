@@ -30,6 +30,7 @@ from sc_scenario import CtrlType, OptionalAssumption
 import sc_scenario
 import sc_scenario_helper
 import sc_scenario_perception
+import sc_plot
 
 # expecting a results subfolder in the folder where this file is located
 SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
@@ -1121,29 +1122,64 @@ def do_params_plot(param_names, params_array, param_ranges=None,
         plt.show()
    
 
-def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs'):
-    fig, axs = plt.subplots(nrows=2, ncols=len(HIKER_VEH_TIME_GAPS), 
-                            sharex=True, sharey=True, num=fig_name,
-                            figsize=(10, 6))
+def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs', 
+                          axs=None, xlabels=True, ylabels=True, titles=True,
+                          legend=True, finalise=True):
+    
+    def get_speed_alpha(i_speed):
+        return (1 - float(i_speed)/len(HIKER_VEH_SPEEDS_MPH)) ** 2
+    
+    def get_yielding_color(veh_yielding):
+        if veh_yielding:
+            return 'green'
+        else:
+            return 'magenta'
+        
+    if axs == None:
+        fig, axs = plt.subplots(nrows=1, ncols=len(HIKER_VEH_TIME_GAPS), 
+                                sharex=True, sharey=True, num=fig_name,
+                                figsize=(8, 2.5))
+        
     for i_speed, veh_speed_mph in enumerate(HIKER_VEH_SPEEDS_MPH):
         for i_gap, veh_time_gap in enumerate(HIKER_VEH_TIME_GAPS):
             for i_yield, veh_yielding in enumerate((False, True)):
                 scen_name = get_hiker_scen_name(veh_speed_mph,
                                                 veh_time_gap,
                                                 veh_yielding)
-                ax = axs[i_yield, i_gap]
+                ax = axs[i_gap]
                 ecdf = ECDF(cit_data[scen_name]['crossing_time'])
-                alpha = (1 - float(i_speed)/len(HIKER_VEH_SPEEDS_MPH)) ** 2
-                ax.step(ecdf.x, ecdf.y, 'k-', lw=i_speed+1, alpha=alpha)
+                alpha = get_speed_alpha(i_speed)
+                color = get_yielding_color(veh_yielding)
+                ax.step(ecdf.x, ecdf.y, 'k-', lw=i_speed+1, color=color, 
+                        alpha=alpha)
                 ax.set_xlim(-1, 11)
                 ax.set_ylim(-.1, 1.1)
-            axs[0, i_gap].set_title(f'Gap {veh_time_gap} s\n')
-            axs[1, i_gap].set_xlabel('CIT (s)')
-    axs[0, 0].set_ylabel('Constant speed scenario\n\nCDF')  
-    axs[1, 0].set_ylabel('Yielding scenario\n\nCDF')        
-    axs[0,-1].legend(tuple(f'{spd} mph' for spd in HIKER_VEH_SPEEDS_MPH))
-    plt.tight_layout()
-    plt.show()
+            if titles:
+                axs[i_gap].set_title(f'Gap {veh_time_gap} s')
+            if xlabels:
+                axs[i_gap].set_xlabel('Crossing onset time (s)')
+    if ylabels:
+        axs[0].set_ylabel('CDF (-)')   
+    if legend:
+        ax = axs[-1]
+        leg_plots = []
+        for i_speed, spd in enumerate(HIKER_VEH_SPEEDS_MPH):
+            line, = ax.plot((-1, 0), (-10, -10), 'k', lw=i_speed+1, 
+                                     alpha=get_speed_alpha(i_speed), label=f'{spd} mph')
+            leg_plots.append(line)
+        for veh_yielding in (False, True):
+            if veh_yielding:
+                label = 'Yielding'
+            else:
+                label = 'Constant speed'
+            line, = ax.plot((-1, 0), (-10, -10), lw=2, 
+                          color=get_yielding_color(veh_yielding),
+                          alpha=get_speed_alpha(1), label=label)
+            leg_plots.append(line)
+        ax.legend(handles=leg_plots)
+    if finalise:
+        plt.tight_layout()
+        plt.show()
      
     
     
