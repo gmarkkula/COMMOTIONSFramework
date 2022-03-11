@@ -23,6 +23,7 @@ import sc_fitting
 
 DO_PARAMS_PLOT = True
 DO_CIT_CDF_PLOTS = True
+SAVE_CIT_DATA_FOR_MODELS = ('oVAoBEvoAIoEAoSNvoPF',)
 
 CIT_CDF_MAX_NON_CROSS_TRIALS = np.inf
 if not np.isinf(CIT_CDF_MAX_NON_CROSS_TRIALS):
@@ -61,10 +62,10 @@ for hiker_fit_file in hiker_fit_files:
                                   param_subsets=(noncross_yield_params, 
                                                  cross_yield_params))
     
-    if DO_CIT_CDF_PLOTS:
+    if DO_CIT_CDF_PLOTS or (hiker_fit.name in SAVE_CIT_DATA_FOR_MODELS):
         i_included_params = np.nonzero(cross_yield_params)[0]
         if len(i_included_params) > 0:
-            print(f'Plotting for {len(i_included_params)} included parameterisations:')
+            print(f'Preparing CIT plotting data for {len(i_included_params)} included parameterisations:')
             # reorganise data for plotting/analysis
             model_cits = {}
             for i_speed, veh_speed_mph in enumerate(sc_fitting.HIKER_VEH_SPEEDS_MPH):
@@ -83,7 +84,11 @@ for hiker_fit_file in hiker_fit_files:
                                   'crossing_time': hiker_fit.results.metrics_matrix[
                                       i_param, i_scen, :]})
                             model_cits[scen_name] = model_cits[scen_name].append(param_cits)
-            sc_fitting.do_hiker_cit_cdf_plot(model_cits, fig_name=hiker_fit.name)
+            if DO_CIT_CDF_PLOTS:
+                sc_fitting.do_hiker_cit_cdf_plot(model_cits, fig_name=hiker_fit.name)
+            if hiker_fit.name in SAVE_CIT_DATA_FOR_MODELS:
+                sc_fitting.save_results(
+                    model_cits, sc_fitting.MODEL_CIT_FNAME_FMT % hiker_fit.name)
 
 print(f'*** Total number of parameterisations tested: {n_total_params_tested}')                 
                 
