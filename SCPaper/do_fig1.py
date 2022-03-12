@@ -26,7 +26,9 @@ PLOT_ILLUSTRATIONS = True
 PLOT_METRICS = True
 PLOT_METRIC_VALUES = True
 PLOT_DET_EXAMPLES = True
+
 OVERWRITE_SAVED_DET_SIM_RESULTS = False
+
 SAVE_PDF = False
 
 DPI = sc_plot.DPI / 3
@@ -82,10 +84,19 @@ if PLOT_METRICS:
     
     print('Plotting metric distributions...')
     
-    def transf_kde(x):
-        kde_y = kde(x) * yscale
-        kde_y[kde_y < 1e-6] = np.nan
-        return base_y + kde_y ** 0.3
+    def transf_kde(x, kde, base_y, xlims):
+        SCALE = 5
+        THRESH = 1e-3
+        # get KDE PDF and scale so that the area in plot coordinates is the same
+        # between panels
+        xrange = xlims[1] - xlims[0]
+        kde_y = kde(x) * xrange / SCALE
+        # transform so kde values below threshold are NaN, and from threshold
+        # kde values start at 1, so the log-transformed values start at zero
+        kde_y[kde_y < THRESH] = np.nan
+        kde_y = kde_y + 1 - THRESH 
+        kde_y = np.log10(kde_y)
+        return base_y + kde_y
     
     for i_scenario in range(len(SCENARIO_NAMES)):
         xlims = SCENARIO_METRIC_XLIMS[i_scenario]
@@ -105,13 +116,19 @@ if PLOT_METRICS:
                 #     plot_values = np.nanmin(crit_details.metric_values, axis=1)
                 plot_values = crit_details.metric_values.reshape(-1, 1)
                 plot_values = plot_values[~np.isnan(plot_values)]
-                plot_values_jittered = plot_values + (xrange/100) * rng.uniform(-1, 1, len(plot_values))
-                kde = stats.gaussian_kde(plot_values_jittered, bw_method = (xrange/150)/np.std(plot_values_jittered)) 
+                # add some minor jitter for a sensible method of determining the
+                # KDE bandwith if all plot values are the same
+                plot_values_jittered = (plot_values + (xrange/100) 
+                                        * rng.uniform(-1, 1, len(plot_values)))
+                kde = stats.gaussian_kde(
+                    plot_values_jittered, 
+                    bw_method = (xrange/150) / np.std(plot_values_jittered)) 
                 kde_x = np.linspace(xlims[0], xlims[1], N_KDE_POINTS)
-                kde_y = transf_kde(kde_x)
+                kde_y = transf_kde(kde_x, kde, base_y, xlims)
                 if PLOT_METRIC_VALUES:
                     plot_values_unique = np.unique(plot_values)
-                    ax.vlines(plot_values_unique, base_y + 0.02, transf_kde(plot_values_unique), 
+                    ax.vlines(plot_values_unique, base_y, 
+                              transf_kde(plot_values_unique, kde, base_y, xlims), 
                               color=sc_plot.lighten_color(color, 0.7), lw=0.7)
                 ax.plot(kde_x, kde_y, dashes = BASE_DASHES[i_base], color=color)
                 ax.set_xlim(xlims[0], xlims[1])
@@ -160,7 +177,12 @@ else:
         idx_best_params_for_focus_crit = get_best_parameterisations_for_crit(
             det_fit, MODEL_FOCUS_CRITS[i_model], 
             idx_params_subset=idx_max_crit_params)
-        idx_plot_params.append(idx_best_params_for_focus_crit[0])
+        print(model_name)
+        print(idx_best_params_for_focus_crit)
+        if model_name == '':
+            idx_plot_params.append(idx_max_crit_params[0])
+        else:
+            idx_plot_params.append(idx_best_params_for_focus_crit[0])
         
     # then, figure out which kinematic variant to use for each scenario
     i_plot_kinem_vars = []
@@ -187,6 +209,10 @@ else:
         det_sims[model_name] = {}
         for i_scenario, scenario in enumerate(SCENARIOS.values()):
             i_var = i_plot_kinem_vars[i_scenario]
+            # extend simulation time, and avoid having the agent stop at goal
+            scenario.end_time =  12
+            sc_fitting.AGENT_GOALS = np.array([[0, 50], [-500, 0]]) # m
+            # simulate
             det_sims[model_name][scenario.name] = run_one_det_sim(
                 model_name, params_dict, scenario, i_var)
     # save simulation results
@@ -196,7 +222,7 @@ else:
 # plot
 PED_V_LIMS = (-.5, 2.5)
 V_LIMS = ((12.5, 14.5), (-1, 17), PED_V_LIMS, PED_V_LIMS, PED_V_LIMS)
-T_MAXS = (3, 7.3, 7.3, 7.3, 6)
+T_MAXS = (3.5, 10.5, 9.5, 10.5, 6.5)
 for i_model, model_name in enumerate(DET_MODEL_NAMES):
     det_fit = det_fits[model_name]
     for i_scenario, scenario_name in enumerate(SCENARIO_NAMES):
