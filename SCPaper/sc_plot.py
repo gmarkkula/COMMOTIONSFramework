@@ -13,10 +13,16 @@ import numpy as np
 SCPAPER_PATH = os.path.dirname(os.path.abspath(__file__)) + '/'
 FIGS_FOLDER = SCPAPER_PATH + 'figs/'
 
-FULL_WIDTH = 14 # inches
+FULL_WIDTH = 8 # inches
 DPI = 300
 
-plt.rc('font',**{'family':'sans-serif','sans-serif':['Arial'],'size':8})
+DEFAULT_FONT_SIZE = 7
+PANEL_LABEL_FONT_SIZE = 11
+AXIS_LW = 0.5
+plt.rc('font',**{'family':'sans-serif','sans-serif':['Arial'],'size':DEFAULT_FONT_SIZE})
+plt.rc('axes', linewidth=AXIS_LW)
+plt.rc('xtick.major', width=AXIS_LW)
+plt.rc('ytick.major', width=AXIS_LW)
 
 BASE_MODELS = ('', 'oVA', 'oVAa', 'oVAaoBEc', 'oVAoVAl', 'oVAaoVAl')  
 N_BASE_MODELS = len(BASE_MODELS)
@@ -67,3 +73,9 @@ def split_model_name(full_name):
     i_model_base = BASE_MODELS.index(model_base)
     i_model_variant = MODEL_VARIANTS.index(model_variant)
     return i_model_base, i_model_variant
+
+
+def add_panel_label(label, xy):
+    plt.annotate(label, xy=xy, xycoords='figure fraction', 
+                 fontsize=PANEL_LABEL_FONT_SIZE,
+                 fontweight='bold')

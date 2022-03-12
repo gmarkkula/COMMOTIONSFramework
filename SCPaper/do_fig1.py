@@ -29,9 +29,11 @@ PLOT_DET_EXAMPLES = True
 
 OVERWRITE_SAVED_DET_SIM_RESULTS = False
 
-SAVE_PDF = False
-
-DPI = sc_plot.DPI / 3
+SAVE_PDF = True
+if SAVE_PDF:
+    SCALE_DPI = 1
+else:
+    SCALE_DPI = 0.5
 
 SCENARIOS = sc_fitting.ONE_AG_SCENARIOS
 SCENARIO_NAMES = SCENARIOS.keys()
@@ -47,15 +49,22 @@ SCENARIO_METRIC_NAMES = ('$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)',
 SCENARIO_METRIC_XLIMS = ((0.95, 1.02), (-1, 4), (0.7, 1.05), (0, 1.5), (-2, 15))
 N_KDE_POINTS = 200
 
+PANEL_LABEL_X = 0.02
+
 DET_SIM_RESULTS_FNAME = 'fig_1_DetFitSimResults.pkl'
 
 rng = default_rng(0)
 
 plt.close('all')
 fig, fig_axs = plt.subplots(num=1, nrows = N_ROWS, ncols = N_COLS, 
-                        figsize=(sc_plot.FULL_WIDTH, 0.8*sc_plot.FULL_WIDTH),
-                        dpi=DPI, tight_layout=True)
+                        figsize=(sc_plot.FULL_WIDTH, 
+                                 0.8*sc_plot.FULL_WIDTH),
+                        dpi=sc_plot.DPI * SCALE_DPI)
 
+ILL_PAD = 0.02
+ILL_W = (1 - 2*ILL_PAD) / len(SCENARIO_NAMES)
+    
+    
 if PLOT_ILLUSTRATIONS:
     print('Plotting illustrations...')
     for i_scenario, scenario in enumerate(SCENARIO_NAMES):
@@ -63,7 +72,15 @@ if PLOT_ILLUSTRATIONS:
         scen_im = plt.imread(sc_plot.FIGS_FOLDER + scenario + '.png')
         ax.imshow(scen_im)
         ax.axis('off')
-        ax.set_title(SCENARIO_CRITERIA[i_scenario] + '\n')
+        ax.set_title(SCENARIO_CRITERIA[i_scenario] + '\n', 
+                     fontsize=sc_plot.DEFAULT_FONT_SIZE)
+        ax_x = ILL_PAD + i_scenario * ILL_W
+        ax_y = 0.76
+        ax_w = ILL_W
+        ax_h = ILL_W
+        ax.set_position([ax_x, ax_y, ax_w, ax_h])
+    sc_plot.add_panel_label('A', (PANEL_LABEL_X, 0.97))
+        
   
 print('Running do_2...')       
 with open(os.devnull, 'w') as devnull:
@@ -74,15 +91,22 @@ with open(os.devnull, 'w') as devnull:
         
     
 CRIT_BASES = ('', 'oVA')
-BASE_DASHES = ((10,2), (1,0))
+BASE_DASHES = ((6,1), (1,0))
+BASE_NAMES = ('Snapshot payoffs', 'Affordances')
 CRIT_VARIANTS = ('', 'oBEo', 'oBEvoAI')
 VARIANT_COLORS = (sc_plot.COLORS['base variant black'],
                   sc_plot.COLORS['oBEo variant yellow'],
                   'green')
-        
+VARIANT_NAMES = ('None', 'Observation', 'Value/action')
+    
+PANEL_MID_XS = ILL_PAD + np.arange(len(SCENARIOS)) * ILL_W + ILL_W / 2
+    
 if PLOT_METRICS:
     
     print('Plotting metric distributions...')
+    
+    PANEL_W = 0.8 * ILL_W
+    PANEL_H = 0.12
     
     def transf_kde(x, kde, base_y, xlims):
         SCALE = 5
@@ -104,6 +128,9 @@ if PLOT_METRICS:
         yscale = xrange/70
         for i_base, base in enumerate(CRIT_BASES):
             ax = fig_axs[i_base + 1, i_scenario]
+            ax_x = PANEL_MID_XS[i_scenario] - PANEL_W / 2
+            ax_y = 0.59 - i_base * 0.13
+            ax.set_position([ax_x, ax_y, PANEL_W, PANEL_H])
             for i_variant, variant in enumerate(CRIT_VARIANTS):
                 base_y = len(CRIT_VARIANTS) - i_variant
                 color = VARIANT_COLORS[i_variant]
@@ -130,7 +157,8 @@ if PLOT_METRICS:
                     ax.vlines(plot_values_unique, base_y, 
                               transf_kde(plot_values_unique, kde, base_y, xlims), 
                               color=sc_plot.lighten_color(color, 0.7), lw=0.7)
-                ax.plot(kde_x, kde_y, dashes = BASE_DASHES[i_base], color=color)
+                ax.plot(kde_x, kde_y, dashes = BASE_DASHES[i_base], color=color,
+                        lw=1)
                 ax.set_xlim(xlims[0], xlims[1])
                 ax.set_ylim(0.5, len(CRIT_VARIANTS) + 1)
                 ax.get_yaxis().set_visible(False)
@@ -142,6 +170,8 @@ if PLOT_METRICS:
                     ax.spines['bottom'].set_visible(False)
                 else:
                     ax.set_xlabel(SCENARIO_METRIC_NAMES[i_scenario])
+                    
+    sc_plot.add_panel_label('B', (PANEL_LABEL_X, 0.7))
             
             
 #for i_scenario, scenario in enumerate(scenario_names)
@@ -156,9 +186,9 @@ def run_one_det_sim(model_name, params_dict, scenario, i_var):
 print('Plotting deterministic model time series examples...')
 
 # the models to show simulations for
-DET_MODEL_NAMES = ('', 'oBEo', 'oVAoBEvoAI')
+DET_MODEL_NAMES = ('oBEo', '', 'oVAoBEvoAI')
 DET_MODEL_BASES = (0, 0, 1)
-DET_MODEL_VARIANTS = (0, 1, 2)
+DET_MODEL_VARIANTS = (1, 0, 2)
 # criterion to use for selecting a parameterisation to show for each model   
 MODEL_FOCUS_CRITS = ('Yield acceptance hesitation', 'Gap acceptance hesitation', 
                      'Priority assertion')
@@ -223,6 +253,8 @@ else:
 PED_V_LIMS = (-.5, 2.5)
 V_LIMS = ((12.5, 14.5), (-1, 17), PED_V_LIMS, PED_V_LIMS, PED_V_LIMS)
 T_MAXS = (3.5, 10.5, 9.5, 10.5, 6.5)
+PANEL_W = 0.7 * ILL_W
+PANEL_H = 0.11
 for i_model, model_name in enumerate(DET_MODEL_NAMES):
     det_fit = det_fits[model_name]
     for i_scenario, scenario_name in enumerate(SCENARIO_NAMES):
@@ -238,7 +270,9 @@ for i_model, model_name in enumerate(DET_MODEL_NAMES):
                 i_act_agent = i_agent
                 break
         act_agent.plot_color = VARIANT_COLORS[DET_MODEL_VARIANTS[i_model]]
+        act_agent.plot_dashes = BASE_DASHES[DET_MODEL_BASES[i_model]]
         act_agent.other_agent.plot_color = sc_plot.COLORS['passive agent grey']
+        act_agent.other_agent.plot_dashes = (1, 1)
         if i_model == 0:
             i_plot_agents = (1-i_act_agent, i_act_agent)
             agent_alpha = (1, 1)
@@ -247,22 +281,79 @@ for i_model, model_name in enumerate(DET_MODEL_NAMES):
             agent_alpha = (1,)
             
         # plot
+        if i_model == 0:
+            axs[1].axhline(0, ls='--', lw=0.5, color='lightgray')
+            act_agent.plot_lw = 1.5
+        else:
+            act_agent.plot_lw = 1
         sim.do_kinem_states_plot(np.insert(axs, 0, None), veh_stop_dec=False, 
                                  agent_alpha=agent_alpha,
                                  i_plot_agents=i_plot_agents,
-                                 axis_labels=(i_scenario==0),
-                                 plot_fill=True)
+                                 axis_labels=False, plot_fill=True, fill_r = 1,
+                                 hlines=False)
         axs[0].set_xlim(0, T_MAXS[i_scenario])
         axs[0].set_ylim(V_LIMS[i_scenario][0], V_LIMS[i_scenario][1])
         axs[1].set_xlim(0, T_MAXS[i_scenario])
         axs[1].set_ylim(-4, 17)
         axs[1].set_xlabel('Time (s)')
+        if i_scenario == 0:
+            axs[0].set_ylabel('$v$ (m/s)\n')
+            axs[1].set_ylabel('$d_\mathrm{CP}$ (m)\n')
+        ax_x = PANEL_MID_XS[i_scenario] - PANEL_W / 2
+        for i in range(2):
+            ax_y = 0.23 - i * 0.13
+            ax = axs[i]
+            ax.set_position([ax_x, ax_y, PANEL_W, PANEL_H])
+            ax.get_xaxis().set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            #print(axs[i].get_position())
+        
+        if i_model == 0:
+            # add a separate time axis
+            ax_y = 0.07
+            
+            t_ax = fig.add_subplot(sharex=axs[1])
+            t_ax.set_position([ax_x, ax_y, PANEL_W, 0.01])
+            t_ax.get_yaxis().set_visible(False)
+            t_ax.spines['left'].set_visible(False)
+            t_ax.spines['right'].set_visible(False)
+            t_ax.spines['top'].set_visible(False)
+            t_ax.set_ylabel('__')
+            t_ax.set_xlabel('Time (s)')
         
 
-plt.show()
+                    
+sc_plot.add_panel_label('C', (PANEL_LABEL_X, 0.36))
 
+
+# legends
+# - base model
+ax = fig_axs[1, 2]
+leg_lines = []
+for i_base in range(2):
+    line, = ax.plot((-1, -1), (-1, -1), color='lightgray', 
+                    dashes=BASE_DASHES[i_base], label=BASE_NAMES[i_base])
+    leg_lines.append(line)
+legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.7, 0.5), 
+          title='Value estimation:')
+legend._legend_box.align = 'left'
+# - model variant
+ax = fig_axs[2, 2]
+leg_lines = []
+for i_variant in range(3):
+    line, = ax.plot((-1, -1), (-1, -1), '-', color=VARIANT_COLORS[i_variant], 
+                    label=VARIANT_NAMES[i_variant])
+    leg_lines.append(line)
+legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.7, 0.7), 
+          title='Behavior estimation:')
+legend._legend_box.align = 'left'
 
 if SAVE_PDF:
     file_name = sc_plot.FIGS_FOLDER + 'fig1.pdf'
     print(f'Saving {file_name}...')
     plt.savefig(file_name, bbox_inches='tight')
+
+
+plt.show()
