@@ -1566,7 +1566,7 @@ class SCSimulation(commotions.Simulation):
                              alpha=1, i_plot_agents=range(N_AGENTS),
                              agent_alpha=np.ones(N_AGENTS),
                              plot_const_guides=True, plot_fill=True, 
-                             hlines=True):
+                             fill_r = None, hlines=True):
         """
         Plot kinematic simulation states.
 
@@ -1639,8 +1639,12 @@ class SCSimulation(commotions.Simulation):
                     t_ex = math.nan
                 if plot_fill:
                     # - illustrate when agent is in CS
+                    if fill_r == None:
+                        agent_fill_r = agent.coll_dist
+                    else:
+                        agent_fill_r = fill_r
                     axs[2].fill(np.array((t_en, t_ex, t_ex, t_en)), 
-                             np.array((-1, -1, 1, 1)) * agent.coll_dist, 
+                             np.array((-1, -1, 1, 1)) * agent_fill_r, 
                              color = agent.plot_color, alpha = alpha/3,
                              edgecolor = None)
                 if plot_const_guides and hlines:
