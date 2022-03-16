@@ -56,8 +56,8 @@ COLORS['passive agent grey'] = get_rgb_tuple(190, 190, 190)
 COLORS['base variant black'] = get_rgb_tuple(0, 8, 20)
 COLORS['oBEo variant yellow'] = get_rgb_tuple(255, 195, 0)
 COLORS['oBEvoAI variant blue'] = get_rgb_tuple(0, 53, 102)
-COLORS['other passes second green'] = get_rgb_tuple(76, 162, 123)
-COLORS['other passes first red'] = get_rgb_tuple(120, 0, 37)
+COLORS['Passing first green'] = get_rgb_tuple(76, 162, 123)
+COLORS['Passing second red'] = get_rgb_tuple(120, 0, 37)
 
 
 def split_model_name(full_name):
