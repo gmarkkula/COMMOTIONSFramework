@@ -31,7 +31,7 @@ PLOT_MODEL_STATES = True
 OVERWRITE_SAVED_SIM_RESULTS = False
 
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -308,10 +308,13 @@ legend = ax.legend(handles=leg_handles, frameon=False, loc=(leg_x, 2.85),
 legend._legend_box.align = 'left'
 
 
-
-
 sc_plot.add_panel_label('B', (0.63, 0.72))
 
+
+if SAVE_PDF:
+    file_name = sc_plot.FIGS_FOLDER + 'fig2.pdf'
+    print(f'Saving {file_name}...')
+    plt.savefig(file_name, bbox_inches='tight')
 
 
 
