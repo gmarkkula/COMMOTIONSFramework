@@ -14,18 +14,16 @@ if not PARENT_DIR in sys.path:
     sys.path.append(PARENT_DIR)
     
 # other imports
-import math
-import pickle
 import numpy as np
-from statsmodels.distributions.empirical_distribution import ECDF
 import matplotlib.pyplot as plt
 import sc_fitting
 
 
 plt.close('all')
 
+DO_PLOTS = True
 
-OVERWRITE_SAVED_SIM_RESULTS = False
+OVERWRITE_SAVED_SIM_RESULTS = True
     
 
 SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['PedHesitateVehConst']
@@ -44,9 +42,9 @@ ret_models = sc_fitting.load_results(sc_fitting.RETAINED_PROB_FNAME)
 
 # get simulation results, by loading existing, or looping through models and simulating
 if sc_fitting.results_exist(SIM_RESULTS_FNAME) and not OVERWRITE_SAVED_SIM_RESULTS:
-    sims = sc_fitting.load_results(SIM_RESULTS_FNAME)
+    sim_results = sc_fitting.load_results(SIM_RESULTS_FNAME)
 else:
-    sims = {}
+    sim_results = {}
     for model_name in MODEL_NAMES:
         found_model = False
         for ret_model in ret_models:
@@ -58,7 +56,7 @@ else:
             
         # draw retained parameterisations at random and simulate
         n_ret_paramets = ret_model.params_array.shape[0]
-        sims[model_name] = []
+        sim_results[model_name] = {}
         for i_sim in range(N_PARAMETS_PER_MODEL):
             idx_paramet = rng.integers(n_ret_paramets)
             params_array = ret_model.params_array[idx_paramet, :]
@@ -68,33 +66,45 @@ else:
             sim = sc_fitting.construct_model_and_simulate_scenario(
                 model_name, params_dict, SCENARIO, apply_stop_criteria=False,
                 zero_acc_after_exit=False)
-            sims[model_name].append(sim)
-    # save simulation results
-    sc_fitting.save_results(sims, SIM_RESULTS_FNAME)
+            # get the needed kinematics and state vectors
+            ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
+            veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
+            # - allocate arrays if not already done
+            if i_sim == 0:
+                sim_results[model_name]['n_simulations'] = N_PARAMETS_PER_MODEL
+                sim_results[model_name]['time_stamps'] = sim.time_stamps
+                sim_results[model_name]['ped_coll_dist'] = ped_agent.coll_dist
+                n_time_steps = len(sim.time_stamps)
+                for vector_name in ('ped_acc', 'ped_speed', 'ped_CP_dist', 
+                                    'perc_ttc', 'V_none', 'V_dec', 'DeltaV'):
+                    sim_results[model_name][vector_name] = np.full(
+                        (N_PARAMETS_PER_MODEL, n_time_steps), np.nan)
+            # - pedestrian kinematic states
+            sim_results[model_name]['ped_acc'][i_sim, :] = \
+                ped_agent.trajectory.long_acc
+            sim_results[model_name]['ped_speed'][i_sim, :] = \
+                ped_agent.trajectory.long_speed
+            sim_results[model_name]['ped_CP_dist'][i_sim, :] = \
+                ped_agent.signed_CP_dists
+            # - pedestrian's perceived vehicle TTCs
+            perc_cs_dist = (ped_agent.perception.states.x_perceived[0, :] 
+                            - veh_agent.coll_dist) 
+            perc_speed = ped_agent.perception.states.x_perceived[1, :] 
+            perc_ttc = perc_cs_dist / perc_speed
+            sim_results[model_name]['perc_ttc'][i_sim, :] = perc_ttc
+            # - pedestrian action values
+            i_no_action = ped_agent.i_no_action
+            i_dec_action = i_no_action-2
+            sim_results[model_name]['V_none'][i_sim, :] = \
+                ped_agent.states.mom_action_vals[i_no_action, :]
+            sim_results[model_name]['V_dec'][i_sim, :] = \
+                ped_agent.states.mom_action_vals[i_dec_action, :]
+            sim_results[model_name]['DeltaV'][i_sim, :] = \
+                ped_agent.states.est_action_surplus_vals[i_dec_action, :]
+    # save simulation results]
+    sc_fitting.save_results(sim_results, SIM_RESULTS_FNAME)
    
-
-        
-    
-    
-# get time series vectors for distribution analysis
-n_time_steps = math.floor(SCENARIO.end_time / SCENARIO.time_step)
-ttcss = np.full((N_PARAMETS_PER_MODEL, n_time_steps), np.nan)
-V_none = np.full((N_PARAMETS_PER_MODEL, n_time_steps), np.nan)
-V_dec = np.full((N_PARAMETS_PER_MODEL, n_time_steps), np.nan)
-DeltaV = np.full((N_PARAMETS_PER_MODEL, n_time_steps), np.nan)
-for i_sim, sim in enumerate(sims['oVAoEAoSNvoPF']):
-    ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
-    veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
-    perc_cs_dist = ped_agent.perception.states.x_perceived[0, :] - veh_agent.coll_dist
-    perc_speed = ped_agent.perception.states.x_perceived[1, :]
-    perc_ttcs = perc_cs_dist / perc_speed
-    ttcss[i_sim, :] = perc_ttcs
-    i_no_action = ped_agent.i_no_action
-    i_dec_action = i_no_action-2
-    V_none[i_sim, :] = ped_agent.states.mom_action_vals[i_no_action, :]
-    V_dec[i_sim, :] = ped_agent.states.mom_action_vals[i_dec_action, :]
-    DeltaV[i_sim, :] = ped_agent.states.est_action_surplus_vals[i_dec_action, :]
-    
+   
 
 
 def get_quantiles(x_array, y_arrays, qs=(0.2, 0.5, 0.8), step=10):
@@ -115,7 +125,10 @@ def get_quantiles(x_array, y_arrays, qs=(0.2, 0.5, 0.8), step=10):
     return x_out, quantiles[:, ::step]
     
 
-def do_state_panel_plots(ax, time_stamps, states, i_example, color, posinf_replace=None):
+def do_state_panel_plots(ax, sim_result, state_vector_name, i_example, 
+                         color, posinf_replace=None):
+    time_stamps = sim_result['time_stamps']
+    states = sim_result[state_vector_name]
     if not posinf_replace == None:
         states[states == np.inf] = posinf_replace
     quantile_time_stamps, quantile_ys = get_quantiles(time_stamps, states)
@@ -125,55 +138,55 @@ def do_state_panel_plots(ax, time_stamps, states, i_example, color, posinf_repla
     ax.plot(time_stamps, ex_ys, lw=0.5, color=color, alpha=0.5)
     ax.plot(quantile_time_stamps, quantile_ys[1, :], lw=1, color=color)
     
-# do plotting
-print('Plotting...')
-veh_entry_t = SCENARIO.initial_ttcas[sc_fitting.i_VEH_AGENT]
-veh_exit_t = veh_entry_t + (2 * sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_VEH_AGENT]
-                            / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
-kin_fig, kin_axs = plt.subplots(nrows=2, ncols=len(MODEL_NAMES), figsize=(8, 5),
-                        sharex='col', sharey='row', tight_layout=True)
-for i_model, model_name in enumerate(MODEL_NAMES):
-    for i_sim, sim in enumerate(sims[model_name]):
-        ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
-        # # acc
-        # ax = axs[0, i_model]
-        # ax.plot(sim.time_stamps, ped_agent.trajectory.long_acc,
-                             # 'k', alpha=ALPHA)
-        #ax.set_xlim(-0.5, 6.5)
-        #ax.set_ylim(-3, 3)
-        # speed
-        ax = kin_axs[0, i_model]
-        ax.plot(sim.time_stamps, ped_agent.trajectory.long_speed,
-                             'k', alpha=ALPHA)
-        ax.set_ylim(-.1, 4.1)
-        # distance
-        ax = kin_axs[1, i_model]
-        ax.plot(sim.time_stamps, ped_agent.signed_CP_dists,
-                             'k', alpha=ALPHA)
-        ax.set_ylim(-ped_agent.coll_dist-1, 6)
-        if i_sim == 0:
-            ax.fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
-                    np.array((1, 1, -1, -1)) * ped_agent.coll_dist,
-                    c='red', edgecolor='none', alpha=0.3)
-            
-    kin_axs[-1, i_model].set_xlabel('Time (s)')            
-kin_axs[0, 0].set_ylabel('$v$ (m/s)')
-kin_axs[1, 0].set_ylabel('$d_{CP}$ (m)')
-
-
-
-st_fig, st_axs = plt.subplots(nrows=4, ncols=1, sharex='col', tight_layout=True)
-i_SIM_EX = 3 # 0 speeds up, 3 stops, 7 decelerates then accelerates
-sim = sims['oVAoEAoSNvoPF'][i_SIM_EX]
-ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
-do_state_panel_plots(st_axs[0], sim.time_stamps, ttcss, i_SIM_EX, 'k', posinf_replace=100)
-veh_ttcss = veh_entry_t - np.arange(0, SCENARIO.end_time, SCENARIO.time_step) 
-st_axs[0].plot(sim.time_stamps, veh_ttcss, 'k--', alpha=0.5)
-do_state_panel_plots(st_axs[1], sim.time_stamps, V_none, i_SIM_EX, 'blue')
-do_state_panel_plots(st_axs[1], sim.time_stamps, V_dec, i_SIM_EX, 'red')
-do_state_panel_plots(st_axs[2], sim.time_stamps, DeltaV, i_SIM_EX, 'green')
-st_axs[3].plot(sim.time_stamps, ped_agent.trajectory.long_acc, 'k', lw=0.5)         
-st_axs[0].set_ylim(-1, 12)
-st_axs[1].set_ylim(0.21, 0.25)
-st_axs[2].set_ylim(-0.015, 0.005)
-st_axs[2].set_xlim(0, 8)
+    
+if DO_PLOTS:
+    
+    # do plotting
+    print('Plotting...')
+    veh_entry_t = SCENARIO.initial_ttcas[sc_fitting.i_VEH_AGENT]
+    veh_exit_t = veh_entry_t + (2 * sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_VEH_AGENT]
+                                / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
+    kin_fig, kin_axs = plt.subplots(nrows=2, ncols=len(MODEL_NAMES), figsize=(8, 5),
+                            sharex='col', sharey='row', tight_layout=True)
+    for i_model, model_name in enumerate(MODEL_NAMES):
+        sim_result = sim_results[model_name]
+        for i_sim in range(sim_result['n_simulations']):
+            time_stamps = sim_result['time_stamps']
+            ped_coll_dist = sim_result['ped_coll_dist']
+            # speed
+            ax = kin_axs[0, i_model]
+            ax.plot(time_stamps, sim_result['ped_speed'][i_sim, :],
+                                 'k', alpha=ALPHA)
+            ax.set_ylim(-.1, 4.1)
+            # distance
+            ax = kin_axs[1, i_model]
+            ax.plot(time_stamps, sim_result['ped_CP_dist'][i_sim, :],
+                                 'k', alpha=ALPHA)
+            ax.set_ylim(-ped_coll_dist-1, 6)
+            if i_sim == 0:
+                ax.fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
+                        np.array((1, 1, -1, -1)) * ped_coll_dist,
+                        c='red', edgecolor='none', alpha=0.3)
+                
+        kin_axs[-1, i_model].set_xlabel('Time (s)')            
+    kin_axs[0, 0].set_ylabel('$v$ (m/s)')
+    kin_axs[1, 0].set_ylabel('$d_{CP}$ (m)')
+    
+    
+    
+    st_fig, st_axs = plt.subplots(nrows=4, ncols=1, sharex='col', tight_layout=True)
+    i_SIM_EX = 3 # 0 speeds up, 3 stops, 7 decelerates then accelerates
+    sim_result = sim_results['oVAoEAoSNvoPF']
+    time_stamps = sim_result['time_stamps']
+    ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
+    do_state_panel_plots(st_axs[0], sim_result, 'perc_ttc', i_SIM_EX, 'k', posinf_replace=100)
+    veh_ttcss = veh_entry_t - np.arange(0, SCENARIO.end_time, SCENARIO.time_step) 
+    st_axs[0].plot(time_stamps, veh_ttcss, 'k--', alpha=0.5)
+    do_state_panel_plots(st_axs[1], sim_result, 'V_none', i_SIM_EX, 'blue')
+    do_state_panel_plots(st_axs[1], sim_result, 'V_dec', i_SIM_EX, 'red')
+    do_state_panel_plots(st_axs[2], sim_result, 'DeltaV', i_SIM_EX, 'green')
+    st_axs[3].plot(time_stamps, sim_result['ped_acc'][i_SIM_EX, :], 'k', lw=0.5)         
+    st_axs[0].set_ylim(-1, 12)
+    st_axs[1].set_ylim(0.21, 0.25)
+    st_axs[2].set_ylim(-0.015, 0.005)
+    st_axs[2].set_xlim(0, 8)
