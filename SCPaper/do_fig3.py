@@ -23,10 +23,7 @@ import sc_fitting
 
 plt.close('all')
 
-DO_PLOTS = True
-
-OVERWRITE_SAVED_SIM_RESULTS = False
-    
+OVERWRITE_SAVED_SIM_RESULTS = False 
 PARALLEL = True
 
 SCENARIO = sc_fitting.PROB_FIT_SCENARIOS['PedHesitateVehConst']
@@ -44,6 +41,8 @@ def run_one_sim(model_name, i_sim, params_dict):
     return sc_fitting.construct_model_and_simulate_scenario(
         model_name, params_dict, SCENARIO, apply_stop_criteria=False,
         zero_acc_after_exit=False)
+
+
 
 if __name__ == '__main__':
 
@@ -148,67 +147,93 @@ if __name__ == '__main__':
         return x_out, quantiles[:, ::step]
         
     
-    def do_state_panel_plots(ax, sim_result, state_vector_name, i_example, 
-                             color, posinf_replace=None):
+    def do_state_panel_plots(ax, sim_result, state_vector_name, i_examples=None, 
+                             color='k', posinf_replace=None, plot_median=True,
+                             subset=None):
         time_stamps = sim_result['time_stamps']
         states = sim_result[state_vector_name]
+        if not type(subset) == type(None):
+            states = states[subset, :]
         if not posinf_replace == None:
             states[states == np.inf] = posinf_replace
         quantile_time_stamps, quantile_ys = get_quantiles(time_stamps, states)
-        ex_ys = states[i_example, :]
+        if not type(i_examples) == type(None):
+            if type(i_examples) == int:
+                i_examples = (i_examples,)
+            for i_example in i_examples:
+                ex_ys = states[i_example, :]
+                ax.plot(time_stamps, ex_ys, lw=0.5, color=color, alpha=0.5)
         ax.fill_between(quantile_time_stamps, quantile_ys[0, :], quantile_ys[2, :], 
                 color=color, alpha=0.3, lw=0)
-        ax.plot(time_stamps, ex_ys, lw=0.5, color=color, alpha=0.5)
-        ax.plot(quantile_time_stamps, quantile_ys[1, :], lw=1, color=color)
-        
-        
-    if DO_PLOTS:
-        
-        # do plotting
-        print('Plotting...')
-        veh_entry_t = SCENARIO.initial_ttcas[sc_fitting.i_VEH_AGENT]
-        veh_exit_t = veh_entry_t + (2 * sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_VEH_AGENT]
-                                    / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
-        kin_fig, kin_axs = plt.subplots(nrows=2, ncols=len(MODEL_NAMES), figsize=(8, 5),
-                                sharex='col', sharey='row', tight_layout=True)
-        for i_model, model_name in enumerate(MODEL_NAMES):
-            sim_result = sim_results[model_name]
-            for i_sim in range(sim_result['n_simulations']):
-                time_stamps = sim_result['time_stamps']
-                ped_coll_dist = sim_result['ped_coll_dist']
-                # speed
-                ax = kin_axs[0, i_model]
-                ax.plot(time_stamps, sim_result['ped_speed'][i_sim, :],
-                                     'k', alpha=ALPHA)
-                ax.set_ylim(-.1, 4.1)
-                # distance
-                ax = kin_axs[1, i_model]
-                ax.plot(time_stamps, sim_result['ped_CP_dist'][i_sim, :],
-                                     'k', alpha=ALPHA)
-                ax.set_ylim(-ped_coll_dist-1, 6)
-                if i_sim == 0:
-                    ax.fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
-                            np.array((1, 1, -1, -1)) * ped_coll_dist,
-                            c='red', edgecolor='none', alpha=0.3)
-                    
-            kin_axs[-1, i_model].set_xlabel('Time (s)')            
-        kin_axs[0, 0].set_ylabel('$v$ (m/s)')
-        kin_axs[1, 0].set_ylabel('$d_{CP}$ (m)')
+        if plot_median:
+            ax.plot(quantile_time_stamps, quantile_ys[1, :], lw=1, color=color)
         
         
         
-        st_fig, st_axs = plt.subplots(nrows=4, ncols=1, sharex='col', tight_layout=True)
-        i_SIM_EX = 3 # 0 speeds up, 3 stops, 7 decelerates then accelerates
-        sim_result = sim_results['oVAoEAoSNvoPF']
+    # do plotting
+    print('Plotting...')
+    
+    # - kinematic states
+    i_EXS = np.arange(5)
+    veh_entry_t = SCENARIO.initial_ttcas[sc_fitting.i_VEH_AGENT]
+    veh_exit_t = veh_entry_t + (2 * sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_VEH_AGENT]
+                                / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
+    kin_fig, kin_axs = plt.subplots(nrows=2, ncols=len(MODEL_NAMES), figsize=(8, 5),
+                            sharex='col', sharey='row', tight_layout=True)
+    for i_model, model_name in enumerate(MODEL_NAMES):
+        sim_result = sim_results[model_name]
+        ped_coll_dist = sim_result['ped_coll_dist']
         time_stamps = sim_result['time_stamps']
-        do_state_panel_plots(st_axs[0], sim_result, 'perc_ttc', i_SIM_EX, 'k', posinf_replace=100)
-        veh_ttcss = veh_entry_t - np.arange(0, SCENARIO.end_time, SCENARIO.time_step) 
-        st_axs[0].plot(time_stamps, veh_ttcss, 'k--', alpha=0.5)
-        do_state_panel_plots(st_axs[1], sim_result, 'V_none', i_SIM_EX, 'blue')
-        do_state_panel_plots(st_axs[1], sim_result, 'V_dec', i_SIM_EX, 'red')
-        do_state_panel_plots(st_axs[2], sim_result, 'DeltaV', i_SIM_EX, 'green')
-        st_axs[3].plot(time_stamps, sim_result['ped_acc'][i_SIM_EX, :], 'k', lw=0.5)         
-        st_axs[0].set_ylim(-1, 12)
-        st_axs[1].set_ylim(0.21, 0.25)
-        st_axs[2].set_ylim(-0.015, 0.005)
-        st_axs[2].set_xlim(0, 8)
+        # plot vehicle passage
+        ax = kin_axs[1, i_model]
+        ax.fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
+                np.array((1, 1, -1, -1)) * ped_coll_dist,
+                c='red', edgecolor='none', alpha=0.3)
+        ax.set_ylim(-ped_coll_dist-1, 6)
+        # find simulations where pedestrian passes first vs second, and plot quantile fills
+        idx_veh_entry = np.nonzero(time_stamps >= veh_entry_t)[0][0]
+        bidxs_ped_first = sim_result['ped_CP_dist'][:, idx_veh_entry] <= ped_coll_dist
+        for i_order in range(2):
+            if i_order == 0:
+                bidxs_order = bidxs_ped_first
+            else:
+                bidxs_order = ~bidxs_ped_first
+            if np.count_nonzero(bidxs_order) > 1:
+                for i_plot, vector_name in enumerate(('ped_speed', 'ped_CP_dist')):
+                    do_state_panel_plots(kin_axs[i_plot, i_model], sim_result, 
+                                         vector_name, i_examples=i_EXS, 
+                                         plot_median=True, subset=bidxs_order,
+                                         color='k')
+        # # plot example simulations
+        # for idx_sim, i_sim in enumerate(i_EXS):
+        #     # speed
+        #     ax = kin_axs[0, i_model]
+        #     ax.plot(time_stamps, sim_result['ped_speed'][i_sim, :],
+        #                          'k', alpha=ALPHA)
+        #     ax.set_ylim(-.1, 4.1)
+        #     # distance
+        #     ax = kin_axs[1, i_model]
+        #     ax.plot(time_stamps, sim_result['ped_CP_dist'][i_sim, :],
+        #                          'k', alpha=ALPHA)
+                
+        kin_axs[-1, i_model].set_xlabel('Time (s)')            
+    kin_axs[0, 0].set_ylabel('$v$ (m/s)')
+    kin_axs[1, 0].set_ylabel('$d_{CP}$ (m)')
+    
+    
+    # - internal model states
+    st_fig, st_axs = plt.subplots(nrows=4, ncols=1, sharex='col', tight_layout=True)
+    i_SIM_EX = 3 # 0 speeds up, 3 stops, 7 decelerates then accelerates
+    sim_result = sim_results['oVAoEAoSNvoPF']
+    time_stamps = sim_result['time_stamps']
+    do_state_panel_plots(st_axs[0], sim_result, 'perc_ttc', i_SIM_EX, 'k', posinf_replace=100)
+    veh_ttcss = veh_entry_t - np.arange(0, SCENARIO.end_time, SCENARIO.time_step) 
+    st_axs[0].plot(time_stamps, veh_ttcss, 'k--', alpha=0.5)
+    do_state_panel_plots(st_axs[1], sim_result, 'V_none', i_SIM_EX, 'blue')
+    do_state_panel_plots(st_axs[1], sim_result, 'V_dec', i_SIM_EX, 'red')
+    do_state_panel_plots(st_axs[2], sim_result, 'DeltaV', i_SIM_EX, 'green')
+    st_axs[3].plot(time_stamps, sim_result['ped_acc'][i_SIM_EX, :], 'k', lw=0.5)         
+    st_axs[0].set_ylim(-1, 12)
+    st_axs[1].set_ylim(0.21, 0.25)
+    st_axs[2].set_ylim(-0.015, 0.005)
+    st_axs[2].set_xlim(0, 8)
