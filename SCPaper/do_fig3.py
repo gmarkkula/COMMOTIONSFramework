@@ -19,9 +19,16 @@ import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 import sc_fitting
+import sc_plot
 
 
 plt.close('all')
+
+SAVE_PDF = False
+if SAVE_PDF:
+    SCALE_DPI = 1
+else:
+    SCALE_DPI = 0.5
 
 OVERWRITE_SAVED_SIM_RESULTS = False 
 PARALLEL = True
@@ -162,7 +169,7 @@ if __name__ == '__main__':
                 i_examples = (i_examples,)
             for i_example in i_examples:
                 ex_ys = states[i_example, :]
-                ax.plot(time_stamps, ex_ys, lw=0.5, color=color, alpha=0.5)
+                ax.plot(time_stamps, ex_ys, lw=0.5, color=color, alpha=0.3)
         ax.fill_between(quantile_time_stamps, quantile_ys[0, :], quantile_ys[2, :], 
                 color=color, alpha=0.3, lw=0)
         if plot_median:
@@ -172,24 +179,31 @@ if __name__ == '__main__':
         
     # do plotting
     print('Plotting...')
+    fig, axs = plt.subplot_mosaic(layout=('024\n'
+                                          '025\n'
+                                          '136\n'
+                                          '137'),
+                                  figsize=(sc_plot.FULL_WIDTH, 
+                                           0.5*sc_plot.FULL_WIDTH), 
+                                  dpi=sc_plot.DPI * SCALE_DPI)
+
     
     # - kinematic states
     i_EXS = np.arange(5)
     veh_entry_t = SCENARIO.initial_ttcas[sc_fitting.i_VEH_AGENT]
     veh_exit_t = veh_entry_t + (2 * sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_VEH_AGENT]
                                 / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
-    kin_fig, kin_axs = plt.subplots(nrows=2, ncols=len(MODEL_NAMES), figsize=(8, 5),
-                            sharex='col', sharey='row', tight_layout=True)
     for i_model, model_name in enumerate(MODEL_NAMES):
+        kin_axs = []
+        for i_plot in range(2):
+            kin_axs.append(axs[str(i_model*2 + i_plot)])
         sim_result = sim_results[model_name]
         ped_coll_dist = sim_result['ped_coll_dist']
         time_stamps = sim_result['time_stamps']
         # plot vehicle passage
-        ax = kin_axs[1, i_model]
-        ax.fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
+        kin_axs[1].fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
                 np.array((1, 1, -1, -1)) * ped_coll_dist,
                 c='red', edgecolor='none', alpha=0.3)
-        ax.set_ylim(-ped_coll_dist-1, 6)
         # find simulations where pedestrian passes first vs second, and plot quantile fills
         idx_veh_entry = np.nonzero(time_stamps >= veh_entry_t)[0][0]
         bidxs_ped_first = sim_result['ped_CP_dist'][:, idx_veh_entry] <= ped_coll_dist
@@ -200,29 +214,22 @@ if __name__ == '__main__':
                 bidxs_order = ~bidxs_ped_first
             if np.count_nonzero(bidxs_order) > 1:
                 for i_plot, vector_name in enumerate(('ped_speed', 'ped_CP_dist')):
-                    do_state_panel_plots(kin_axs[i_plot, i_model], sim_result, 
+                    do_state_panel_plots(kin_axs[i_plot], sim_result, 
                                          vector_name, i_examples=i_EXS, 
                                          plot_median=True, subset=bidxs_order,
                                          color='k')
-        # # plot example simulations
-        # for idx_sim, i_sim in enumerate(i_EXS):
-        #     # speed
-        #     ax = kin_axs[0, i_model]
-        #     ax.plot(time_stamps, sim_result['ped_speed'][i_sim, :],
-        #                          'k', alpha=ALPHA)
-        #     ax.set_ylim(-.1, 4.1)
-        #     # distance
-        #     ax = kin_axs[1, i_model]
-        #     ax.plot(time_stamps, sim_result['ped_CP_dist'][i_sim, :],
-        #                          'k', alpha=ALPHA)
-                
-        kin_axs[-1, i_model].set_xlabel('Time (s)')            
-    kin_axs[0, 0].set_ylabel('$v$ (m/s)')
-    kin_axs[1, 0].set_ylabel('$d_{CP}$ (m)')
+        kin_axs[1].set_xlabel('Time (s)')   
+        kin_axs[1].set_ylim(-ped_coll_dist-1, 6)    
+        kin_axs[0].set_ylim(-0.1, 4.1)     
+        if i_model == 0:
+            kin_axs[0].set_ylabel('$v$ (m/s)')
+            kin_axs[1].set_ylabel('$d_{CP}$ (m)')
     
     
     # - internal model states
-    st_fig, st_axs = plt.subplots(nrows=4, ncols=1, sharex='col', tight_layout=True)
+    st_axs = []
+    for i_plot in range(4):
+        st_axs.append(axs[str(4 + i_plot)])
     i_SIM_EX = 3 # 0 speeds up, 3 stops, 7 decelerates then accelerates
     sim_result = sim_results['oVAoEAoSNvoPF']
     time_stamps = sim_result['time_stamps']
