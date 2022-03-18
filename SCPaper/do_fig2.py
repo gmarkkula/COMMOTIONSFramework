@@ -181,8 +181,7 @@ if PLOT_MODEL_STATES:
         ax_y = 0.72 - 0.18 * 3
         ax.set_position([ax_x, ax_y, AX_W, AX_H])
         # add a separate time axis
-        ax_y = 0.14
-        sc_plot.add_linked_time_axis(ax, ax_y)
+        sc_plot.add_linked_time_axis(ax, nudge_down=0.04)
                     
 sc_plot.add_panel_label('A', (0.03, 0.92))
 
@@ -239,8 +238,7 @@ for i_row in range(N_AH_ROWS):
                 ax.set_position([AX_X, ax_y, AX_W, AX_H])
 
 # add a separate time axis
-ax_y = 0.18
-sc_plot.add_linked_time_axis(ax, ax_y)
+sc_plot.add_linked_time_axis(ax, nudge_down=0.02)
 
              
 # hide the unused subplot   

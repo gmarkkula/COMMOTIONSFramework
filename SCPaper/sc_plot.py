@@ -88,10 +88,11 @@ def leave_only_yaxis(ax):
     ax.spines['top'].set_visible(False)
     
     
-def add_linked_time_axis(linked_ax, new_ax_y, label='Time (s)'):
+def add_linked_time_axis(linked_ax, nudge_down=0.02, label='Time (s)'):
     t_ax = linked_ax.get_figure().add_subplot(sharex=linked_ax)
     linked_pos = linked_ax.get_position()
-    t_ax.set_position([linked_pos.x0, new_ax_y, linked_pos.width, 0.01])
+    t_ax_y = linked_pos.y0 - nudge_down
+    t_ax.set_position([linked_pos.x0, t_ax_y, linked_pos.width, 0.01])
     t_ax.get_yaxis().set_visible(False)
     t_ax.spines['left'].set_visible(False)
     t_ax.spines['right'].set_visible(False)
