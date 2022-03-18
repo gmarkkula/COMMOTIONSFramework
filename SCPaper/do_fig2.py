@@ -118,11 +118,7 @@ fig, axs = plt.subplots(nrows=N_TS_ROWS, ncols=len(MODEL_NAMES)+1,
                         dpi=sc_plot.DPI * SCALE_DPI)
 
 
-def leave_only_yaxis(ax):
-    ax.get_xaxis().set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
+
 
 
 # model state time series plots
@@ -169,7 +165,7 @@ if PLOT_MODEL_STATES:
                             color=BEH_COLORS[idx_beh])
                     if i_model == 0:
                         ax.set_ylabel(ylabel + '\n')
-                    leave_only_yaxis(ax)
+                    sc_plot.leave_only_yaxis(ax)
                     ax_y = 0.72 - 0.18 * i_row
                     ax.set_position([ax_x, ax_y, AX_W, AX_H])
         # plot acceleration
@@ -181,7 +177,7 @@ if PLOT_MODEL_STATES:
         ax.set_ylim(-5.5, 0.1)
         if i_model == 0:
             ax.set_ylabel('Acceleration (m/s$^2$)\n')
-        leave_only_yaxis(ax)
+        sc_plot.leave_only_yaxis(ax)
         ax_y = 0.72 - 0.18 * 3
         ax.set_position([ax_x, ax_y, AX_W, AX_H])
         # add a separate time axis
@@ -246,7 +242,7 @@ for i_row in range(N_AH_ROWS):
                 line, = ax.plot(time_stamps, plot_y, lw=1, 
                                 ls=ACTION_LINE_STYLES[idx_action],
                                 color=color, alpha=alpha)
-                leave_only_yaxis(ax)
+                sc_plot.leave_only_yaxis(ax)
                 ax_y = 0.56 - i_row * 0.18
                 ax.set_position([AX_X, ax_y, AX_W, AX_H])
 

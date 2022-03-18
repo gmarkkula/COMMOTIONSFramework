@@ -79,3 +79,10 @@ def add_panel_label(label, xy):
     plt.annotate(label, xy=xy, xycoords='figure fraction', 
                  fontsize=PANEL_LABEL_FONT_SIZE,
                  fontweight='bold')
+    
+    
+def leave_only_yaxis(ax):
+    ax.get_xaxis().set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
