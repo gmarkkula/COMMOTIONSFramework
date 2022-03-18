@@ -188,8 +188,13 @@ if __name__ == '__main__':
                                   dpi=sc_plot.DPI * SCALE_DPI)
 
     
+    
+    
     # - kinematic states
     i_EXS = np.arange(5)
+    i_STATES_EX = 0 # 0 passes before, 5 passes behind
+    STATES_EX_COL = 'darkblue'
+    STATES_EX_ALPHA = 0.3
     veh_entry_t = SCENARIO.initial_ttcas[sc_fitting.i_VEH_AGENT]
     veh_exit_t = veh_entry_t + (2 * sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_VEH_AGENT]
                                 / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
@@ -200,6 +205,13 @@ if __name__ == '__main__':
         sim_result = sim_results[model_name]
         ped_coll_dist = sim_result['ped_coll_dist']
         time_stamps = sim_result['time_stamps']
+        # plot the example highlighted in the internal model states plot
+        if i_model == 1:
+            SE_LW = 1.5
+            kin_axs[0].plot(time_stamps, sim_result['ped_speed'][i_STATES_EX, :], 
+                            c=STATES_EX_COL, lw=SE_LW, alpha=STATES_EX_ALPHA)
+            kin_axs[1].plot(time_stamps, sim_result['ped_CP_dist'][i_STATES_EX, :], 
+                            c=STATES_EX_COL, lw=SE_LW, alpha=STATES_EX_ALPHA)
         # plot vehicle passage
         kin_axs[1].fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
                 np.array((1, 1, -1, -1)) * ped_coll_dist,
@@ -214,33 +226,59 @@ if __name__ == '__main__':
                 bidxs_order = ~bidxs_ped_first
             if np.count_nonzero(bidxs_order) > 1:
                 for i_plot, vector_name in enumerate(('ped_speed', 'ped_CP_dist')):
-                    do_state_panel_plots(kin_axs[i_plot], sim_result, 
+                    ax = kin_axs[i_plot]
+                    do_state_panel_plots(ax, sim_result, 
                                          vector_name, i_examples=i_EXS, 
                                          plot_median=True, subset=bidxs_order,
                                          color='k')
+                    sc_plot.leave_only_yaxis(ax)
         kin_axs[1].set_xlabel('Time (s)')   
         kin_axs[1].set_ylim(-ped_coll_dist-1, 6)    
         kin_axs[0].set_ylim(-0.1, 4.1)     
         if i_model == 0:
-            kin_axs[0].set_ylabel('$v$ (m/s)')
-            kin_axs[1].set_ylabel('$d_{CP}$ (m)')
+            kin_axs[0].set_ylabel('Speed (m/s)')
+            kin_axs[1].set_ylabel('Distance (m)')
+        # add separate time axis
+        sc_plot.add_linked_time_axis(kin_axs[-1])
     
     
     # - internal model states
+    N_ST_PLOTS = 4
+    V_YLIM = (0.21, 0.25)
     st_axs = []
-    for i_plot in range(4):
+    for i_plot in range(N_ST_PLOTS):
         st_axs.append(axs[str(4 + i_plot)])
-    i_SIM_EX = 3 # 0 speeds up, 3 stops, 7 decelerates then accelerates
     sim_result = sim_results['oVAoEAoSNvoPF']
     time_stamps = sim_result['time_stamps']
-    do_state_panel_plots(st_axs[0], sim_result, 'perc_ttc', i_SIM_EX, 'k', posinf_replace=100)
+    # vehicle TTA
+    ax = st_axs[0]
     veh_ttcss = veh_entry_t - np.arange(0, SCENARIO.end_time, SCENARIO.time_step) 
-    st_axs[0].plot(time_stamps, veh_ttcss, 'k--', alpha=0.5)
-    do_state_panel_plots(st_axs[1], sim_result, 'V_none', i_SIM_EX, 'blue')
-    do_state_panel_plots(st_axs[1], sim_result, 'V_dec', i_SIM_EX, 'red')
-    do_state_panel_plots(st_axs[2], sim_result, 'DeltaV', i_SIM_EX, 'green')
-    st_axs[3].plot(time_stamps, sim_result['ped_acc'][i_SIM_EX, :], 'k', lw=0.5)         
-    st_axs[0].set_ylim(-1, 12)
-    st_axs[1].set_ylim(0.21, 0.25)
-    st_axs[2].set_ylim(-0.015, 0.005)
-    st_axs[2].set_xlim(0, 8)
+    ax.plot(time_stamps, veh_ttcss, 'r--', alpha=0.5)
+    do_state_panel_plots(ax, sim_result, 'perc_ttc', i_STATES_EX, 'k', posinf_replace=100) 
+    ax.set_ylim(-1, 12)
+    ax.set_ylabel('TTA (s)')
+    # value of non-action
+    ax = st_axs[1]
+    do_state_panel_plots(ax, sim_result, 'V_none', i_STATES_EX, 'green')
+    ax.set_ylim(V_YLIM[0], V_YLIM[1])
+    ax.set_ylabel('$V_a$ (-)')
+    # value of decelerating
+    ax = st_axs[1]
+    do_state_panel_plots(ax, sim_result, 'V_dec', i_STATES_EX, 'magenta')
+    ax.set_ylim(V_YLIM[0], V_YLIM[1])
+    ax.set_ylabel('$V$ (-)')
+    # accumulated surplus value of decelerating
+    ax = st_axs[2]
+    do_state_panel_plots(ax, sim_result, 'DeltaV', i_STATES_EX, 'magenta')   
+    ax.set_ylim(-0.015, 0.005)
+    ax.set_ylabel('$\Delta V_a$ (-)')
+    # acceleration
+    ax = st_axs[3]
+    ax.plot(time_stamps, sim_result['ped_acc'][i_STATES_EX, :], 
+                   c=STATES_EX_COL, lw=0.5, alpha=STATES_EX_ALPHA)     
+    ax.set_ylabel('Acc. (m/s$^2$)')
+    for i_plot in range(N_ST_PLOTS):
+        st_axs[i_plot].set_xlim(-.1, 9.1)
+        sc_plot.leave_only_yaxis(st_axs[i_plot])
+    # add separate time axis
+    sc_plot.add_linked_time_axis(st_axs[-1])
