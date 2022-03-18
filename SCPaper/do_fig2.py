@@ -31,7 +31,7 @@ PLOT_MODEL_STATES = True
 OVERWRITE_SAVED_SIM_RESULTS = False
 
 
-SAVE_PDF = True
+SAVE_PDF = False
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -182,15 +182,7 @@ if PLOT_MODEL_STATES:
         ax.set_position([ax_x, ax_y, AX_W, AX_H])
         # add a separate time axis
         ax_y = 0.14
-        t_ax = fig.add_subplot(sharex=ax)
-        t_ax.set_position([ax_x, ax_y, AX_W, 0.01])
-        t_ax.get_yaxis().set_visible(False)
-        t_ax.spines['left'].set_visible(False)
-        t_ax.spines['right'].set_visible(False)
-        t_ax.spines['top'].set_visible(False)
-        t_ax.set_ylabel('__')
-        t_ax.set_xlabel('Time (s)')
-        #t_ax.set_xticks((0, 2, 4, 6, 8))
+        sc_plot.add_linked_time_axis(ax, ax_y)
                     
 sc_plot.add_panel_label('A', (0.03, 0.92))
 
@@ -246,18 +238,12 @@ for i_row in range(N_AH_ROWS):
                 ax_y = 0.56 - i_row * 0.18
                 ax.set_position([AX_X, ax_y, AX_W, AX_H])
 
-
 # add a separate time axis
 ax_y = 0.18
-t_ax = fig.add_subplot(sharex=ax)
-t_ax.set_position([AX_X, ax_y, AX_W, 0.01])
-t_ax.get_yaxis().set_visible(False)
-t_ax.spines['left'].set_visible(False)
-t_ax.spines['right'].set_visible(False)
-t_ax.spines['top'].set_visible(False)
-t_ax.set_ylabel('__')
-t_ax.set_xlabel('Time (s)')
-                
+sc_plot.add_linked_time_axis(ax, ax_y)
+
+             
+# hide the unused subplot   
 axs[-1, -1].axis('off')
 
 
