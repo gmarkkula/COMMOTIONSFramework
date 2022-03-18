@@ -24,7 +24,7 @@ import sc_plot
 
 plt.close('all')
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -173,7 +173,7 @@ if __name__ == '__main__':
         ax.fill_between(quantile_time_stamps, quantile_ys[0, :], quantile_ys[2, :], 
                 color=color, alpha=0.3, lw=0)
         if plot_median:
-            ax.plot(quantile_time_stamps, quantile_ys[1, :], lw=1, color=color)
+            ax.plot(quantile_time_stamps, quantile_ys[1, :], lw=1, color=color, alpha=1)
         
         
         
@@ -191,17 +191,24 @@ if __name__ == '__main__':
     
     
     # - kinematic states
+    AX_W = 0.18
+    AX_H = 0.28
+    #i_EXS = np.arange(0, 15, 3)
     i_EXS = np.arange(5)
     i_STATES_EX = 0 # 0 passes before, 5 passes behind
-    STATES_EX_COL = 'darkblue'
+    STATES_EX_COL = 'blue'
     STATES_EX_ALPHA = 0.3
     veh_entry_t = SCENARIO.initial_ttcas[sc_fitting.i_VEH_AGENT]
     veh_exit_t = veh_entry_t + (2 * sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_VEH_AGENT]
                                 / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
     for i_model, model_name in enumerate(MODEL_NAMES):
         kin_axs = []
+        ax_x = 0.14 + i_model * 0.25
         for i_plot in range(2):
             kin_axs.append(axs[str(i_model*2 + i_plot)])
+            #print(kin_axs[i_plot].get_position())
+            ax_y = 0.51 - 0.33 * i_plot
+            kin_axs[i_plot].set_position((ax_x, ax_y, AX_W, AX_H))
         sim_result = sim_results[model_name]
         ped_coll_dist = sim_result['ped_coll_dist']
         time_stamps = sim_result['time_stamps']
@@ -240,7 +247,7 @@ if __name__ == '__main__':
             kin_axs[1].set_ylabel('Distance (m)')
         # add separate time axis
         sc_plot.add_linked_time_axis(kin_axs[-1])
-    
+            
     
     # - internal model states
     N_ST_PLOTS = 4
@@ -259,14 +266,17 @@ if __name__ == '__main__':
     ax.set_ylabel('TTA (s)')
     # value of non-action
     ax = st_axs[1]
-    do_state_panel_plots(ax, sim_result, 'V_none', i_STATES_EX, 'green')
+    NON_ACT_COL = 'green'
+    do_state_panel_plots(ax, sim_result, 'V_none', i_STATES_EX, NON_ACT_COL)
     ax.set_ylim(V_YLIM[0], V_YLIM[1])
-    ax.set_ylabel('$V_a$ (-)')
+    ax.text(4, 0.247, 'No adjustment', c=NON_ACT_COL)
     # value of decelerating
     ax = st_axs[1]
-    do_state_panel_plots(ax, sim_result, 'V_dec', i_STATES_EX, 'magenta')
+    DEC_COL = 'magenta'
+    do_state_panel_plots(ax, sim_result, 'V_dec', i_STATES_EX, DEC_COL)
     ax.set_ylim(V_YLIM[0], V_YLIM[1])
-    ax.set_ylabel('$V$ (-)')
+    ax.text(6, 0.225, 'Decelerate', c=DEC_COL)
+    ax.set_ylabel('$V_a$ (-)')
     # accumulated surplus value of decelerating
     ax = st_axs[2]
     do_state_panel_plots(ax, sim_result, 'DeltaV', i_STATES_EX, 'magenta')   
@@ -282,3 +292,18 @@ if __name__ == '__main__':
         sc_plot.leave_only_yaxis(st_axs[i_plot])
     # add separate time axis
     sc_plot.add_linked_time_axis(st_axs[-1])
+    
+    
+    # add panel labels
+    sc_plot.add_panel_label('A', (0.055, 0.87))
+    sc_plot.add_panel_label('B', (0.345, 0.87))
+    sc_plot.add_panel_label('C', (0.64, 0.91))
+    
+    
+    if SAVE_PDF:
+        file_name = sc_plot.FIGS_FOLDER + 'fig3.pdf'
+        print(f'Saving {file_name}...')
+        plt.savefig(file_name, bbox_inches='tight')
+        
+        
+    plt.show()
