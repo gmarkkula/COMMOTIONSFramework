@@ -60,7 +60,6 @@ if __name__ == '__main__':
     model_im = plt.imread(sc_plot.FIGS_FOLDER + 'oVAoBEvoAIoEAoSNvoPF.emf')
     ax.imshow(model_im)
     ax.axis('off')
-    plt.savefig('test.pdf', bbox_inches='tight')
         
     
     if PLOT_INTERACTION_OUTCOMES:
