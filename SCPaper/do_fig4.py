@@ -19,19 +19,20 @@ import itertools
 import multiprocessing as mp
 import pickle
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import sc_scenario
 import sc_fitting
 import sc_plot
 
 
-PLOT_INTERACTION_OUTCOMES = True
+PLOT_INTERACTION_OUTCOMES = False
 OVERWRITE_SAVED_SIM_RESULTS_IO = False
 
-PLOT_HIKER_CIT_CDFS = True
+PLOT_HIKER_CIT_CDFS = False
 
 PLOT_DSS_CROSS_PROBS = True
-OVERWRITE_SAVED_SIM_RESULTS_DSS = False
+OVERWRITE_SAVED_SIM_RESULTS_DSS = True
 
 PARALLEL = True
 
@@ -67,7 +68,7 @@ for zebra in (False, True):
                             'veh_entry_time', 'veh_exit_time')))
 
 N_PARAMETERISATIONS_IO = 10
-N_PARAMETERISATIONS_DSS = 10
+N_PARAMETERISATIONS_DSS = 30
 
 SIM_RESULTS_FNAME_IO = 'fig_4_SimResults_InteractionOutcomes.pkl'
 SIM_RESULTS_FNAME_DSS = 'fig_4_SimResults_DSS.pkl'
@@ -270,32 +271,47 @@ if __name__ == '__main__':
         
     if PLOT_DSS_CROSS_PROBS:
         
-        # get simulation results (load existing results or run simulations)
+        # get model results (load existing results or run simulations)
         sims = get_sim_results(SIM_RESULTS_FNAME_DSS,
                                OVERWRITE_SAVED_SIM_RESULTS_DSS,
                                N_PARAMETERISATIONS_DSS, 
                                SCENARIOS_DSS)
-        
-        fig, ax = plt.subplots(num='Model DSS crossing probs', figsize=(4, 4),
+        # get empirical results
+        dss_df = pd.read_csv(sc_fitting.DATA_FOLDER + '/DSS_outcomes.csv')
+        # plot
+        fig, axs = plt.subplots(ncols=2, nrows=1,
+                               num='DSS crossing probs', figsize=(8, 4),
                                tight_layout=True)
-        ped_cross = {}
-        for zebra in (True, False):
-            ped_cross[zebra] = np.zeros(len(DSS_GAPS))
-            for i_gap, gap in enumerate(DSS_GAPS):
-                scen_name = get_dss_scen_name(zebra, gap)
-                for i_sim, sim in enumerate(sims[scen_name]):
-                    ped_entry_time = sc_fitting.metric_ped_entry_time(sim)
-                    veh_entry_time = sc_fitting.metric_veh_entry_time(sim)
-                    if ped_entry_time < veh_entry_time:
-                        ped_cross[zebra][i_gap] += 1
-                ped_cross[zebra][i_gap] /= len(sims[scen_name])
-            if zebra:
-                ls = '--'
-            else:
-                ls = '-'
-            ax.plot(DSS_GAPS, ped_cross[zebra], 'k-o', ls=ls)
-        ax.legend(('Zebra', 'Non-zebra'))
-        ax.set_xlabel('Time gap (s)')
-        ax.set_ylabel('Prop. ped. crossing first (-)')
+        for i_source, source in enumerate(('data', 'model')):
+            ax = axs[i_source]
+            ped_cross = {}
+            for zebra in (True, False):
+                ped_cross[zebra] = np.zeros(len(DSS_GAPS))
+                for i_gap, gap in enumerate(DSS_GAPS):
+                    scen_name = get_dss_scen_name(zebra, gap)
+                    if source == 'data':
+                        scenario_rows = ((dss_df['TTA'] == gap)
+                                         & (dss_df['zebra'] == int(zebra)))
+                        scenario_ped_first = dss_df['ped_crossed_first'][scenario_rows]
+                        ped_cross[zebra][i_gap] = (scenario_ped_first.sum()
+                                                   / len(scenario_ped_first))
+                    else:
+                        for i_sim, sim in enumerate(sims[scen_name]):
+                            ped_entry_time = sc_fitting.metric_ped_entry_time(sim)
+                            veh_entry_time = sc_fitting.metric_veh_entry_time(sim)
+                            if ped_entry_time < veh_entry_time:
+                                ped_cross[zebra][i_gap] += 1
+                        ped_cross[zebra][i_gap] /= len(sims[scen_name])
+                if zebra:
+                    ls = '--'
+                else:
+                    ls = '-'
+                ax.plot(DSS_GAPS, ped_cross[zebra], 'k-o', ls=ls)
+            ax.legend(('Zebra', 'Non-zebra'))
+            ax.set_xlabel('Time gap (s)')
+            ax.set_ylabel('Prop. ped. crossing first (-)')
+        
+
+        
                 
             
