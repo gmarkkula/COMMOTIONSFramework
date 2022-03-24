@@ -26,13 +26,20 @@ import sc_fitting
 import sc_plot
 
 
-PLOT_INTERACTION_OUTCOMES = False
+
+SAVE_PDF = False
+if SAVE_PDF:
+    SCALE_DPI = 1
+else:
+    SCALE_DPI = 0.5
+
+PLOT_INTERACTION_OUTCOMES = True
 OVERWRITE_SAVED_SIM_RESULTS_IO = False
 
-PLOT_HIKER_CIT_CDFS = False
+PLOT_HIKER_CIT_CDFS = True
 
 PLOT_DSS_CROSS_PROBS = True
-OVERWRITE_SAVED_SIM_RESULTS_DSS = True
+OVERWRITE_SAVED_SIM_RESULTS_DSS = False
 
 PARALLEL = True
 
@@ -43,6 +50,8 @@ SCENARIO_END_TIME = 20
 SCENARIOS_IO = (sc_fitting.PROB_FIT_SCENARIOS['Encounter'], 
                 sc_fitting.PROB_FIT_SCENARIOS['EncounterPedPrio'],
                 sc_fitting.PROB_FIT_SCENARIOS['PedLead'])
+
+N_HIKER_GAPS = 4
 
 def get_dss_scen_name(zebra, gap):
     if zebra:
@@ -159,17 +168,22 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
     
     return sims
 
+def get_subplot_label(base_label, increment):
+    return chr(ord(base_label) + increment)
 
 
 if __name__ == '__main__':
     
     
     plt.close('all')
-
-    fig, ax = plt.subplots(num='Model illustration')
-    model_im = plt.imread(sc_plot.FIGS_FOLDER + 'oVAoBEvoAIoEAoSNvoPF.emf')
-    ax.imshow(model_im)
-    ax.axis('off')
+    
+    
+    fig, axs = plt.subplot_mosaic(layout=('adgjklm\n'
+                                          'behnopq\n'
+                                          'cfirrss'),
+                                  figsize=(sc_plot.FULL_WIDTH, 
+                                           0.5*sc_plot.FULL_WIDTH), 
+                                  dpi=sc_plot.DPI * SCALE_DPI)
         
     
     if PLOT_INTERACTION_OUTCOMES:
@@ -182,18 +196,13 @@ if __name__ == '__main__':
 
         # do plotting
         N_ROWS = 3
-        fig, axs = plt.subplots(nrows=N_ROWS, ncols=len(SCENARIOS_IO), figsize=(6, 8),
-                                sharex='row', sharey='row', tight_layout=True,
-                                num='Interactive model simulations')
-        print(f'Plotting for {MODEL_NAME}...')
-        axs = axs.reshape((N_ROWS, len(SCENARIOS_IO)))
-        all_pets = np.empty(0)
         for i_scenario, scenario in enumerate(SCENARIOS_IO):
             
             n_sims = len(sims[scenario.name])
             
             # distance-distance plot
-            ax = axs[0, i_scenario]
+            base_label = get_subplot_label('a', i_scenario*3)
+            ax = axs[base_label]
             for sim in sims[scenario.name]:
                 veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
                 ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
@@ -213,7 +222,7 @@ if __name__ == '__main__':
                     alpha=0.3, edgecolor=None)
   
             # vehicle speed
-            ax = axs[1, i_scenario]
+            ax = axs[get_subplot_label(base_label, 1)]
             for sim in sims[scenario.name]:
                 veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
                 ax.plot(sim.time_stamps, veh_agent.trajectory.long_speed, 
@@ -223,7 +232,7 @@ if __name__ == '__main__':
                 ax.set_ylabel('Vehicle speed (m/s)')
                 
             # pedestrian speed
-            ax = axs[2, i_scenario]
+            ax = axs[get_subplot_label(base_label, 2)]
             for sim in sims[scenario.name]:
                 ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
                 ax.plot(sim.time_stamps, ped_agent.trajectory.long_speed, 
@@ -251,22 +260,28 @@ if __name__ == '__main__':
                     pets[i_sim] = veh_entry_times[i_sim] - ped_exit_times[i_sim]
                 else:
                     # veh entering before ped
-                    pets[i_sim] = ped_entry_times[i_sim] - veh_exit_times[i_sim]      
-            all_pets = np.concatenate((all_pets, pets))
+                    pets[i_sim] = ped_entry_times[i_sim] - veh_exit_times[i_sim]   
             
             plt.show()
                     
             
     
     if PLOT_HIKER_CIT_CDFS:
-        print('Loading HIKER CIT data...')
+        # observed CDFs
         with open(sc_fitting.DATA_FOLDER + '/' + sc_fitting.HIKER_DATA_FILE_NAME,
                   'rb') as file_obj:
             observed_cits = pickle.load(file_obj)
-        sc_fitting.do_hiker_cit_cdf_plot(observed_cits, fig_name='Observed CITs')
+        cit_axs = []
+        for i_gap in range(N_HIKER_GAPS):
+            cit_axs.append(axs[get_subplot_label('j', i_gap)])
+        sc_fitting.do_hiker_cit_cdf_plot(observed_cits, axs=cit_axs)
+        # model CDFs
         model_cits = sc_fitting.load_results(
             sc_fitting.MODEL_CIT_FNAME_FMT % MODEL_NAME)
-        sc_fitting.do_hiker_cit_cdf_plot(model_cits, fig_name='Model CITs', legend=False)
+        cit_axs = []
+        for i_gap in range(N_HIKER_GAPS):
+            cit_axs.append(axs[get_subplot_label('n', i_gap)])
+        sc_fitting.do_hiker_cit_cdf_plot(model_cits, axs=cit_axs, legend=False)
        
         
     if PLOT_DSS_CROSS_PROBS:
@@ -279,11 +294,8 @@ if __name__ == '__main__':
         # get empirical results
         dss_df = pd.read_csv(sc_fitting.DATA_FOLDER + '/DSS_outcomes.csv')
         # plot
-        fig, axs = plt.subplots(ncols=2, nrows=1,
-                               num='DSS crossing probs', figsize=(8, 4),
-                               tight_layout=True)
         for i_source, source in enumerate(('data', 'model')):
-            ax = axs[i_source]
+            ax = axs[get_subplot_label('r', i_source)]
             ped_cross = {}
             for zebra in (True, False):
                 ped_cross[zebra] = np.zeros(len(DSS_GAPS))
