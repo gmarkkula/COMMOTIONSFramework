@@ -50,6 +50,7 @@ SCENARIO_END_TIME = 20
 SCENARIOS_IO = (sc_fitting.PROB_FIT_SCENARIOS['Encounter'], 
                 sc_fitting.PROB_FIT_SCENARIOS['EncounterPedPrio'],
                 sc_fitting.PROB_FIT_SCENARIOS['PedLead'])
+SCENARIO_DISPLAY_NAMES_IO = ('Encounter', 'Encounter w. ped. prio.', 'Pedestrian lead')
 
 N_HIKER_GAPS = 4
 
@@ -66,7 +67,7 @@ SCENARIOS_DSS = []
 for zebra in (False, True):
     for gap in DSS_GAPS:
         scen_name = get_dss_scen_name(zebra, gap)
-        SCENARIOS_DSS.append(sc_fitting.SCPaperScenario(
+        SCENARIOS_DSS.append(sc_fitting.SCPaperScenario(    
             scen_name, initial_ttcas = (math.nan, gap - PED_STEP_DELAY),  
             ped_start_standing = True, ped_standing_margin = PED_START_MARGIN,
             ped_prio = zebra,
@@ -168,9 +169,6 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
     
     return sims
 
-def get_subplot_label(base_label, increment):
-    return chr(ord(base_label) + increment)
-
 
 if __name__ == '__main__':
     
@@ -178,12 +176,10 @@ if __name__ == '__main__':
     plt.close('all')
     
     
-    fig, axs = plt.subplot_mosaic(layout=('adgjklm\n'
-                                          'behnopq\n'
-                                          'cfirrss'),
-                                  figsize=(sc_plot.FULL_WIDTH, 
-                                           0.5*sc_plot.FULL_WIDTH), 
-                                  dpi=sc_plot.DPI * SCALE_DPI)
+    fig, axs = plt.subplots(nrows=3, ncols=7,
+                            figsize=(sc_plot.FULL_WIDTH, 
+                                     0.5*sc_plot.FULL_WIDTH), 
+                            dpi=sc_plot.DPI * SCALE_DPI)
         
     
     if PLOT_INTERACTION_OUTCOMES:
@@ -196,13 +192,15 @@ if __name__ == '__main__':
 
         # do plotting
         N_ROWS = 3
+        AX_W = 0.09
+        AX_H = 0.15
         for i_scenario, scenario in enumerate(SCENARIOS_IO):
             
             n_sims = len(sims[scenario.name])
             
             # distance-distance plot
-            base_label = get_subplot_label('a', i_scenario*3)
-            ax = axs[base_label]
+            ax = axs[0, i_scenario]
+            ax_x = 0.1 + 0.13 * i_scenario
             for sim in sims[scenario.name]:
                 veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
                 ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
@@ -212,80 +210,98 @@ if __name__ == '__main__':
                         alpha=ALPHA)
                 # if sc_fitting.metric_collision(sim):
                 #     sim.do_plots(kinem_states=True)
-            ax.set_xlim(-50, 50)
-            ax.set_xlabel('Vehicle position (m)')
+            if i_scenario == 2:
+                ax.set_xlim(-125, 15)
+            else:
+                ax.set_xlim(-50, 50)
+            if i_scenario == 1:
+                ax.set_xlabel('Vehicle position (m)')
             ax.set_ylim(-6, 6)
-            ax.set_ylabel('Pedestrian position (m)')
-            ax.set_title(scenario.name)
+            if i_scenario == 0:
+                ax.set_ylabel('Ped. position (m)')
+            ax.set_title(SCENARIO_DISPLAY_NAMES_IO[i_scenario] + '\n', 
+                         fontsize=sc_plot.DEFAULT_FONT_SIZE)
             ax.fill(np.array((1, 1, -1, -1)) * veh_agent.coll_dist, 
                     np.array((-1, 1, 1, -1)) * ped_agent.coll_dist, color='r',
                     alpha=0.3, edgecolor=None)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax_y = 0.65
+            ax.set_position((ax_x, ax_y, AX_W, AX_H))
   
             # vehicle speed
-            ax = axs[get_subplot_label(base_label, 1)]
+            ax = axs[1, i_scenario]
             for sim in sims[scenario.name]:
                 veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
                 ax.plot(sim.time_stamps, veh_agent.trajectory.long_speed, 
                         'k-', alpha=ALPHA)
-                ax.set_ylim(-1, 18)
-                ax.set_xlabel('Time (s)')
-                ax.set_ylabel('Vehicle speed (m/s)')
+            ax.set_ylim(-1, 18)
+            ax.set_xlabel('Time (s)')
+            if i_scenario == 0:
+                ax.set_ylabel('Veh. speed (m/s)')
+            sc_plot.leave_only_yaxis(ax)
+            ax_y = 0.38
+            ax.set_position((ax_x, ax_y, AX_W, AX_H))
                 
             # pedestrian speed
-            ax = axs[get_subplot_label(base_label, 2)]
+            ax = axs[2, i_scenario]
             for sim in sims[scenario.name]:
                 ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
                 ax.plot(sim.time_stamps, ped_agent.trajectory.long_speed, 
                         'k-', alpha=ALPHA)
-                ax.set_ylim(-.1, 4.1)
-                ax.set_xlabel('Time (s)')
-                ax.set_ylabel('Pedestrian speed (m/s)')
-                
-            # get entry and exit times and pets
-            ped_entry_times = np.full(n_sims, np.nan)
-            veh_entry_times = np.full(n_sims, np.nan)
-            ped_exit_times = np.full(n_sims, np.nan)
-            veh_exit_times = np.full(n_sims, np.nan)
-            pets = np.full(n_sims, np.nan)
-            for i_sim, sim in enumerate(sims[scenario.name]):
-                ped_entry_times[i_sim] = sc_fitting.metric_ped_entry_time(sim)
-                veh_entry_times[i_sim] = sc_fitting.metric_veh_entry_time(sim)
-                ped_exit_times[i_sim] = sc_fitting.metric_ped_exit_time(sim)
-                veh_exit_times[i_sim] = sc_fitting.metric_veh_exit_time(sim)
-                # get pet
-                if np.isnan(ped_entry_times[i_sim]) or np.isnan(veh_entry_times[i_sim]):
-                    pets[i_sim] = np.nan
-                elif ped_entry_times[i_sim] < veh_entry_times[i_sim]:
-                    # ped entering before veh
-                    pets[i_sim] = veh_entry_times[i_sim] - ped_exit_times[i_sim]
-                else:
-                    # veh entering before ped
-                    pets[i_sim] = ped_entry_times[i_sim] - veh_exit_times[i_sim]   
-            
-            plt.show()
-                    
+            ax.set_ylim(-.1, 4.1)
+            ax.set_xlabel('Time (s)')
+            if i_scenario == 0:
+                ax.set_ylabel('Ped. speed (m/s)')
+            sc_plot.leave_only_yaxis(ax) 
+            ax_y = 0.18
+            ax.set_position((ax_x, ax_y, AX_W, AX_H))
+            if i_scenario == 1:
+                xlabel = 'Time (s)'
+            else:
+                xlabel = ''
+            sc_plot.add_linked_time_axis(ax, label=xlabel)
+        
             
     
     if PLOT_HIKER_CIT_CDFS:
-        # observed CDFs
-        with open(sc_fitting.DATA_FOLDER + '/' + sc_fitting.HIKER_DATA_FILE_NAME,
-                  'rb') as file_obj:
-            observed_cits = pickle.load(file_obj)
-        cit_axs = []
-        for i_gap in range(N_HIKER_GAPS):
-            cit_axs.append(axs[get_subplot_label('j', i_gap)])
-        sc_fitting.do_hiker_cit_cdf_plot(observed_cits, axs=cit_axs)
-        # model CDFs
-        model_cits = sc_fitting.load_results(
-            sc_fitting.MODEL_CIT_FNAME_FMT % MODEL_NAME)
-        cit_axs = []
-        for i_gap in range(N_HIKER_GAPS):
-            cit_axs.append(axs[get_subplot_label('n', i_gap)])
-        sc_fitting.do_hiker_cit_cdf_plot(model_cits, axs=cit_axs, legend=False)
+        AX_W = 0.09
+        AX_H = 0.13
+        for i_source, source in enumerate(('data', 'model')):
+            # get CITs to plot
+            if source == 'data':
+                # observed CDFs
+                with open(sc_fitting.DATA_FOLDER + '/' + sc_fitting.HIKER_DATA_FILE_NAME,
+                          'rb') as file_obj:
+                    cits = pickle.load(file_obj)
+            else:
+                # model CDFs
+                cits = sc_fitting.load_results(
+                    sc_fitting.MODEL_CIT_FNAME_FMT % MODEL_NAME)
+            # plot
+            cit_axs = []
+            for i_gap in range(len(sc_fitting.HIKER_VEH_TIME_GAPS)):
+                cit_axs.append(axs[i_source, 3+i_gap])
+            sc_fitting.do_hiker_cit_cdf_plot(cits, axs=cit_axs, legend=False,
+                                             titles=False, finalise=False)
+            for i_ax, ax in enumerate(cit_axs):
+                sc_plot.leave_only_yaxis(ax) 
+                ax_x = 0.55 + i_ax * 0.11
+                ax_y = 0.68 - i_source * 0.15
+                ax.set_position((ax_x, ax_y, AX_W, AX_H))
+                if i_source == 0:
+                    ax.set_title(f'Gap {sc_fitting.HIKER_VEH_TIME_GAPS[i_ax]} s',
+                                 fontsize=sc_plot.DEFAULT_FONT_SIZE)
+                else:
+                    sc_plot.add_linked_time_axis(ax, label='')
+
        
         
     if PLOT_DSS_CROSS_PROBS:
         
+        AX_Y = 0.14
+        AX_W = 0.15
+        AX_H = 0.22
         # get model results (load existing results or run simulations)
         sims = get_sim_results(SIM_RESULTS_FNAME_DSS,
                                OVERWRITE_SAVED_SIM_RESULTS_DSS,
@@ -295,7 +311,7 @@ if __name__ == '__main__':
         dss_df = pd.read_csv(sc_fitting.DATA_FOLDER + '/DSS_outcomes.csv')
         # plot
         for i_source, source in enumerate(('data', 'model')):
-            ax = axs[get_subplot_label('r', i_source)]
+            ax = axs[2, 3+i_source]
             ped_cross = {}
             for zebra in (True, False):
                 ped_cross[zebra] = np.zeros(len(DSS_GAPS))
@@ -318,11 +334,20 @@ if __name__ == '__main__':
                     ls = '--'
                 else:
                     ls = '-'
-                ax.plot(DSS_GAPS, ped_cross[zebra], 'k-o', ls=ls)
-            ax.legend(('Zebra', 'Non-zebra'))
-            ax.set_xlabel('Time gap (s)')
-            ax.set_ylabel('Prop. ped. crossing first (-)')
-        
+                ax.plot(DSS_GAPS, ped_cross[zebra], 'k-x', ls=ls)
+            ax.set_xlabel('Gap (s)')
+            if i_source == 0:
+                ax.set_ylabel('$P$(pedestrian first) (-)')
+            else:
+                ax.legend(('Zebra', 'Non-zebra'))
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax_x = 0.58 + i_source * 0.21
+            ax.set_position((ax_x, AX_Y, AX_W, AX_H))
+            
+        # hide unused subplots
+        for i_col in range(5, 7):
+            axs[2, i_col].set_visible(False)
 
         
                 
