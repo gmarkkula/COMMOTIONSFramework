@@ -1128,7 +1128,7 @@ def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs',
                           legend=True, finalise=True):
     
     def get_speed_alpha(i_speed):
-        return (1 - float(i_speed)/len(HIKER_VEH_SPEEDS_MPH)) ** 2
+        return (1 - float(i_speed)/(len(HIKER_VEH_SPEEDS_MPH)+1)) ** 2
     
     def get_yielding_color(veh_yielding):
         if veh_yielding:
