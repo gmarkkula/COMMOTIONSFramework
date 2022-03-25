@@ -329,7 +329,7 @@ if __name__ == '__main__':
         
     if PLOT_DSS_CROSS_PROBS:
         
-        AX_Y = 0.14
+        AX_Y = 0.12
         AX_W = 0.15
         AX_H = 0.22
         # get model results (load existing results or run simulations)
@@ -390,4 +390,8 @@ if __name__ == '__main__':
 
         
                 
+    # add panel labels
+    sc_plot.add_panel_label('A', (0.05, 0.87))
+    sc_plot.add_panel_label('B', (0.47, 0.88))
+    sc_plot.add_panel_label('C', (0.5, 0.38))
             
