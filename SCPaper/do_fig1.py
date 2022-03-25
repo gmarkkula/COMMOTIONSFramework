@@ -79,7 +79,7 @@ if PLOT_ILLUSTRATIONS:
         ax_w = ILL_W
         ax_h = ILL_W
         ax.set_position([ax_x, ax_y, ax_w, ax_h])
-    sc_plot.add_panel_label('A', (PANEL_LABEL_X, 0.97))
+    sc_plot.add_panel_label('B', (PANEL_LABEL_X, 0.97))
         
   
 print('Running do_2...')       
@@ -171,7 +171,7 @@ if PLOT_METRICS:
                 else:
                     ax.set_xlabel(SCENARIO_METRIC_NAMES[i_scenario])
                     
-    sc_plot.add_panel_label('B', (PANEL_LABEL_X, 0.7))
+    sc_plot.add_panel_label('C', (PANEL_LABEL_X, 0.7))
             
             
 #for i_scenario, scenario in enumerate(scenario_names)
@@ -325,7 +325,7 @@ for i_model, model_name in enumerate(DET_MODEL_NAMES):
         
 
                     
-sc_plot.add_panel_label('C', (PANEL_LABEL_X, 0.36))
+sc_plot.add_panel_label('D', (PANEL_LABEL_X, 0.36))
 
 
 # legends
