@@ -282,18 +282,23 @@ if __name__ == '__main__':
             cit_axs = []
             for i_gap in range(len(sc_fitting.HIKER_VEH_TIME_GAPS)):
                 cit_axs.append(axs[i_source, 3+i_gap])
-            sc_fitting.do_hiker_cit_cdf_plot(cits, axs=cit_axs, legend=False,
+            sc_fitting.do_hiker_cit_cdf_plot(cits, axs=cit_axs, legend=(i_source==1),
                                              titles=False, finalise=False)
             for i_ax, ax in enumerate(cit_axs):
                 sc_plot.leave_only_yaxis(ax) 
                 ax_x = 0.55 + i_ax * 0.11
-                ax_y = 0.68 - i_source * 0.15
+                ax_y = 0.71 - i_source * 0.15
                 ax.set_position((ax_x, ax_y, AX_W, AX_H))
                 if i_source == 0:
                     ax.set_title(f'Gap {sc_fitting.HIKER_VEH_TIME_GAPS[i_ax]} s',
                                  fontsize=sc_plot.DEFAULT_FONT_SIZE)
+                    ylabel = 'Observed'
                 else:
                     sc_plot.add_linked_time_axis(ax, label='')
+                    ylabel = 'Model'
+            cit_axs[0].set_ylabel(ylabel + '\nCDF (-)')
+        plt.annotate('Crossing initiation time (s)', (0.76, 0.46), 
+                     xycoords='figure fraction', ha='center')
 
        
         
@@ -331,18 +336,25 @@ if __name__ == '__main__':
                                 ped_cross[zebra][i_gap] += 1
                         ped_cross[zebra][i_gap] /= len(sims[scen_name])
                 if zebra:
-                    ls = '--'
+                    ls = ':'
+                    color = 'gray'
                 else:
                     ls = '-'
-                ax.plot(DSS_GAPS, ped_cross[zebra], 'k-x', ls=ls)
+                    color = 'black'
+                ax.plot(DSS_GAPS, ped_cross[zebra], 'k-o', ls=ls, color=color,
+                        ms=4)
             ax.set_xlabel('Gap (s)')
             if i_source == 0:
                 ax.set_ylabel('$P$(pedestrian first) (-)')
+                ax.legend(('Zebra', 'Non-zebra'), frameon=False, 
+                          loc=(0.65, 0.14), fontsize=sc_plot.DEFAULT_FONT_SIZE-1)
+                title = 'Observed'
             else:
-                ax.legend(('Zebra', 'Non-zebra'))
+                title = 'Model'
+            ax.set_title(title, fontsize=sc_plot.DEFAULT_FONT_SIZE)
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
-            ax_x = 0.58 + i_source * 0.21
+            ax_x = 0.56 + i_source * 0.23
             ax.set_position((ax_x, AX_Y, AX_W, AX_H))
             
         # hide unused subplots
