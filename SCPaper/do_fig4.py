@@ -23,6 +23,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sc_scenario
 import sc_fitting
+from sc_fitting import i_PED_AGENT, i_VEH_AGENT
 import sc_plot
 
 
@@ -41,7 +42,7 @@ PLOT_HIKER_CIT_CDFS = True
 PLOT_DSS_CROSS_PROBS = True
 OVERWRITE_SAVED_SIM_RESULTS_DSS = False
 
-PARALLEL = True
+PARALLEL = False
 
 MODEL_NAME = 'oVAoBEvoAIoEAoSNvoPF'
 
@@ -77,8 +78,8 @@ for zebra in (False, True):
             metric_names = ('ped_entry_time', 'ped_exit_time',
                             'veh_entry_time', 'veh_exit_time')))
 
-N_PARAMETERISATIONS_IO = 10
-N_PARAMETERISATIONS_DSS = 30
+N_PARAMETERISATIONS_IO = 2
+N_PARAMETERISATIONS_DSS = 2
 
 SIM_RESULTS_FNAME_IO = 'fig_4_SimResults_InteractionOutcomes.pkl'
 SIM_RESULTS_FNAME_DSS = 'fig_4_SimResults_DSS.pkl'
@@ -100,7 +101,7 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
     
     if sc_fitting.results_exist(file_name) and not overwrite:
         
-        sims = sc_fitting.load_results(file_name)
+        sim_results = sc_fitting.load_results(file_name)
         
     else:
         
@@ -120,7 +121,8 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
             print('Starting pool of workers...')
             pool = mp.Pool(mp.cpu_count()-1)
         n_ret_paramets = ret_model.params_array.shape[0]
-        sims = {}
+        sim_results = {}
+        sim_results['n_parameterisations'] = n_parameterisations
         # - get list of parameterisations
         params_dicts = []
         for i_sim in range(n_parameterisations):
@@ -128,6 +130,7 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
             params_array = ret_model.params_array[idx_paramet, :]
             params_dicts.append(dict(
                 zip(ret_model.param_names, params_array)))
+        sim_results['parameterisations'] = params_dicts
         # - loop through scenarios and run simulations
         for scenario in scenarios:
             scenario.end_time = SCENARIO_END_TIME
@@ -135,39 +138,60 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
                          n_parameterisations) 
                         for i in range(n_parameterisations))
             if PARALLEL:
-                sims[scenario.name] = list(
+                sims = list(
                     pool.starmap(run_one_sim, sim_iter)) 
             else:
-                sims[scenario.name] = list(
+                sims = list(
                     itertools.starmap(run_one_sim, sim_iter))
+            # get and store needed info from simulations
+            n_time_steps = len(sims[0].time_stamps)
+            sim_results[scenario.name] = {}
+            sim_results[scenario.name]['time_stamps'] = sims[0].time_stamps
+            for i_agent in range(sc_scenario.N_AGENTS):
+                sim_results[scenario.name][i_agent] = {}
+                sim_results[scenario.name][i_agent]['coll_dist'] = \
+                    sims[0].agents[i_agent].coll_dist
+                # allocate arrays
+                sim_results[scenario.name][i_agent]['cp_dist'] = np.full(
+                    (n_parameterisations, n_time_steps), np.nan)
+                sim_results[scenario.name][i_agent]['speed'] = np.full(
+                    (n_parameterisations, n_time_steps), np.nan)
+                sim_results[scenario.name][i_agent]['entry_time'] = np.full(
+                    n_parameterisations, np.nan)
+                # get and store data from individual simulations
+                for i_sim, sim in enumerate(sims):
+                    sim_results[scenario.name][i_agent]['cp_dist'][i_sim, :] = \
+                        sim.agents[i_agent].signed_CP_dists
+                    sim_results[scenario.name][i_agent]['speed'][i_sim, :] = \
+                        sim.agents[i_agent].trajectory.long_speed
+                    sim_results[scenario.name][i_agent]['entry_time'][i_sim] = \
+                        sc_fitting.metric_agent_entry_time(sim, i_agent)
         # save simulation results
-        sc_fitting.save_results(sims, file_name)
+        sc_fitting.save_results(sim_results, file_name)
     
+    n_sims = sim_results['n_parameterisations']
     if exclude_non_progress:
         # excluding parameterisations which get stuck (either agent not entering 
         # the conflict space in one or more scenarios)
         i_sim = 0
-        n_excluded = 0
-        n_sims = len(sims[scenarios[0].name])
-        while i_sim <= n_sims - 1:
-            exclude_sim = False
+        rejected = np.full(n_sims, False)
+        for i_sim in range(n_sims):
             for scenario in scenarios:
-                sim = sims[scenario.name][i_sim]
-                ped_entry_time = sc_fitting.metric_ped_entry_time(sim)
-                veh_entry_time = sc_fitting.metric_veh_entry_time(sim)
+                ped_entry_time = sim_results[scenario.name][
+                    sc_fitting.i_PED_AGENT]['entry_time'][i_sim]
+                veh_entry_time = sim_results[scenario.name][
+                    sc_fitting.i_VEH_AGENT]['entry_time'][i_sim]
                 if np.isnan(ped_entry_time) or np.isnan(veh_entry_time):
-                    exclude_sim = True
+                    rejected[i_sim] = True
                     break
-            if exclude_sim:
-                for scenario in scenarios:
-                    sims[scenario.name].pop(i_sim)
-                n_excluded += 1
-                n_sims -= 1
-            else:
-                i_sim += 1
-        print(f'Excluded {n_excluded} parameterisations for {MODEL_NAME}.')
+        sim_results['idx_retained'] = np.nonzero(~rejected)[0]
+        n_rejected = np.count_nonzero(rejected)
+        print(f'Rejected {n_rejected} parameterisations for {MODEL_NAME}.')
+    else:
+        sim_results['idx_retained'] = np.arange(n_sims)
     
-    return sims
+    
+    return sim_results
 
 
 if __name__ == '__main__':
@@ -185,7 +209,7 @@ if __name__ == '__main__':
     if PLOT_INTERACTION_OUTCOMES:
         
         # get simulation results (load existing results or run simulations)
-        sims = get_sim_results(SIM_RESULTS_FNAME_IO,
+        sim_results = get_sim_results(SIM_RESULTS_FNAME_IO,
                                OVERWRITE_SAVED_SIM_RESULTS_IO,
                                N_PARAMETERISATIONS_IO, 
                                SCENARIOS_IO)
@@ -195,19 +219,15 @@ if __name__ == '__main__':
         AX_W = 0.09
         AX_H = 0.15
         for i_scenario, scenario in enumerate(SCENARIOS_IO):
-            
-            n_sims = len(sims[scenario.name])
-            
+                        
             # distance-distance plot
             ax = axs[0, i_scenario]
             ax_x = 0.07 + 0.13 * i_scenario
-            for sim in sims[scenario.name]:
-                veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
-                ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
-                ax.plot(-veh_agent.signed_CP_dists, -ped_agent.signed_CP_dists, 'k',
-                        alpha=ALPHA)
-                ax.plot(-veh_agent.signed_CP_dists[-1], -ped_agent.signed_CP_dists[-1], 'ro',
-                        alpha=ALPHA)
+            for idx in sim_results['idx_retained']:
+                veh_cp_dist = sim_results[scenario.name][i_VEH_AGENT]['cp_dist'][idx, :]
+                ped_cp_dist = sim_results[scenario.name][i_PED_AGENT]['cp_dist'][idx, :]
+                ax.plot(-veh_cp_dist, -ped_cp_dist, 'k', alpha=ALPHA)
+                ax.plot(-veh_cp_dist[-1], -ped_cp_dist[-1], 'ro', alpha=ALPHA)
                 # if sc_fitting.metric_collision(sim):
                 #     sim.do_plots(kinem_states=True)
             if i_scenario == 2:
@@ -221,8 +241,10 @@ if __name__ == '__main__':
                 ax.set_ylabel('Ped. position (m)')
             ax.set_title(SCENARIO_DISPLAY_NAMES_IO[i_scenario] + '\n', 
                          fontsize=sc_plot.DEFAULT_FONT_SIZE)
-            ax.fill(np.array((1, 1, -1, -1)) * veh_agent.coll_dist, 
-                    np.array((-1, 1, 1, -1)) * ped_agent.coll_dist, color='r',
+            veh_coll_dist = sim_results[scenario.name][i_VEH_AGENT]['coll_dist']
+            ped_coll_dist = sim_results[scenario.name][i_VEH_AGENT]['coll_dist']
+            ax.fill(np.array((1, 1, -1, -1)) * veh_coll_dist, 
+                    np.array((-1, 1, 1, -1)) * ped_coll_dist, color='r',
                     alpha=0.3, edgecolor=None)
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
@@ -230,11 +252,11 @@ if __name__ == '__main__':
             ax.set_position((ax_x, ax_y, AX_W, AX_H))
   
             # vehicle speed
+            time_stamps = sim_results[scenario.name]['time_stamps']
             ax = axs[1, i_scenario]
-            for sim in sims[scenario.name]:
-                veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
-                ax.plot(sim.time_stamps, veh_agent.trajectory.long_speed, 
-                        'k-', alpha=ALPHA)
+            for idx in sim_results['idx_retained']:
+                veh_speed = sim_results[scenario.name][i_VEH_AGENT]['speed'][idx, :]
+                ax.plot(time_stamps, veh_speed, 'k-', alpha=ALPHA)
             ax.set_ylim(-1, 18)
             ax.set_xlabel('Time (s)')
             if i_scenario == 0:
@@ -245,10 +267,9 @@ if __name__ == '__main__':
                 
             # pedestrian speed
             ax = axs[2, i_scenario]
-            for sim in sims[scenario.name]:
-                ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
-                ax.plot(sim.time_stamps, ped_agent.trajectory.long_speed, 
-                        'k-', alpha=ALPHA)
+            for idx in sim_results['idx_retained']:
+                ped_speed = sim_results[scenario.name][i_PED_AGENT]['speed'][idx, :]
+                ax.plot(time_stamps, ped_speed, 'k-', alpha=ALPHA)
             ax.set_ylim(-.1, 4.1)
             ax.set_xlabel('Time (s)')
             if i_scenario == 0:
@@ -312,7 +333,7 @@ if __name__ == '__main__':
         AX_W = 0.15
         AX_H = 0.22
         # get model results (load existing results or run simulations)
-        sims = get_sim_results(SIM_RESULTS_FNAME_DSS,
+        sim_results = get_sim_results(SIM_RESULTS_FNAME_DSS,
                                OVERWRITE_SAVED_SIM_RESULTS_DSS,
                                N_PARAMETERISATIONS_DSS, 
                                SCENARIOS_DSS)
@@ -333,12 +354,14 @@ if __name__ == '__main__':
                         ped_cross[zebra][i_gap] = (scenario_ped_first.sum()
                                                    / len(scenario_ped_first))
                     else:
-                        for i_sim, sim in enumerate(sims[scen_name]):
-                            ped_entry_time = sc_fitting.metric_ped_entry_time(sim)
-                            veh_entry_time = sc_fitting.metric_veh_entry_time(sim)
+                        for idx in sim_results['idx_retained']:
+                            ped_entry_time = sim_results[scen_name][
+                                sc_fitting.i_PED_AGENT]['entry_time'][idx]
+                            veh_entry_time = sim_results[scen_name][
+                                sc_fitting.i_VEH_AGENT]['entry_time'][idx]
                             if ped_entry_time < veh_entry_time:
                                 ped_cross[zebra][i_gap] += 1
-                        ped_cross[zebra][i_gap] /= len(sims[scen_name])
+                        ped_cross[zebra][i_gap] /= len(sim_results['idx_retained'])
                 if zebra:
                     ls = ':'
                     color = 'gray'
