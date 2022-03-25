@@ -1125,7 +1125,7 @@ def do_params_plot(param_names, params_array, param_ranges=None,
 
 def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs', 
                           axs=None, xlabels=True, ylabels=True, titles=True,
-                          legend=True, finalise=True):
+                          legend=True, finalise=True, legend_kwargs={}):
     
     def get_speed_alpha(i_speed):
         return (1 - float(i_speed)/(len(HIKER_VEH_SPEEDS_MPH)+1)) ** 2
@@ -1172,12 +1172,12 @@ def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs',
             if veh_yielding:
                 label = 'Yielding'
             else:
-                label = 'Constant speed'
+                label = 'Const. speed'
             line, = ax.plot((-1, 0), (-10, -10), lw=2, 
                           color=get_yielding_color(veh_yielding),
                           alpha=get_speed_alpha(1), label=label)
             leg_plots.append(line)
-        ax.legend(handles=leg_plots)
+        ax.legend(handles=leg_plots, **legend_kwargs)
     if finalise:
         plt.tight_layout()
         plt.show()

@@ -200,7 +200,7 @@ if __name__ == '__main__':
             
             # distance-distance plot
             ax = axs[0, i_scenario]
-            ax_x = 0.1 + 0.13 * i_scenario
+            ax_x = 0.07 + 0.13 * i_scenario
             for sim in sims[scenario.name]:
                 veh_agent = sim.agents[sc_fitting.i_VEH_AGENT]
                 ped_agent = sim.agents[sc_fitting.i_PED_AGENT]
@@ -265,7 +265,7 @@ if __name__ == '__main__':
             
     
     if PLOT_HIKER_CIT_CDFS:
-        AX_W = 0.09
+        AX_W = 0.08
         AX_H = 0.13
         for i_source, source in enumerate(('data', 'model')):
             # get CITs to plot
@@ -283,10 +283,14 @@ if __name__ == '__main__':
             for i_gap in range(len(sc_fitting.HIKER_VEH_TIME_GAPS)):
                 cit_axs.append(axs[i_source, 3+i_gap])
             sc_fitting.do_hiker_cit_cdf_plot(cits, axs=cit_axs, legend=(i_source==1),
-                                             titles=False, finalise=False)
+                                             titles=False, finalise=False,
+                                             legend_kwargs={'frameon': False,
+                                                            'fontsize': 
+                                                                sc_plot.DEFAULT_FONT_SIZE-1,
+                                                            'loc': (1, 1.3)})
             for i_ax, ax in enumerate(cit_axs):
                 sc_plot.leave_only_yaxis(ax) 
-                ax_x = 0.55 + i_ax * 0.11
+                ax_x = 0.52 + i_ax * 0.10
                 ax_y = 0.71 - i_source * 0.15
                 ax.set_position((ax_x, ax_y, AX_W, AX_H))
                 if i_source == 0:
@@ -297,7 +301,7 @@ if __name__ == '__main__':
                     sc_plot.add_linked_time_axis(ax, label='')
                     ylabel = 'Model'
             cit_axs[0].set_ylabel(ylabel + '\nCDF (-)')
-        plt.annotate('Crossing initiation time (s)', (0.76, 0.46), 
+        plt.annotate('Crossing initiation time (s)', (0.72, 0.46), 
                      xycoords='figure fraction', ha='center')
 
        
