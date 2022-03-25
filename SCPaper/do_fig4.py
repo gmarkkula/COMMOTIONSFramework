@@ -28,11 +28,13 @@ import sc_plot
 
 
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
+    text_y_nudge = 0.02 # not sure why this is needed
 else:
     SCALE_DPI = 0.5
+    text_y_nudge = 0
 
 PLOT_INTERACTION_OUTCOMES = True
 OVERWRITE_SAVED_SIM_RESULTS_IO = False
@@ -42,7 +44,7 @@ PLOT_HIKER_CIT_CDFS = True
 PLOT_DSS_CROSS_PROBS = True
 OVERWRITE_SAVED_SIM_RESULTS_DSS = False
 
-PARALLEL = False
+PARALLEL = True
 
 MODEL_NAME = 'oVAoBEvoAIoEAoSNvoPF'
 
@@ -78,8 +80,8 @@ for zebra in (False, True):
             metric_names = ('ped_entry_time', 'ped_exit_time',
                             'veh_entry_time', 'veh_exit_time')))
 
-N_PARAMETERISATIONS_IO = 2
-N_PARAMETERISATIONS_DSS = 2
+N_PARAMETERISATIONS_IO = 50
+N_PARAMETERISATIONS_DSS = 200
 
 SIM_RESULTS_FNAME_IO = 'fig_4_SimResults_InteractionOutcomes.pkl'
 SIM_RESULTS_FNAME_DSS = 'fig_4_SimResults_DSS.pkl'
@@ -322,7 +324,7 @@ if __name__ == '__main__':
                     sc_plot.add_linked_time_axis(ax, label='')
                     ylabel = 'Model'
             cit_axs[0].set_ylabel(ylabel + '\nCDF (-)')
-        plt.annotate('Crossing initiation time (s)', (0.72, 0.46), 
+        plt.annotate('Crossing initiation time (s)', (0.72, 0.46 + text_y_nudge), 
                      xycoords='figure fraction', ha='center')
 
        
@@ -391,7 +393,16 @@ if __name__ == '__main__':
         
                 
     # add panel labels
-    sc_plot.add_panel_label('A', (0.05, 0.87))
-    sc_plot.add_panel_label('B', (0.47, 0.88))
-    sc_plot.add_panel_label('C', (0.5, 0.38))
+    sc_plot.add_panel_label('A', (0.05, 0.87 + text_y_nudge))
+    sc_plot.add_panel_label('B', (0.47, 0.88 + text_y_nudge))
+    sc_plot.add_panel_label('C', (0.5, 0.38 + text_y_nudge))
+    
+    
+    if SAVE_PDF:
+        file_name = sc_plot.FIGS_FOLDER + 'fig4.pdf'
+        print(f'Saving {file_name}...')
+        plt.savefig(file_name, bbox_inches='tight')
+        
+    
+    plt.show()
             
