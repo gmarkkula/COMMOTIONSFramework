@@ -31,7 +31,7 @@ PLOT_MODEL_STATES = True
 OVERWRITE_SAVED_SIM_RESULTS = False
 
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -145,8 +145,8 @@ if PLOT_MODEL_STATES:
                         plot_y = veh_agent.states.beh_vals_given_actions[i_beh, 
                                                                          i_action, :]
                         ylabel = '$V_{b|a}$ (-)'
-                        ax.set_title(MODEL_DISPLAY_NAME[i_model] + '\n',
-                                     fontsize=sc_plot.DEFAULT_FONT_SIZE)
+                        # ax.set_title(MODEL_DISPLAY_NAME[i_model] + '\n',
+                        #              fontsize=sc_plot.DEFAULT_FONT_SIZE)
                     elif i_row == 1:
                         # P_b|a
                         plot_y = veh_agent.states.beh_probs_given_actions[i_beh, 
@@ -183,7 +183,8 @@ if PLOT_MODEL_STATES:
         # add a separate time axis
         sc_plot.add_linked_time_axis(ax, nudge_down=0.04)
                     
-sc_plot.add_panel_label('A', (0.03, 0.92))
+sc_plot.add_panel_label('A', (0.05, 0.90))
+sc_plot.add_panel_label('B', (0.31, 0.90))
 
     
 # anticipation horizon plots
@@ -288,7 +289,7 @@ legend = ax.legend(handles=leg_handles, frameon=False, loc=(leg_x, 2.85),
 legend._legend_box.align = 'left'
 
 
-sc_plot.add_panel_label('B', (0.63, 0.72))
+sc_plot.add_panel_label('C', (0.61, 0.72))
 
 
 if SAVE_PDF:
