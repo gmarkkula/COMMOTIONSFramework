@@ -34,7 +34,7 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-SAVE_RETAINED_MODELS = True
+SAVE_RETAINED_MODELS = False
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
