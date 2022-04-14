@@ -65,7 +65,7 @@ def get_dss_scen_name(zebra, gap):
 
 DSS_GAPS = np.arange(3, 8)   
 PED_STEP_DELAY = 1 # s
-PED_START_MARGIN = 2 # m
+PED_START_MARGIN = 1.95 # m
 SCENARIOS_DSS = []
 for zebra in (False, True):
     for gap in DSS_GAPS:
@@ -81,7 +81,7 @@ for zebra in (False, True):
                             'veh_entry_time', 'veh_exit_time')))
 
 N_PARAMETERISATIONS_IO = 50
-N_PARAMETERISATIONS_DSS = 200
+N_PARAMETERISATIONS_DSS = 500
 
 SIM_RESULTS_FNAME_IO = 'fig_4_SimResults_InteractionOutcomes.pkl'
 SIM_RESULTS_FNAME_DSS = 'fig_4_SimResults_DSS.pkl'
