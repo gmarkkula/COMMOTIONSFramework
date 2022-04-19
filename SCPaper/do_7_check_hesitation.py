@@ -71,6 +71,9 @@ if __name__ == '__main__':
                             for i in range(N_SIMS))
                 vs_list = list(pool.starmap(run_one_sim, sim_iter))   
                 vs = np.array(vs_list)
+                vs = vs[~np.isnan(vs)]
+                if len(vs) < N_SIMS:
+                    print(f'\t\tRemoved {N_SIMS - len(vs)} simulations where ped. did not enter conflict space.')
                 mean_v = np.mean(vs)
                 ci_radius = 1.96 * np.std(vs)/math.sqrt(N_SIMS)
                 mean_vs.append(mean_v)
