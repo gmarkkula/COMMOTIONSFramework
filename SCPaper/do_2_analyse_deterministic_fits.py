@@ -38,8 +38,13 @@ SAVE_RETAINED_MODELS = True
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = True
+DO_RETAINED_PARAMS_PLOT = False
 DO_CRIT_PLOT = True
+SAVE_PDF = True
+if SAVE_PDF:
+    SCALE_DPI = 1
+else:
+    SCALE_DPI = 0.5
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
@@ -59,7 +64,7 @@ CRITERIA = (('Priority assertion', 'Short-stopping',
             )
 assert(N_CRIT_GROUPS == len(CRITERIA))
 CRIT_METRICS = (('$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
-                 '$\overline{d}/d_\mathrm{stop}$ (-)',
+                 '$\overline{d - d_\mathrm{stop}}$ (m/s²)',
                  '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
                  '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)'), 
                 ('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
@@ -102,11 +107,14 @@ def do():
     det_fit_files.sort()
     print(det_fit_files)
     
-    # need to prepare for criterion plot?
-    if DO_PLOTS and DO_CRIT_PLOT:
-        crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
+    if DO_PLOTS:
+        plt.close('all')
+        # need to prepare for criterion plot?
+        if DO_CRIT_PLOT:
+            crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
                                           sharex='col', sharey=True, 
-                                          figsize=(15, 10), tight_layout=True)
+                                          figsize=(1.6*sc_plot.FULL_WIDTH, 1.2*sc_plot.FULL_WIDTH), tight_layout=True,
+                                          dpi=sc_plot.DPI * SCALE_DPI)
     
     # loop through the deterministic fitting results files
     det_fits = {}
@@ -217,13 +225,16 @@ def do():
                             lw=sc_plot.MVAR_LWS[i_model_variant])
                     if i_model_variant == sc_plot.N_MODEL_VARIANTS-1:
                         if i_model_base == 0:
-                            if len(crit) > 40:
-                                title_str = crit[0:38] + '...'
+                            MAX_LEN = 45
+                            if len(crit) > MAX_LEN:
+                                title_str = crit[0:MAX_LEN-1] + '...'
                             else:
                                 title_str = crit
                             ax.set_title(title_str, fontsize=8)
                             if i_crit_glob == 0:
-                                ax.legend(sc_plot.MODEL_VARIANTS, fontsize=8)
+                                legend_strs = ('(none)',) + sc_plot.MODEL_VARIANTS[1:]
+                                ax.legend(legend_strs, fontsize=8,
+                                          title='Beh. estimation:')
                         elif i_model_base == sc_plot.N_BASE_MODELS-1:
                             ax.set_xlabel(CRIT_METRICS[i_crit_grp][i_crit])
                         if i_crit_glob == 0:
@@ -335,7 +346,11 @@ def do():
     # end det_fit_file for loop
     
     if DO_PLOTS and DO_CRIT_PLOT:
-        plt.show()                           
+        plt.show()            
+        if SAVE_PDF:
+            file_name = sc_plot.FIGS_FOLDER + 'figS5.pdf'
+            print(f'Saving {file_name}...')
+            plt.savefig(file_name, bbox_inches='tight')               
         
     # provide info on retained models
     print('\n\n*** Retained models (having at least one parameterisation meeting all main criteria) ***')
