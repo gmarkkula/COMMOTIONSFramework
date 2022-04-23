@@ -1044,6 +1044,22 @@ def do_params_plot(param_names, params_array, param_ranges=None,
     PARAM_VAL_FOR_INF = 10 # for T_Of = Inf
     n_params = len(param_names)
     assert(params_array.shape[1] == n_params)
+    # adapt plotting to number of parameters
+    if n_params == 2:
+        jitter = 0
+        PARAM_ALPHA = 0.8
+        PARAM_MS = 6
+    elif n_params == 3:
+        jitter = jitter / 2
+        PARAM_ALPHA = 0.4
+        PARAM_MS = 4
+    else:
+        PARAM_ALPHA = 0.2
+        PARAM_MS = 2
+    # get display param names
+    display_param_names = []
+    for param_name in param_names:
+        display_param_names.append(sc_plot.get_display_param_name(param_name))
     # parse any parameter subsets
     if param_subsets == None:
         param_subsets = (np.arange(params_array.shape[0]),)
@@ -1052,9 +1068,10 @@ def do_params_plot(param_names, params_array, param_ranges=None,
         color = (color,)
     assert(len(color) == len(param_subsets))
     # prepare figure
-    figsize = min(12, 3 * n_params)
+    figsize = min(12, 2 * n_params)
     fig, axs = plt.subplots(n_params, n_params, 
-                            figsize=(figsize,figsize))
+                            figsize=(figsize,figsize),
+                            tight_layout=True)
     # get parameter ranges if not provided
     if param_ranges == None:
         param_ranges = []
@@ -1110,15 +1127,16 @@ def do_params_plot(param_names, params_array, param_ranges=None,
                 
                 for i_subset, param_subset in enumerate(param_subsets):
                     ax.plot(xdata[param_subset], ydata[param_subset],'o', 
-                            ms=2, alpha=0.2, color=color[i_subset])
+                            ms=PARAM_MS, alpha=PARAM_ALPHA, color=color[i_subset],
+                            markeredgecolor='none')
                 if np.isinf(ymax):
                     ymax = PARAM_VAL_FOR_INF
                 yplotmin, yplotmax = get_plot_lims(ymin, ymax)
                 ax.set_ylim(yplotmin, yplotmax)
             if i_x_param == 0:
-                ax.set_ylabel(param_names[i_y_param])
+                ax.set_ylabel(display_param_names[i_y_param])
             if i_y_param == n_params-1:
-                ax.set_xlabel(param_names[i_x_param]) 
+                ax.set_xlabel(display_param_names[i_x_param]) 
     if show:
         plt.show()
    

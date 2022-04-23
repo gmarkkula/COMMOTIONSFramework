@@ -59,6 +59,13 @@ COLORS['oBEvoAI variant blue'] = get_rgb_tuple(0, 53, 102)
 COLORS['Passing first green'] = get_rgb_tuple(76, 162, 123)
 COLORS['Passing second red'] = get_rgb_tuple(120, 0, 37)
 
+DISPLAY_PARAM_NAMES = {}
+DISPLAY_PARAM_NAMES['T_delta'] = r'$T_\delta$'
+DISPLAY_PARAM_NAMES['thetaDot_1'] = r'$\dot{\theta}_1$'
+DISPLAY_PARAM_NAMES['beta_V'] = r'$\beta_\mathrm{V}$'
+DISPLAY_PARAM_NAMES['T_Of'] = r'$T_\mathrm{Of}$'
+DISPLAY_PARAM_NAMES['sigma_O'] = r'$\sigma_\mathrm{O}$'
+
 
 def split_model_name(full_name):
     for base_name in reversed(BASE_MODELS):
@@ -74,6 +81,13 @@ def split_model_name(full_name):
     i_model_variant = MODEL_VARIANTS.index(model_variant)
     return i_model_base, i_model_variant
 
+
+def get_display_param_name(param_name):
+    if param_name in DISPLAY_PARAM_NAMES.keys():
+        return DISPLAY_PARAM_NAMES[param_name]
+    else:
+        return param_name
+    
 
 def add_panel_label(label, xy):
     plt.annotate(label, xy=xy, xycoords='figure fraction', 

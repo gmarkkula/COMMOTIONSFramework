@@ -16,7 +16,6 @@ if not PARENT_DIR in sys.path:
 
 # other imports
 import glob
-import pickle
 import copy
 from dataclasses import dataclass
 import numpy as np
@@ -38,13 +37,14 @@ SAVE_RETAINED_MODELS = True
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = False
-DO_CRIT_PLOT = True
-SAVE_PDF = True
-if SAVE_PDF:
+DO_RETAINED_PARAMS_PLOT = True # supplementary figure
+DO_CRIT_PLOT = False # supplementary figure
+SAVE_FIGS = True
+if SAVE_FIGS:
     SCALE_DPI = 1
 else:
     SCALE_DPI = 0.5
+RET_PARAMS_PLOTS_TO_SAVE = ('oVAoBEvoAI', 'oVAoVAloBEooBEvoAI', 'oVAaoVAloBEooBEvoAI')
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
@@ -297,10 +297,12 @@ def do():
             # yes, so retain this model for further analysis
             retained_params = ((n_main_criteria_met >= N_MAIN_CRIT_FOR_RETAINING)
                                & ped_progress_met)
-            retained_models.append(sc_fitting.ModelWithParams(
+            retained_model = sc_fitting.ModelWithParams(
                 model=det_fit.name, param_names=copy.copy(det_fit.param_names), 
                 param_ranges=param_ranges,
-                params_array=np.copy(det_fit.results.params_matrix[retained_params])))
+                params_array=np.copy(det_fit.results.params_matrix[retained_params]))
+            retained_model.n_main_criteria_met = n_main_criteria_met[retained_params]
+            retained_models.append(retained_model)
         
         # pick a maximally sucessful parameterisations, and provide simulation 
         # plots if requested
@@ -347,9 +349,10 @@ def do():
     
     if DO_PLOTS and DO_CRIT_PLOT:
         plt.show()            
-        if SAVE_PDF:
+        if SAVE_FIGS:
             file_name = sc_plot.FIGS_FOLDER + 'figS5.pdf'
             print(f'Saving {file_name}...')
+            plt.figure(crit_fig.number)
             plt.savefig(file_name, bbox_inches='tight')               
         
     # provide info on retained models
@@ -364,8 +367,18 @@ def do():
               ' and the pedestrian progress criterion, across:')
         print(ret_model.param_names)
         if DO_PLOTS and DO_RETAINED_PARAMS_PLOT:
+            param_subsets=(ret_model.n_main_criteria_met == N_MAIN_CRIT_FOR_RETAINING,
+                           ret_model.n_main_criteria_met == len(CRITERIA[i_MAIN]))
             sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
-                                      ret_model.param_ranges, log=True, jitter=PARAMS_JITTER)
+                                      ret_model.param_ranges, log=True, jitter=PARAMS_JITTER,
+                                      param_subsets = param_subsets, 
+                                      color=('green','black'))
+            if SAVE_FIGS and ret_model.model in RET_PARAMS_PLOTS_TO_SAVE:
+                fig_number = 8 + RET_PARAMS_PLOTS_TO_SAVE.index(ret_model.model)
+                file_name = sc_plot.FIGS_FOLDER + f'figS{fig_number}.png'
+                print(f'Saving {file_name}...')
+                plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI)  
+                
         print('\n***********************')
         
     
