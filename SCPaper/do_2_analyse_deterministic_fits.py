@@ -37,8 +37,8 @@ SAVE_RETAINED_MODELS = True
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = True # supplementary figure
-DO_CRIT_PLOT = False # supplementary figure
+DO_RETAINED_PARAMS_PLOT = False # supplementary figure
+DO_CRIT_PLOT = True # supplementary figure
 SAVE_FIGS = True
 if SAVE_FIGS:
     SCALE_DPI = 1
@@ -113,7 +113,7 @@ def do():
         if DO_CRIT_PLOT:
             crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
                                           sharex='col', sharey=True, 
-                                          figsize=(1.6*sc_plot.FULL_WIDTH, 1.2*sc_plot.FULL_WIDTH), tight_layout=True,
+                                          figsize=(1.6*sc_plot.FULL_WIDTH, 1.4*sc_plot.FULL_WIDTH), tight_layout=True,
                                           dpi=sc_plot.DPI * SCALE_DPI)
     
     # loop through the deterministic fitting results files
@@ -233,7 +233,7 @@ def do():
                             ax.set_title(title_str, fontsize=8)
                             if i_crit_glob == 0:
                                 legend_strs = ('(none)',) + sc_plot.MODEL_VARIANTS[1:]
-                                ax.legend(legend_strs, fontsize=8,
+                                ax.legend(legend_strs, fontsize=8, title_fontsize=8,
                                           title='Beh. estimation:')
                         elif i_model_base == sc_plot.N_BASE_MODELS-1:
                             ax.set_xlabel(CRIT_METRICS[i_crit_grp][i_crit])
