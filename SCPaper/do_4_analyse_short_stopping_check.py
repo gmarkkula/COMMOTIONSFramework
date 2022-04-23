@@ -73,7 +73,7 @@ def do():
     if DO_CRIT_PLOT:
         crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
                                           sharex='col', sharey=True, 
-                                          figsize=(0.6*sc_plot.FULL_WIDTH, 1.2*sc_plot.FULL_WIDTH), 
+                                          figsize=(0.6*sc_plot.FULL_WIDTH, 1.4*sc_plot.FULL_WIDTH), 
                                           tight_layout=True,
                                           dpi=sc_plot.DPI * SCALE_DPI)
         legend_added = False
