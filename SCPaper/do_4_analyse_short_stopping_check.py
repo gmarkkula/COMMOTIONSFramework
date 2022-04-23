@@ -35,6 +35,11 @@ DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = False
 DO_CRIT_PLOT = True
+SAVE_PDF = True
+if SAVE_PDF:
+    SCALE_DPI = 1
+else:
+    SCALE_DPI = 0.5
 N_MAIN_CRIT_FOR_PLOT = 2
 MODELS_TO_ANALYSE = 'all' 
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
@@ -45,7 +50,7 @@ N_CRIT_GROUPS = len(CRITERION_GROUPS)
 CRITERIA = (('Short-stopping - deceleration', 
             'Short-stopping - distance margin'),)
 assert(N_CRIT_GROUPS == len(CRITERIA))
-CRIT_METRICS = (('$\overline{d}/d_\mathrm{stop}$ (-)',
+CRIT_METRICS = (('$\overline{d - d_\mathrm{stop}}$ (m/s²)',
                  '$D_\mathrm{stop}$ (m)'),) 
 N_CRITERIA = 0
 CRIT_XMAX = (2.5, 20)
@@ -62,11 +67,16 @@ def do():
     det_fit_files.sort()
     print(det_fit_files)
     
+    plt.close('all')
+    
     # need to prepare for criterion plot?
     if DO_CRIT_PLOT:
         crit_fig, crit_axs = plt.subplots(nrows=sc_plot.N_BASE_MODELS, ncols=N_CRITERIA,
                                           sharex='col', sharey=True, 
-                                          figsize=(6, 10), tight_layout=True)
+                                          figsize=(0.6*sc_plot.FULL_WIDTH, 1.2*sc_plot.FULL_WIDTH), 
+                                          tight_layout=True,
+                                          dpi=sc_plot.DPI * SCALE_DPI)
+        legend_added = False
     
     # loop through the deterministic fitting results files
     det_fits = {}
@@ -146,11 +156,14 @@ def do():
                     elif i_model_base == sc_plot.N_BASE_MODELS-1:
                         ax.set_xlabel(CRIT_METRICS[i_crit_grp][i_crit])
                         if i_crit_glob == 0:
-                            ax.legend(sc_plot.MODEL_VARIANTS, fontsize=8)
+                            legend_strs = ('(none)',) + sc_plot.MODEL_VARIANTS[1:]
+                            ax.legend(legend_strs, fontsize=8, title_fontsize=8,
+                                      title='Beh. estimation:')
+                            legend_added = True
                     if i_crit_glob == 0:
                         ax.set_ylabel(sc_plot.BASE_MODELS[i_model_base], 
                                       fontsize=8)
-                    ax.axvline(crit_thresh, ls=':', color='gray')
+                    ax.axvline(crit_thresh, ls=':', color='gray', label='_nolegend_')
                     ax.set_xlim(0, CRIT_XMAX[i_crit_glob])
      
         
@@ -242,7 +255,12 @@ def do():
                     param_ranges, log=True, jitter=PARAMS_JITTER)
                                 
                             
-                
+    
+    if DO_CRIT_PLOT and SAVE_PDF:
+        file_name = sc_plot.FIGS_FOLDER + 'figS6.pdf'
+        print(f'Saving {file_name}...')
+        plt.figure(crit_fig.number)
+        plt.savefig(file_name, bbox_inches='tight')            
             
         
     # provide info on retained models
