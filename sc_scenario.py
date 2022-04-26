@@ -1605,7 +1605,7 @@ class SCSimulation(commotions.Simulation):
                 if veh_stop_dec and agent.ctrl_type == CtrlType.ACCELERATION:
                     axs[0].plot(self.time_stamps, agent.get_stop_accs(), 
                                 '--', c=agent.plot_color, alpha = alpha/2, 
-                                lw=lw, dashes=dashes)
+                                lw=lw)
                 axs[0].plot(self.time_stamps, agent.trajectory.long_acc, 
                          '-', c=agent.plot_color, alpha=alpha, lw=lw, 
                          dashes=dashes)
