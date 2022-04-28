@@ -60,6 +60,8 @@ COLORS['Passing first green'] = get_rgb_tuple(76, 162, 123)
 COLORS['Passing second red'] = get_rgb_tuple(120, 0, 37)
 
 DISPLAY_PARAM_NAMES = {}
+DISPLAY_PARAM_NAMES['k_c'] = r'$k_\mathrm{c}$'
+DISPLAY_PARAM_NAMES['k_sc'] = r'$k_\mathrm{sc}$'
 DISPLAY_PARAM_NAMES['T_delta'] = r'$T_\delta$'
 DISPLAY_PARAM_NAMES['thetaDot_1'] = r'$\dot{\theta}_1$'
 DISPLAY_PARAM_NAMES['beta_V'] = r'$\beta_\mathrm{V}$'
@@ -88,6 +90,14 @@ def get_display_param_name(param_name):
     else:
         return param_name
     
+def get_display_params_str(params_dict):
+    params_str = '('
+    for i_param, param_name in enumerate(params_dict.keys()):
+        if i_param > 0:
+            params_str += ', '
+        params_str += f'{get_display_param_name(param_name)} = {params_dict[param_name]:.4g}'
+    params_str +=')'
+    return params_str
 
 def add_panel_label(label, xy):
     plt.annotate(label, xy=xy, xycoords='figure fraction', 

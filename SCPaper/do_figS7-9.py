@@ -24,7 +24,7 @@ from do_2_analyse_deterministic_fits import (get_max_crit_parameterisations,
                                              get_best_parameterisations_for_crit,
                                              get_best_scen_var_for_paramet)
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -38,6 +38,7 @@ MODEL_FOCUS_CRITS = ('Gap acceptance hesitation', 'none', 'none',
                      'none', 'Priority assertion')
 
 SCENARIOS = sc_fitting.ONE_AG_SCENARIOS
+SCENARIO_NAMES = SCENARIOS.keys()
 N_COLS = len(SCENARIOS)
 SCENARIO_CRITERIA = ('Priority assertion', 'Short-stopping', 'Gap acceptance hesitation',
           'Yield acceptance hesitation', 'Early yield acceptance')
@@ -86,7 +87,9 @@ else:
             idx_param = idx_crit_params[0]
         params_array = det_fit.results.params_matrix[idx_param, :]
         params_dict = det_fit.get_params_dict(params_array)
+        sim_results[model_name]['params_dict'] = params_dict
         # simulate across all scenarios
+        sim_results
         print(f'*** Simulating for model "{model_name}" ({params_dict})...')
         for i_scenario, scenario in enumerate(SCENARIOS.values()):
             print(f'\t--- Scenario "{scenario.name}..."')
@@ -110,7 +113,7 @@ else:
                 crit_met = det_fit.sec_criteria_matrix[idx_crit, idx_param]
             else:
                 raise Exception(f'Unexpected criterion name "{crit}".')
-            sim_results[model_name][scenario.name].crit_met = crit_met    
+            sim_results[model_name][scenario.name].crit_met = crit_met   
                     
     # save simulation results
     sc_fitting.save_results(sim_results, SIM_RESULTS_FNAME)
@@ -120,12 +123,18 @@ else:
             
             
 # plot
+AX_W = 0.13
+AX_H = 0.13
+AX_PAD_W = 0.06
+AX_PAD_H = 0.025
+AX_TOP = 0.825
+AX_LEFT = 0.7 * (1 - (N_COLS * AX_W + (N_COLS-1) * AX_PAD_W))
 plt.close('all')
 for i_model_name, model_name in enumerate(MODEL_NAMES):
     fig, axs = plt.subplots(nrows=4, ncols=N_COLS, sharex='col',
-                            figsize=(sc_plot.FULL_WIDTH, 0.4*sc_plot.FULL_WIDTH),
+                            figsize=(sc_plot.FULL_WIDTH, 0.45*sc_plot.FULL_WIDTH),
                             dpi=sc_plot.DPI * SCALE_DPI)
-    for i_scenario, scenario_name in enumerate(sim_results[model_name].keys()):
+    for i_scenario, scenario_name in enumerate(SCENARIO_NAMES):
         sim = sim_results[model_name][scenario_name]
         kinem_axs = axs[0:3, i_scenario]
         # get the active agent and set colours
@@ -155,15 +164,47 @@ for i_model_name, model_name in enumerate(MODEL_NAMES):
         # plot beh probs
         ax = axs[3, i_scenario]
         for idx_action, i_action in enumerate(i_PLOT_ACTIONS):
-            ax.plot(sim.time_stamps, 
-                    act_agent.states.beh_probs_given_actions[i_PLOT_BEH, i_action, :],
-                    ACTION_LINE_STYLES[idx_action], 
-                    c=ACTION_LINE_COLS[idx_action],
-                    lw=ACTION_LINE_WIDTHS[idx_action])
-            ax.set_ylim(-0.1, 1.1)
+            if ('oBEvoAI' in model_name) or (idx_action == 2):
+                ax.plot(sim.time_stamps, 
+                        act_agent.states.beh_probs_given_actions[i_PLOT_BEH, i_action, :],
+                        ACTION_LINE_STYLES[idx_action], 
+                        c=ACTION_LINE_COLS[idx_action],
+                        lw=ACTION_LINE_WIDTHS[idx_action])
+        ax.set_ylim(-0.1, 1.1)
+        # axes
+        for i_row, ax in enumerate(axs[:, i_scenario]):
+            sc_plot.leave_only_yaxis(ax)
+            ax_left = AX_LEFT + (AX_W + AX_PAD_W) * i_scenario
+            ax_bottom = AX_TOP - AX_H - (AX_H + AX_PAD_H) * i_row
+            ax.set_position([ax_left, ax_bottom, AX_W, AX_H])
+        sc_plot.add_linked_time_axis(axs[-1, i_scenario])
         # add title
-        axs[0, i_scenario].set_title(SCENARIO_CRITERIA[i_scenario] + f'\n({sim.crit_met})',
+        if sim.crit_met:
+            crit_met_str = '\n(OK)'
+        else:
+            crit_met_str = '\n'
+        axs[0, i_scenario].set_title(SCENARIO_CRITERIA[i_scenario] + crit_met_str,
                                      fontsize=sc_plot.DEFAULT_FONT_SIZE)
+    # y axis labels
+    axs[0, 0].set_ylabel('$a$ (m/s²)')
+    axs[1, 0].set_ylabel('$v$ (m/s)')
+    axs[2, 0].set_ylabel(r'$d_\mathrm{CP}$ (m)')
+    axs[3, 0].set_ylabel(r'$P(\mathrm{first})$ (-)')
+    # model variant and parameterisation 
+    LABEL_LEFT = 0.03
+    LABEL_BOTTOM = 0.96
+    plt.annotate(model_name, xy=(LABEL_LEFT, LABEL_BOTTOM), xycoords='figure fraction',
+                 fontweight='bold', fontsize=sc_plot.PANEL_LABEL_FONT_SIZE)
+    plt.annotate(sc_plot.get_display_params_str(sim_results[model_name]['params_dict']), 
+                 xy=(LABEL_LEFT, LABEL_BOTTOM - 0.04), 
+                 xycoords='figure fraction')
+    # save?
+    if SAVE_PDF:
+        file_name = sc_plot.FIGS_FOLDER + f'figS7-9_{model_name}.pdf'
+        print(f'Saving {file_name}...')
+        plt.savefig(file_name, bbox_inches='tight')
+
+    
             
        
 
