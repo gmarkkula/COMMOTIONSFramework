@@ -37,8 +37,9 @@ SAVE_RETAINED_MODELS = True
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = False # supplementary figure
+DO_RETAINED_PARAMS_PLOT = True # supplementary figure
 DO_CRIT_PLOT = True # supplementary figure
+RET_PARAMS_PLOT_FIRST_FIG_NO = 10
 SAVE_FIGS = True
 if SAVE_FIGS:
     SCALE_DPI = 1
@@ -374,7 +375,8 @@ def do():
                                       param_subsets = param_subsets, 
                                       color=('green','black'))
             if SAVE_FIGS and ret_model.model in RET_PARAMS_PLOTS_TO_SAVE:
-                fig_number = 8 + RET_PARAMS_PLOTS_TO_SAVE.index(ret_model.model)
+                fig_number = (RET_PARAMS_PLOT_FIRST_FIG_NO 
+                              + RET_PARAMS_PLOTS_TO_SAVE.index(ret_model.model))
                 file_name = sc_plot.FIGS_FOLDER + f'figS{fig_number}.png'
                 print(f'Saving {file_name}...')
                 plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI)  
