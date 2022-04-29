@@ -23,6 +23,7 @@ from statsmodels.distributions.empirical_distribution import ECDF
 import collections
 import parameter_search
 import sc_fitting
+import sc_plot
 
 
 ExampleParameterisation = collections.namedtuple(
@@ -30,14 +31,19 @@ ExampleParameterisation = collections.namedtuple(
                                 'params_dict', 'crit_dict'])
 
 # constants
-DO_PLOTS = True # if False, all plots are disabled
+DO_PLOTS = False # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = False
-DO_CRIT_PLOT = False
-DO_OUTCOME_PLOT = True
+DO_CRIT_PLOT = True # supplementary figure
+DO_OUTCOME_PLOT = False
 N_CRIT_FOR_PARAMS_PLOT = 4
+SAVE_PDF = True
+if SAVE_PDF:
+    SCALE_DPI = 1
+else:
+    SCALE_DPI = 0.5
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 HESITATION_SPEED_FRACT = 0.95
@@ -64,13 +70,17 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
     print(prob_fit_files)
     
     # need to prepare for criterion plot?
-    if DO_PLOTS and DO_CRIT_PLOT:
-        fig_height = 2 + len(prob_fit_files)
-        crit_fig, crit_axs = plt.subplots(nrows=len(prob_fit_files), 
-                                          ncols=len(CRITERIA),
-                                          sharex='col', sharey=True, 
-                                          figsize=(15, fig_height), 
-                                          tight_layout=True)
+    if DO_PLOTS:
+        plt.close('all')
+        if DO_CRIT_PLOT:
+            fig_height = 2 + len(prob_fit_files)
+            crit_fig, crit_axs = plt.subplots(nrows=len(prob_fit_files), 
+                                              ncols=len(CRITERIA),
+                                              sharex='col', sharey=True, 
+                                              figsize=(1.6*sc_plot.FULL_WIDTH, 
+                                                       fig_height), 
+                                              tight_layout=True,
+                                              dpi=sc_plot.DPI * SCALE_DPI)
     
     # loop through the fitting results files
     prob_fits = {}
@@ -99,7 +109,11 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                     i_row = model_plot_order.index(prob_fit.name)
                 ax = crit_axs[i_row, i_crit]
                 if i_prob_fit_file == 0:
-                    ax.set_title(crit, fontsize=8)
+                    if crit == 'Pedestrian hesitation in constant-speed scenario':
+                        title_str = 'Gap acceptance hesitation'
+                    else:
+                        title_str = crit
+                    ax.set_title(title_str, fontsize=8)
                 if i_crit == 0:
                     ax.set_ylabel(prob_fit.name, fontsize=8, 
                                   rotation=ylabel_rotation)
@@ -226,6 +240,11 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
     
     if DO_PLOTS and DO_CRIT_PLOT:
         plt.show()
+        if SAVE_PDF:
+            file_name = sc_plot.FIGS_FOLDER + 'figS13.pdf'
+            print(f'Saving {file_name}...')
+            plt.savefig(file_name, bbox_inches='tight')  
+            
         
     # provide info on retained models
     print('\n\n*** Retained models ***')
