@@ -15,7 +15,6 @@ if not PARENT_DIR in sys.path:
 
 # other imports
 import glob
-import pickle
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,19 +30,21 @@ ExampleParameterisation = collections.namedtuple(
                                 'params_dict', 'crit_dict'])
 
 # constants
-DO_PLOTS = False # if False, all plots are disabled
+DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = False
-DO_CRIT_PLOT = True # supplementary figure
+DO_RETAINED_PARAMS_PLOT = True # supplementary figure
+DO_CRIT_PLOT = False # supplementary figure
 DO_OUTCOME_PLOT = False
 N_CRIT_FOR_PARAMS_PLOT = 4
-SAVE_PDF = True
-if SAVE_PDF:
+SAVE_FIGS = True
+if SAVE_FIGS:
     SCALE_DPI = 1
 else:
     SCALE_DPI = 0.5
+RET_PARAMS_PLOTS_TO_SAVE = ('oVAoEAoSNv', 'oVAoEAoSNvoPF')
+RET_PARAMS_PLOT_FIRST_FIG_NO = 14
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 HESITATION_SPEED_FRACT = 0.95
@@ -240,7 +241,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
     
     if DO_PLOTS and DO_CRIT_PLOT:
         plt.show()
-        if SAVE_PDF:
+        if SAVE_FIGS:
             file_name = sc_plot.FIGS_FOLDER + 'figS13.pdf'
             print(f'Saving {file_name}...')
             plt.savefig(file_name, bbox_inches='tight')  
@@ -256,8 +257,30 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
               f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
         print(ret_model.param_names)
         if DO_PLOTS and DO_RETAINED_PARAMS_PLOT:
-            sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
-                                      ret_model.param_ranges, log=True, jitter=PARAMS_JITTER)
+            if 'oPF' in ret_model.model:
+                # make sure to plot noise magnitude actually used in the model
+                if 'oSNc' in ret_model.model:
+                    noise_param_name = 'tau_d'
+                elif 'oSNv' in ret_model.model:
+                    noise_param_name = 'tau_theta'
+                else:
+                    raise Exception('Found oPF model without oSN*.')
+                idx_noise_param = ret_model.param_names.index(noise_param_name)
+                ret_model.params_array[
+                    :, idx_noise_param] *= sc_fitting.DEFAULT_PARAMS.c_tau
+                ret_model.param_ranges[idx_noise_param] = (
+                    np.array(ret_model.param_ranges[idx_noise_param]) 
+                    * sc_fitting.DEFAULT_PARAMS.c_tau)
+            sc_fitting.do_params_plot(ret_model.param_names, 
+                                      ret_model.params_array, 
+                                      ret_model.param_ranges, 
+                                      log=True, jitter=PARAMS_JITTER)
+            if SAVE_FIGS and ret_model.model in RET_PARAMS_PLOTS_TO_SAVE:
+                fig_number = (RET_PARAMS_PLOT_FIRST_FIG_NO 
+                              + RET_PARAMS_PLOTS_TO_SAVE.index(ret_model.model))
+                file_name = sc_plot.FIGS_FOLDER + f'figS{fig_number}.png'
+                print(f'Saving {file_name}...')
+                plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI) 
         print('\n***********************')
         
     

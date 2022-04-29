@@ -67,6 +67,9 @@ DISPLAY_PARAM_NAMES['thetaDot_1'] = r'$\dot{\theta}_1$'
 DISPLAY_PARAM_NAMES['beta_V'] = r'$\beta_\mathrm{V}$'
 DISPLAY_PARAM_NAMES['T_Of'] = r'$T_\mathrm{Of}$'
 DISPLAY_PARAM_NAMES['sigma_O'] = r'$\sigma_\mathrm{O}$'
+DISPLAY_PARAM_NAMES['T'] = r'$T$'
+DISPLAY_PARAM_NAMES['DeltaV_th_rel'] = r'$\Delta V_\mathrm{th,rel}$'
+DISPLAY_PARAM_NAMES['tau_theta'] = r'$\sigma_\mathrm{v}$'
 
 
 def split_model_name(full_name):
