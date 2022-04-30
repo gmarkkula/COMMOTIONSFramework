@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 import parameter_search
 import sc_fitting
 
-DO_PARAMS_PLOT = True
-DO_CIT_CDF_PLOTS = True
+DO_PARAMS_PLOT = False
+DO_CIT_CDF_PLOTS = False
 SAVE_CIT_DATA_FOR_MODELS = ('oVAoBEvoAIoEAoSNvoPF',)
 
 CIT_CDF_MAX_NON_CROSS_TRIALS = np.inf
@@ -30,6 +30,7 @@ if not np.isinf(CIT_CDF_MAX_NON_CROSS_TRIALS):
     print('NB: Excluding parameterisations with more than'
           f'{CIT_CDF_MAX_NON_CROSS_TRIALS} non-crossing trials from CIT CDFs.\n')
 
+plt.close('all')
 
 # find pickle files from the HIKER fits
 hiker_fit_files = glob.glob(sc_fitting.FIT_RESULTS_FOLDER + 
@@ -40,6 +41,7 @@ print(hiker_fit_files)
 
 # loop through the fitting results files
 n_total_params_tested = 0
+excl_params = {}
 for hiker_fit_file in hiker_fit_files:
     print()
     hiker_fit = parameter_search.load(hiker_fit_file, verbose=True)
@@ -49,6 +51,7 @@ for hiker_fit_file in hiker_fit_files:
     idx_yielding_cits = [i for i, name in enumerate(hiker_fit.metric_names) if 'y' in name]
     yielding_cits = hiker_fit.results.metrics_matrix[:, idx_yielding_cits, :]
     noncross_yield_params = np.any(np.isnan(yielding_cits), axis=(1, 2))
+    excl_params[hiker_fit.name] = hiker_fit.results.params_matrix[noncross_yield_params, :]
     cross_yield_params = ~noncross_yield_params
     n_cross_yield_params = np.count_nonzero(cross_yield_params)
     print(f'\tFound {n_cross_yield_params}'
@@ -92,4 +95,4 @@ for hiker_fit_file in hiker_fit_files:
 
 print(f'*** Total number of parameterisations tested: {n_total_params_tested}')                 
                 
-                
+sc_fitting.save_results(excl_params, sc_fitting.EXCL_HIKER_FNAME)           

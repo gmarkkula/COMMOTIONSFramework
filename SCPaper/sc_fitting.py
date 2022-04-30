@@ -47,7 +47,10 @@ HIKER_FIT_FILE_NAME_FMT = 'HIKERFit_%s.pkl'
 RETAINED_DET_FNAME ='RetainedDetModels.pkl'
 RETAINED_PROB_FNAME ='RetainedProbModels.pkl'
 RETAINED_COMB_FNAME ='RetainedCombModels.pkl'
-MODEL_CIT_FNAME_FMT = 'fig_HIKER_CITs_%s.pkl'
+MODEL_CIT_FNAME_FMT = 'HIKER_CITs_%s.pkl'
+EXCL_HIKER_FNAME = 'ExclParams_HIKER.pkl'
+EXCL_DSS_FNAME = 'ExclParams_DSS.pkl'
+EXCL_IO_FNAME = 'ExclParams_IO.pkl'
 
 # scenario basics
 N_AGENTS = 2
