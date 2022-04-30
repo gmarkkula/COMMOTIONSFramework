@@ -5,6 +5,7 @@ Created on Sat Apr 30 07:09:48 2022
 @author: tragma
 """
 import numpy as np
+import matplotlib.pyplot as plt
 import sc_fitting
 import do_1_deterministic_fitting
 import do_5_probabilistic_fitting 
@@ -22,7 +23,7 @@ if ret_model.model != MODEL_NAME:
     raise Exception(f'Could not find model "{MODEL_NAME}" among retained combined models.')
 
 
-# find parameterisations rejected in interaction simulations and
+# find parameterisations rejected in interaction/DSS/HIKER tests
 
 
 # plot showing original param ranges from deterministic/probabilistic fits
@@ -33,10 +34,11 @@ for param_name in ret_model.param_names:
     elif param_name in do_5_probabilistic_fitting.PARAM_ARRAYS:
         param_values = do_5_probabilistic_fitting.PARAM_ARRAYS[param_name]
     else:
-        raise Exception(f'Could not find parameter {param_name}')
+        raise Exception(f'Could not find parameter {param_name}.')
     param_ranges.append((np.amin(param_values), np.amax(param_values)))
 
 # plot
+plt.close('all')
 sc_fitting.do_params_plot(ret_model.param_names, 
                           ret_model.params_array, 
                           param_ranges, 
