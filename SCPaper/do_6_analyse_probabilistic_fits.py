@@ -34,18 +34,18 @@ DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = True # supplementary figure
-DO_CRIT_PLOT = False # supplementary figure
+DO_RETAINED_PARAMS_PLOT = False # supplementary figure
+DO_CRIT_PLOT = True # supplementary figure
+CRIT_PLOT_MODELS = ('oVAoAN', 'oVAoEAoAN',
+                     'oVAoSNc', 'oVAoEAoSNc', 'oVAoSNcoPF', 'oVAoEAoSNcoPF',
+                     'oVAoSNv', 'oVAoEAoSNv', 'oVAoSNvoPF', 'oVAoEAoSNvoPF') # all models - just reordered
+CRIT_PLOT_FIG_NO = 13
 DO_OUTCOME_PLOT = False
 N_CRIT_FOR_PARAMS_PLOT = 4
-SAVE_FIGS = True
-if SAVE_FIGS:
-    SCALE_DPI = 1
-else:
-    SCALE_DPI = 0.5
+SAVE_FIGS = False
 RET_PARAMS_PLOTS_TO_SAVE = ('oVAoEAoSNv', 'oVAoEAoSNvoPF')
 RET_PARAMS_PLOT_FIRST_FIG_NO = 14
-MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
+MODELS_TO_ANALYSE = 'all'
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
 HESITATION_SPEED_FRACT = 0.95
 CRITERIA = ('Collision-free encounter', 
@@ -61,7 +61,7 @@ PARAMS_JITTER = 0.015
 
 
 
-def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
+def do(prob_fit_file_name_fmt, retained_fits_file_name,
        ylabel_rotation='vertical'):
 
     # find pickle files from probabilistic fitting
@@ -73,9 +73,17 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
     # need to prepare for criterion plot?
     if DO_PLOTS:
         plt.close('all')
+        if SAVE_FIGS:
+            SCALE_DPI = 1
+        else:
+            SCALE_DPI = 0.5
         if DO_CRIT_PLOT:
-            fig_height = 2 + len(prob_fit_files)
-            crit_fig, crit_axs = plt.subplots(nrows=len(prob_fit_files), 
+            if CRIT_PLOT_MODELS == 'all':
+                nrows = len(prob_fit_files)
+            else:
+                nrows = len(CRIT_PLOT_MODELS)
+            fig_height = 2 + nrows
+            crit_fig, crit_axs = plt.subplots(nrows=nrows, 
                                               ncols=len(CRITERIA),
                                               sharex='col', sharey=True, 
                                               figsize=(1.6*sc_plot.FULL_WIDTH, 
@@ -104,20 +112,26 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
             
             # prepare criterion plot axes?
             if DO_PLOTS and DO_CRIT_PLOT:
-                if model_plot_order == None:
+                do_this_crit_plot = True
+                if CRIT_PLOT_MODELS == 'all':
                     i_row = i_prob_fit_file
+                elif prob_fit.name in CRIT_PLOT_MODELS:
+                    i_row = CRIT_PLOT_MODELS.index(prob_fit.name)
                 else:
-                    i_row = model_plot_order.index(prob_fit.name)
-                ax = crit_axs[i_row, i_crit]
-                if i_prob_fit_file == 0:
-                    if crit == 'Pedestrian hesitation in constant-speed scenario':
-                        title_str = 'Gap acceptance hesitation'
-                    else:
-                        title_str = crit
-                    ax.set_title(title_str, fontsize=8)
-                if i_crit == 0:
-                    ax.set_ylabel(prob_fit.name, fontsize=8, 
-                                  rotation=ylabel_rotation)
+                    do_this_crit_plot = False
+                if do_this_crit_plot:
+                    ax = crit_axs[i_row, i_crit]
+                    if i_row == 0:
+                        if crit == 'Pedestrian hesitation in constant-speed scenario':
+                            title_str = 'Gap acceptance hesitation'
+                        else:
+                            title_str = crit
+                        ax.set_title(title_str, fontsize=8)
+                    if i_crit == 0:
+                        ax.set_ylabel(prob_fit.name, fontsize=8, 
+                                      rotation=ylabel_rotation)
+                else:
+                    ax = None # just to make sure
             
             # criterion-specific calculations
             if 'Collision-free' in crit:
@@ -130,13 +144,13 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                 # criterion met for parameterisation if no collisions for any of the repetitions
                 crit_met = np.all(coll_free_rep, axis=1)
                 # criterion plot?
-                if DO_PLOTS and DO_CRIT_PLOT:
+                if DO_PLOTS and DO_CRIT_PLOT and do_this_crit_plot:
                     perc_coll_free_reps = 100 * (np.sum(coll_free_rep, axis=1)
                                                  / prob_fit.n_repetitions)
                     ecdf = ECDF(perc_coll_free_reps)
                     ax.step(ecdf.x, ecdf.y, 'r-', lw=1)
                     ax.set_xlim(-5, 105)
-                    if i_row == len(prob_fit_files)-1:
+                    if i_row == nrows-1:
                         ax.set_xlabel('Collision-free repetitions (%)')
                 
             elif crit == 'Pedestrian hesitation in constant-speed scenario':
@@ -147,7 +161,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                 # criterion met for parameterisation if met for enough of the repetitions
                 crit_met = np.sum(crit_met_all, axis=1) >= 4
                 # criterion plot?
-                if DO_PLOTS and DO_CRIT_PLOT:
+                if DO_PLOTS and DO_CRIT_PLOT and do_this_crit_plot:
                     metric = ped_av_speed / PED_FREE_SPEED
                     metric_sorted = np.sort(metric, axis=1)
                     for n_reps in range(prob_fit.n_repetitions):
@@ -156,17 +170,17 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
                                 alpha=(n_reps+1)/prob_fit.n_repetitions)
                     ax.set_xlim(0.2, 1.2)
                     ax.axvline(HESITATION_SPEED_FRACT, ls=':', color='gray')
-                    if i_row == len(prob_fit_files)-1:
+                    if i_row == nrows-1:
                         ax.set_xlabel('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
                         
             elif crit == 'Pedestrian progress in constant-speed scenario':
                 ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
                 n_non_progress = np.count_nonzero(np.isnan(ped_av_speed), axis=1)
                 crit_met = n_non_progress == 0
-                if DO_PLOTS and DO_CRIT_PLOT:
+                if DO_PLOTS and DO_CRIT_PLOT and do_this_crit_plot:
                     ecdf = ECDF(100 * n_non_progress / prob_fit.n_repetitions)
                     ax.step(ecdf.x, ecdf.y, 'm-', lw=1)
-                    if i_row == len(prob_fit_files)-1:
+                    if i_row == nrows-1:
                         ax.set_xlabel('Non-progress repetitions (%)')
             
             else:
@@ -242,7 +256,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
     if DO_PLOTS and DO_CRIT_PLOT:
         plt.show()
         if SAVE_FIGS:
-            file_name = sc_plot.FIGS_FOLDER + 'figS13.pdf'
+            file_name = sc_plot.FIGS_FOLDER + f'figS{CRIT_PLOT_FIG_NO}.pdf'
             print(f'Saving {file_name}...')
             plt.savefig(file_name, bbox_inches='tight')  
             
@@ -364,8 +378,5 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name, model_plot_order=None,
 
 if __name__ == '__main__':
     # run the analysis on the "pure" probabilistic fits
-    MODEL_PLOT_ORDER = ('oVAoAN', 'oVAoEAoAN',
-                        'oVAoSNc', 'oVAoEAoSNc', 'oVAoSNcoPF', 'oVAoEAoSNcoPF',
-                        'oVAoSNv', 'oVAoEAoSNv', 'oVAoSNvoPF', 'oVAoEAoSNvoPF')
-    do(sc_fitting.PROB_FIT_FILE_NAME_FMT, sc_fitting.RETAINED_PROB_FNAME,
-       model_plot_order=MODEL_PLOT_ORDER)
+    
+    do(sc_fitting.PROB_FIT_FILE_NAME_FMT, sc_fitting.RETAINED_PROB_FNAME)
