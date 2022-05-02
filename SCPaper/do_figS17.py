@@ -60,8 +60,8 @@ for i_excl, file_name in enumerate((sc_fitting.EXCL_HIKER_FNAME,
     params_array = excl_params[MODEL_NAME]['params_array']
     n_non_progress = excl_params[MODEL_NAME]['n_non_progress']
     param_subsets = (np.arange(params_array.shape[0]), 
-                     n_non_progress >= 1,
-                     n_non_progress >= 5)
+                     n_non_progress < 5,
+                     n_non_progress == 0)
     sc_fitting.do_params_plot(ret_model.param_names, 
                               params_array, 
                               param_ranges, 
