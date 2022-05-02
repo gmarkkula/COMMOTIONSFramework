@@ -221,6 +221,8 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name,
                 model=prob_fit.name, param_names=copy.copy(prob_fit.param_names), 
                 param_ranges=param_ranges,
                 params_array=np.copy(prob_fit.results.params_matrix[all_criteria_met])))
+            retained_models[-1].tested_params_array = prob_fit.results.params_matrix
+            retained_models[-1].idx_retained = all_criteria_met
         
         
         # pick a maximally sucessful parameterisations, and provide simulation 

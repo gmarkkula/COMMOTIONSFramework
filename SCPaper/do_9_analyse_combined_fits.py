@@ -7,6 +7,7 @@ Created on Sun Dec 19 07:59:33 2021
 import sc_fitting
 import do_6_analyse_probabilistic_fits
 
+do_6_analyse_probabilistic_fits.DO_PLOTS = True
 do_6_analyse_probabilistic_fits.DO_TIME_SERIES_PLOTS = False
 do_6_analyse_probabilistic_fits.DO_PARAMS_PLOTS = False
 do_6_analyse_probabilistic_fits.DO_RETAINED_PARAMS_PLOT = False
