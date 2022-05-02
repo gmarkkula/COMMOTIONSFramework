@@ -28,7 +28,7 @@ import sc_plot
 
 
 
-SAVE_PDF = True
+SAVE_PDF = False
 if SAVE_PDF:
     SCALE_DPI = 1
     text_y_nudge = 0.02 # not sure why this is needed
@@ -88,6 +88,7 @@ SIM_RESULTS_FNAME_DSS = 'fig_4_SimResults_DSS.pkl'
 
 ALPHA = 0.1
 
+PLOT_REJECTED = False
 
 def run_one_sim(model_name, i_sim, params_dict, scenario, n_sims):
     print(f'Simulating {model_name} with parameterisation'
@@ -99,7 +100,8 @@ def run_one_sim(model_name, i_sim, params_dict, scenario, n_sims):
 
 
 def get_sim_results(file_name, overwrite, n_parameterisations, 
-                    scenarios, exclude_non_progress=True):
+                    scenarios, exclude_non_progress=True,
+                    excl_params_file_name=None):
     
     if sc_fitting.results_exist(file_name) and not overwrite:
         
@@ -177,6 +179,7 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
         # the conflict space in one or more scenarios)
         i_sim = 0
         rejected = np.full(n_sims, False)
+        n_non_progress = np.zeros(n_sims)
         for i_sim in range(n_sims):
             for scenario in scenarios:
                 ped_entry_time = sim_results[scenario.name][
@@ -185,15 +188,51 @@ def get_sim_results(file_name, overwrite, n_parameterisations,
                     sc_fitting.i_VEH_AGENT]['entry_time'][i_sim]
                 if np.isnan(ped_entry_time) or np.isnan(veh_entry_time):
                     rejected[i_sim] = True
-                    break
+                    n_non_progress[i_sim] += 1
+                    if PLOT_REJECTED:
+                        plot_sim(sim_results, scenario, i_sim)
         sim_results['idx_retained'] = np.nonzero(~rejected)[0]
         n_rejected = np.count_nonzero(rejected)
         print(f'Rejected {n_rejected} parameterisations for {MODEL_NAME}.')
+        if excl_params_file_name != None:
+            # save info on the rejected parameterisations
+            params_dicts = sim_results['parameterisations']
+            param_names = params_dicts[0].keys()
+            n_params = len(param_names)
+            full_params_array = np.full((len(params_dicts), n_params), np.nan)
+            #rej_params_array = np.full((n_rejected, n_params), np.nan)
+            #i_rej_param = 0
+            for i_sim in range(n_sims):
+                for i_param, param_name in enumerate(param_names):
+                    full_params_array[i_sim, i_param] = \
+                            params_dicts[i_sim][param_name]
+            excl_params = {}
+            excl_params[MODEL_NAME] = {}
+            excl_params[MODEL_NAME]['params_array'] = full_params_array
+            excl_params[MODEL_NAME]['n_non_progress'] = n_non_progress
+            excl_params[MODEL_NAME]['rejected'] = rejected
+            sc_fitting.save_results(excl_params, excl_params_file_name)
     else:
         sim_results['idx_retained'] = np.arange(n_sims)
     
     
     return sim_results
+
+
+def plot_sim(sim_results, scenario, i_sim):
+    print('*** Plotting example ***')
+    print(scenario.name)
+    print(sim_results['parameterisations'][i_sim])
+    sim_fig, sim_axs = plt.subplots(nrows=2, ncols=1)
+    for i_agent in range(2):
+        sim_axs[0].plot(sim_results[scenario.name]['time_stamps'], 
+                        sim_results[scenario.name][i_agent]['speed'][i_sim, :])
+        sim_axs[1].plot(sim_results[scenario.name]['time_stamps'], 
+                        sim_results[scenario.name][i_agent]['cp_dist'][i_sim, :])
+        sim_axs[1].set_ylim(-5, 5)
+    plt.show()
+    input('Press Enter to continue...')
+    
 
 
 if __name__ == '__main__':
@@ -244,7 +283,7 @@ if __name__ == '__main__':
             ax.set_title(SCENARIO_DISPLAY_NAMES_IO[i_scenario] + '\n', 
                          fontsize=sc_plot.DEFAULT_FONT_SIZE)
             veh_coll_dist = sim_results[scenario.name][i_VEH_AGENT]['coll_dist']
-            ped_coll_dist = sim_results[scenario.name][i_VEH_AGENT]['coll_dist']
+            ped_coll_dist = sim_results[scenario.name][i_PED_AGENT]['coll_dist']
             ax.fill(np.array((1, 1, -1, -1)) * veh_coll_dist, 
                     np.array((-1, 1, 1, -1)) * ped_coll_dist, color='r',
                     alpha=0.3, edgecolor=None)
@@ -338,7 +377,8 @@ if __name__ == '__main__':
         sim_results = get_sim_results(SIM_RESULTS_FNAME_DSS,
                                OVERWRITE_SAVED_SIM_RESULTS_DSS,
                                N_PARAMETERISATIONS_DSS, 
-                               SCENARIOS_DSS)
+                               SCENARIOS_DSS, 
+                               excl_params_file_name=sc_fitting.EXCL_DSS_FNAME)
         # get empirical results
         dss_df = pd.read_csv(sc_fitting.DATA_FOLDER + '/DSS_outcomes.csv')
         # plot

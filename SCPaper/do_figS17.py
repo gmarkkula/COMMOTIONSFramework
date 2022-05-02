@@ -7,8 +7,12 @@ Created on Sat Apr 30 07:09:48 2022
 import numpy as np
 import matplotlib.pyplot as plt
 import sc_fitting
+import sc_plot
 import do_1_deterministic_fitting
 import do_5_probabilistic_fitting 
+
+
+SAVE_FIGS = True
 
 MODEL_NAME = 'oVAoBEvoAIoEAoSNvoPF'
 PARAMS_JITTER = 0.015
@@ -23,10 +27,7 @@ if ret_model.model != MODEL_NAME:
     raise Exception(f'Could not find model "{MODEL_NAME}" among retained combined models.')
 
 
-# find parameterisations rejected in interaction/DSS/HIKER tests
-
-
-# plot showing original param ranges from deterministic/probabilistic fits
+# use original param ranges from deterministic/probabilistic fits for plots
 param_ranges = []
 for param_name in ret_model.param_names:
     if param_name in do_1_deterministic_fitting.PARAM_ARRAYS:
@@ -37,9 +38,39 @@ for param_name in ret_model.param_names:
         raise Exception(f'Could not find parameter {param_name}.')
     param_ranges.append((np.amin(param_values), np.amax(param_values)))
 
-# plot
+
+# plot parameterisations retained from combined tests
 plt.close('all')
 sc_fitting.do_params_plot(ret_model.param_names, 
                           ret_model.params_array, 
                           param_ranges, 
                           log=True, jitter=PARAMS_JITTER)
+if SAVE_FIGS:
+    file_name = sc_plot.FIGS_FOLDER + 'figS17.png'
+    print(f'Saving {file_name}...')
+    plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI)  
+
+
+# plot parameterisations tested in interactive simulation, and the ones
+# exhibiting non-progressing behaviour
+FIRST_FIG_NO = 19
+for i_excl, file_name in enumerate((sc_fitting.EXCL_HIKER_FNAME, 
+                                    sc_fitting.EXCL_DSS_FNAME)):
+    excl_params = sc_fitting.load_results(file_name)
+    params_array = excl_params[MODEL_NAME]['params_array']
+    n_non_progress = excl_params[MODEL_NAME]['n_non_progress']
+    param_subsets = (np.arange(params_array.shape[0]), 
+                     n_non_progress >= 1,
+                     n_non_progress >= 5)
+    sc_fitting.do_params_plot(ret_model.param_names, 
+                              params_array, 
+                              param_ranges, 
+                              param_subsets=param_subsets,
+                              color = ('lightgray', 'deepskyblue', 'k'),
+                              log=True, jitter=PARAMS_JITTER,
+                              do_alpha=False)
+    if SAVE_FIGS:
+        fig_no = FIRST_FIG_NO + i_excl
+        file_name = sc_plot.FIGS_FOLDER + f'figS{fig_no}.png'
+        print(f'Saving {file_name}...')
+        plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI)  

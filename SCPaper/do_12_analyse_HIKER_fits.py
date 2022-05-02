@@ -50,8 +50,12 @@ for hiker_fit_file in hiker_fit_files:
     
     idx_yielding_cits = [i for i, name in enumerate(hiker_fit.metric_names) if 'y' in name]
     yielding_cits = hiker_fit.results.metrics_matrix[:, idx_yielding_cits, :]
+    n_noncross = np.count_nonzero(np.isnan(yielding_cits), axis=(1, 2))
     noncross_yield_params = np.any(np.isnan(yielding_cits), axis=(1, 2))
-    excl_params[hiker_fit.name] = hiker_fit.results.params_matrix[noncross_yield_params, :]
+    excl_params[hiker_fit.name] = {}
+    excl_params[hiker_fit.name]['params_array'] = hiker_fit.results.params_matrix
+    excl_params[hiker_fit.name]['n_non_progress'] = n_noncross
+    excl_params[hiker_fit.name]['rejected'] = noncross_yield_params
     cross_yield_params = ~noncross_yield_params
     n_cross_yield_params = np.count_nonzero(cross_yield_params)
     print(f'\tFound {n_cross_yield_params}'

@@ -1033,7 +1033,8 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
 
         
 def do_params_plot(param_names, params_array, param_ranges=None, 
-                   log=True, jitter=0, param_subsets=None, color='k', show=True):
+                   log=True, jitter=0, param_subsets=None, color='k', show=True,
+                   do_alpha=True):
     def get_plot_lims(minv, maxv):
         ZOOM = 0.1
         if log:
@@ -1058,7 +1059,12 @@ def do_params_plot(param_names, params_array, param_ranges=None,
         PARAM_MS = 4
     else:
         PARAM_ALPHA = 0.2
-        PARAM_MS = 2
+        PARAM_MS = 4
+    if do_alpha:
+        HIST_ALPHA = 0.5
+    else:
+        PARAM_ALPHA = 1
+        HIST_ALPHA = 1
     # get display param names
     display_param_names = []
     for param_name in param_names:
@@ -1110,7 +1116,7 @@ def do_params_plot(param_names, params_array, param_ranges=None,
                     bins = np.linspace(xmin, max_bin_edge, N_PARAM_BINS+1)
                 for i_subset, param_subset in enumerate(param_subsets):
                     ax.hist(params_array[param_subset, i_x_param], bins=bins, 
-                            color=color[i_subset], alpha=0.5, ec=None)
+                            color=color[i_subset], alpha=HIST_ALPHA, ec=None)
             else:
                 xdata = np.copy(params_array[:, i_x_param])
                 ydata = np.copy(params_array[:, i_y_param])
