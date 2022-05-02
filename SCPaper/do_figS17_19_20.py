@@ -11,6 +11,8 @@ import sc_plot
 import do_1_deterministic_fitting
 import do_5_probabilistic_fitting 
 
+DO_RETAINED_COMB_PLOT = True
+DO_EXCL_INCTRL_EXP_PLOT = False
 
 SAVE_FIGS = True
 
@@ -39,38 +41,45 @@ for param_name in ret_model.param_names:
     param_ranges.append((np.amin(param_values), np.amax(param_values)))
 
 
-# plot parameterisations retained from combined tests
-plt.close('all')
-sc_fitting.do_params_plot(ret_model.param_names, 
-                          ret_model.params_array, 
-                          param_ranges, 
-                          log=True, jitter=PARAMS_JITTER)
-if SAVE_FIGS:
-    file_name = sc_plot.FIGS_FOLDER + 'figS17.png'
-    print(f'Saving {file_name}...')
-    plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI)  
-
-
-# plot parameterisations tested in interactive simulation, and the ones
-# exhibiting non-progressing behaviour
-FIRST_FIG_NO = 19
-for i_excl, file_name in enumerate((sc_fitting.EXCL_HIKER_FNAME, 
-                                    sc_fitting.EXCL_DSS_FNAME)):
-    excl_params = sc_fitting.load_results(file_name)
-    params_array = excl_params[MODEL_NAME]['params_array']
-    n_non_progress = excl_params[MODEL_NAME]['n_non_progress']
-    param_subsets = (np.arange(params_array.shape[0]), 
-                     n_non_progress < 5,
-                     n_non_progress == 0)
+if DO_RETAINED_COMB_PLOT:
+    # plot parameterisations retained from combined tests
+    plt.close('all')
+    params_array = ret_model.tested_params_array
+    param_subsets = (np.arange(params_array.shape[0]),
+                     ret_model.idx_retained)
     sc_fitting.do_params_plot(ret_model.param_names, 
                               params_array, 
                               param_ranges, 
                               param_subsets=param_subsets,
-                              color = ('lightgray', 'deepskyblue', 'k'),
-                              log=True, jitter=PARAMS_JITTER,
-                              do_alpha=False)
+                              color=('lightgray', 'g'),
+                              log=True, jitter=PARAMS_JITTER)
     if SAVE_FIGS:
-        fig_no = FIRST_FIG_NO + i_excl
-        file_name = sc_plot.FIGS_FOLDER + f'figS{fig_no}.png'
+        file_name = sc_plot.FIGS_FOLDER + 'figS17.png'
         print(f'Saving {file_name}...')
         plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI)  
+
+
+if DO_EXCL_INCTRL_EXP_PLOT:
+    # plot parameterisations sampled when testing on controlled exp data, and the ones
+    # exhibiting non-progressing behaviour
+    FIRST_FIG_NO = 19
+    for i_excl, file_name in enumerate((sc_fitting.EXCL_HIKER_FNAME, 
+                                        sc_fitting.EXCL_DSS_FNAME)):
+        excl_params = sc_fitting.load_results(file_name)
+        params_array = excl_params[MODEL_NAME]['params_array']
+        n_non_progress = excl_params[MODEL_NAME]['n_non_progress']
+        param_subsets = (np.arange(params_array.shape[0]), 
+                         n_non_progress < 5,
+                         n_non_progress == 0)
+        sc_fitting.do_params_plot(ret_model.param_names, 
+                                  params_array, 
+                                  param_ranges, 
+                                  param_subsets=param_subsets,
+                                  color = ('lightgray', 'deepskyblue', 'k'),
+                                  log=True, jitter=PARAMS_JITTER,
+                                  do_alpha=False)
+        if SAVE_FIGS:
+            fig_no = FIRST_FIG_NO + i_excl
+            file_name = sc_plot.FIGS_FOLDER + f'figS{fig_no}.png'
+            print(f'Saving {file_name}...')
+            plt.savefig(file_name, bbox_inches='tight', dpi=sc_plot.DPI)  
