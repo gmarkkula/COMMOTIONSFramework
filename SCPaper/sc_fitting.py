@@ -1152,7 +1152,8 @@ def do_params_plot(param_names, params_array, param_ranges=None,
 
 def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs', 
                           axs=None, xlabels=True, ylabels=True, titles=True,
-                          legend=True, finalise=True, legend_kwargs={}):
+                          legend=True, finalise=True, legend_kwargs={},
+                          show_name_in_fig=False):
     
     def get_speed_alpha(i_speed):
         return (1 - float(i_speed)/(len(HIKER_VEH_SPEEDS_MPH)+1)) ** 2
@@ -1166,7 +1167,8 @@ def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs',
     if axs == None:
         fig, axs = plt.subplots(nrows=1, ncols=len(HIKER_VEH_TIME_GAPS), 
                                 sharex=True, sharey=True, num=fig_name,
-                                figsize=(8, 2.5))
+                                figsize=(0.7*sc_plot.FULL_WIDTH, 
+                                         0.25*sc_plot.FULL_WIDTH))
         
     for i_speed, veh_speed_mph in enumerate(HIKER_VEH_SPEEDS_MPH):
         for i_gap, veh_time_gap in enumerate(HIKER_VEH_TIME_GAPS):
@@ -1205,6 +1207,13 @@ def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs',
                           alpha=get_speed_alpha(1), label=label)
             leg_plots.append(line)
         ax.legend(handles=leg_plots, **legend_kwargs)
+    if show_name_in_fig:
+        LABEL_LEFT = 0.03
+        LABEL_BOTTOM = 0.93
+        plt.annotate(fig_name, xy=(LABEL_LEFT, LABEL_BOTTOM), xycoords='figure fraction',
+                     fontweight='bold', fontsize=sc_plot.PANEL_LABEL_FONT_SIZE)
+        for i_ax, ax in enumerate(axs):
+            ax.set_position([0.08 + i_ax*0.23, 0.17, 0.21, 0.62])
     if finalise:
         plt.tight_layout()
         plt.show()

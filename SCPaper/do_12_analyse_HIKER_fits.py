@@ -20,9 +20,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import parameter_search
 import sc_fitting
+import sc_plot
 
 DO_PARAMS_PLOT = False
-DO_CIT_CDF_PLOTS = False
+DO_CIT_CDF_PLOTS = True # supplementary figure
+CIT_CDF_PLOT_MODELS_BASES = ('oVAoBEvoAI', 'oVAoBEooBEvoAI', 'oVAaoVAloBEvoAI')
+CIT_CDF_PLOT_MODELS_VARIANTS = ('oSNv', 'oEAoSNvoPF', 'oEAoSNv')
+CIT_CDF_PLOT_MODELS = []
+for base in CIT_CDF_PLOT_MODELS_BASES:
+    for variant in CIT_CDF_PLOT_MODELS_VARIANTS:
+        CIT_CDF_PLOT_MODELS.append(base + variant)
+CIT_CDF_LEGEND_MODEL = 'oVAoBEvoAIoSNv'
+CIT_CDF_FIG_NO = 18
+SAVE_FIGS = True
 SAVE_CIT_DATA_FOR_MODELS = ('oVAoBEvoAIoEAoSNvoPF',)
 
 CIT_CDF_MAX_NON_CROSS_TRIALS = np.inf
@@ -69,10 +79,13 @@ for hiker_fit_file in hiker_fit_files:
                                   param_subsets=(noncross_yield_params, 
                                                  cross_yield_params))
     
-    if DO_CIT_CDF_PLOTS or (hiker_fit.name in SAVE_CIT_DATA_FOR_MODELS):
+    do_this_cit_cdf_plot = DO_CIT_CDF_PLOTS and (hiker_fit.name in CIT_CDF_PLOT_MODELS)
+    if do_this_cit_cdf_plot or (hiker_fit.name in SAVE_CIT_DATA_FOR_MODELS):
         i_included_params = np.nonzero(cross_yield_params)[0]
-        if len(i_included_params) > 0:
-            print(f'Preparing CIT plotting data for {len(i_included_params)} included parameterisations:')
+        if len(i_included_params) == 0:
+            print('\t*** No parameterisations to plot ***')
+        else:
+            print(f'\tPreparing CIT plotting data for {len(i_included_params)} included parameterisations:')
             # reorganise data for plotting/analysis
             model_cits = {}
             for i_speed, veh_speed_mph in enumerate(sc_fitting.HIKER_VEH_SPEEDS_MPH):
@@ -91,8 +104,18 @@ for hiker_fit_file in hiker_fit_files:
                                   'crossing_time': hiker_fit.results.metrics_matrix[
                                       i_param, i_scen, :]})
                             model_cits[scen_name] = model_cits[scen_name].append(param_cits)
-            if DO_CIT_CDF_PLOTS:
-                sc_fitting.do_hiker_cit_cdf_plot(model_cits, fig_name=hiker_fit.name)
+            if do_this_cit_cdf_plot:
+                sc_fitting.do_hiker_cit_cdf_plot(model_cits, 
+                                                 fig_name=hiker_fit.name,
+                                                 legend=(hiker_fit.name 
+                                                         == CIT_CDF_LEGEND_MODEL),
+                                                 show_name_in_fig=True,
+                                                 finalise=False)
+                if SAVE_FIGS:
+                    file_name = f'figS{CIT_CDF_FIG_NO}_{hiker_fit.name}.pdf'
+                    file_path = sc_plot.FIGS_FOLDER + file_name
+                    print(f'Saving {file_path}...')
+                    plt.savefig(file_path, bbox_inches='tight')
             if hiker_fit.name in SAVE_CIT_DATA_FOR_MODELS:
                 sc_fitting.save_results(
                     model_cits, sc_fitting.MODEL_CIT_FNAME_FMT % hiker_fit.name)
