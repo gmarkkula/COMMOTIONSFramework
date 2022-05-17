@@ -4,6 +4,7 @@ Created on Mon Dec 27 18:28:33 2021
 
 @author: tragma
 """
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import pickle
@@ -16,6 +17,7 @@ hiker_data = {}
 fig, axs = plt.subplots(nrows=2, ncols=len(sc_fitting.HIKER_VEH_TIME_GAPS), 
                         sharex=True, sharey=True, num='Empirical CDFs',
                         figsize=(10, 6))
+n_data_points = 0
 for i_speed, veh_speed_mph in enumerate(sc_fitting.HIKER_VEH_SPEEDS_MPH):
     for i_gap, veh_time_gap in enumerate(sc_fitting.HIKER_VEH_TIME_GAPS):
         for i_yield, veh_yielding in enumerate((False, True)):
@@ -28,6 +30,9 @@ for i_speed, veh_speed_mph in enumerate(sc_fitting.HIKER_VEH_SPEEDS_MPH):
                              & (hiker_df['has_ehmi'] == False))
             hiker_data[scenario_name] = \
                 hiker_df[['subject', 'crossing_time']][scenario_rows]
+            n_data_points += np.count_nonzero(scenario_rows)
+            
+print(f'Total number of data points: {n_data_points}')
 
 # plot CDFs
 plt.close('all')
