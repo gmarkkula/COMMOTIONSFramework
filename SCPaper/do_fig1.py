@@ -30,7 +30,7 @@ PLOT_DET_EXAMPLES = True
 
 OVERWRITE_SAVED_DET_SIM_RESULTS = False
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -38,18 +38,18 @@ else:
 
 SCENARIOS = sc_fitting.ONE_AG_SCENARIOS
 #SCENARIO_NAMES = SCENARIOS.keys()
-SCENARIO_NAMES = ['VehShortStop', 'VehPrioAssert', 'PedHesitateVehConst', 
-                  'PedHesitateVehYield', 'PedCrossVehYield']
+SCENARIO_NAMES = ['VehShortStop', 'VehPrioAssert', 
+                  'PedHesitateVehYield', 'PedCrossVehYield', 'PedHesitateVehConst']
 N_COLS = len(SCENARIO_NAMES)
 N_ROWS = 5
-SCENARIO_CRITERIA = ('Short-stopping', 'Priority assertion', 'Gap acceptance hesitation',
-          'Yield acceptance hesitation', 'Early yield acceptance')
+SCENARIO_CRITERIA = ('Short-stopping', 'Priority assertion',
+          'Yield acceptance hesitation', 'Early yield acceptance', 'Gap acceptance hesitation')
 SCENARIO_METRIC_NAMES = ('$\overline{d - d_\mathrm{stop}}$ (m/s²)',
-                         '$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
-                         '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
+                         '$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)',
                          '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
-                         '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)')
-SCENARIO_METRIC_XLIMS = ((-1, 4), (0.95, 1.02), (0.7, 1.05), (0, 1.5), (-2, 15))
+                         '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)', 
+                         '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
+SCENARIO_METRIC_XLIMS = ((-1, 4), (0.95, 1.02), (0, 1.5), (-2, 15), (0.7, 1.05))
 N_KDE_POINTS = 200
 
 PANEL_LABEL_X = 0.02
@@ -275,7 +275,7 @@ if PLOT_DET_EXAMPLES:
     # plot
     PED_V_LIMS = (-.5, 2.5)
     V_LIMS = ((-1, 17), (12.5, 14.5), PED_V_LIMS, PED_V_LIMS, PED_V_LIMS)
-    T_MAXS = (10.5, 3.5, 9.5, 10.5, 6.5)
+    T_MAXS = (10.5, 3.5, 10.5, 6.5, 9.5)
     PANEL_W = 0.65 * ILL_W
     PANEL_H = 0.09
     for i_model, model_name in enumerate(DET_MODEL_NAMES):
