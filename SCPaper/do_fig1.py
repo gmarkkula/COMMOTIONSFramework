@@ -12,6 +12,7 @@ import os, contextlib
 import numpy as np
 from numpy.random import default_rng
 import matplotlib.pyplot as plt
+from matplotlib.patches import ConnectionPatch
 #import seaborn as sns
 from scipy import stats
 import sc_fitting
@@ -29,7 +30,7 @@ PLOT_DET_EXAMPLES = True
 
 OVERWRITE_SAVED_DET_SIM_RESULTS = False
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -129,7 +130,7 @@ if PLOT_METRICS:
         for i_base, base in enumerate(CRIT_BASES):
             ax = fig_axs[i_base + 1, i_scenario]
             ax_x = PANEL_MID_XS[i_scenario] - PANEL_W / 2
-            ax_y = 0.55 - i_base * 0.16
+            ax_y = 0.55 - i_base * 0.15
             ax.set_position([ax_x, ax_y, PANEL_W, PANEL_H])
             for i_variant, variant in enumerate(CRIT_VARIANTS):
                 base_y = len(CRIT_VARIANTS) - i_variant
@@ -137,6 +138,23 @@ if PLOT_METRICS:
                 model_name = base + variant
                 det_fit = det_fits[model_name]
                 crit_details = det_fit.crit_details[SCENARIO_CRITERIA[i_scenario]]
+                if i_variant == 0:
+                    THRESH_LW = 0.75
+                    ax.axvline(crit_details.metric_thresh, c='lightgray', 
+                               lw=THRESH_LW)
+                    if i_base > 0:
+                        arr_base_x = crit_details.metric_thresh
+                        arr_len = 0.1*(xlims[1]-xlims[0])
+                        if not crit_details.crit_greater_than:
+                            arr_len = -arr_len
+                        arr_y = 0.6
+                        ax.plot(arr_base_x + arr_len * np.array((0, 1)), 
+                                arr_y * np.ones(2), color='lightgray', 
+                                lw=THRESH_LW)
+                        for d in (-1, 1):
+                            ax.plot(arr_base_x + arr_len * np.array((0.8, 1)), 
+                                    arr_y + 0.1 * np.array((d, 0.0)), 
+                                    color='lightgray', lw=THRESH_LW)
                 # if crit_details.crit_greater_than:
                 #     plot_values = np.nanmax(crit_details.metric_values, axis=1)
                 # else:
@@ -160,7 +178,7 @@ if PLOT_METRICS:
                 ax.plot(kde_x, kde_y, dashes = BASE_DASHES[i_base], color=color,
                         lw=1)
                 ax.set_xlim(xlims[0], xlims[1])
-                ax.set_ylim(0.5, len(CRIT_VARIANTS) + 1)
+                ax.set_ylim(0.2, len(CRIT_VARIANTS) + 1)
                 ax.get_yaxis().set_visible(False)
                 ax.spines['right'].set_visible(False)
                 ax.spines['top'].set_visible(False)
@@ -285,7 +303,7 @@ if PLOT_DET_EXAMPLES:
                 
             # plot
             if i_model == 0:
-                axs[1].axhline(0, ls='--', lw=0.5, color='lightgray')
+                #axs[1].axhline(0, ls='--', lw=0.5, color='lightgray')
                 act_agent.plot_lw = 1.5
             else:
                 act_agent.plot_lw = 1
@@ -339,7 +357,7 @@ for i_base in range(2):
     line, = ax.plot((-1, -1), (-1, -1), color='lightgray', 
                     dashes=BASE_DASHES[i_base], label=BASE_NAMES[i_base])
     leg_lines.append(line)
-legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.7, 0.5), 
+legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.75, 0.5), 
           title='Value estimation:')
 legend._legend_box.align = 'left'
 # - model variant
@@ -349,7 +367,7 @@ for i_variant in range(3):
     line, = ax.plot((-1, -1), (-1, -1), '-', color=VARIANT_COLORS[i_variant], 
                     label=VARIANT_NAMES[i_variant])
     leg_lines.append(line)
-legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.7, 0.8), 
+legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.75, 0.8), 
           title='Behavior estimation:')
 legend._legend_box.align = 'left'
 
