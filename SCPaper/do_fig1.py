@@ -50,6 +50,7 @@ SCENARIO_METRIC_NAMES = ('$\overline{d - d_\mathrm{stop}}$ (m/s²)',
                          '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)', 
                          '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
 SCENARIO_METRIC_XLIMS = ((-1, 4), (0.95, 1.02), (0, 1.5), (-2, 15), (0.7, 1.05))
+SCENARIO_QUAL_CRIT_THRESHS = (0, 1, 1, 0, 1)
 N_KDE_POINTS = 200
 
 PANEL_LABEL_X = 0.02
@@ -142,10 +143,11 @@ if PLOT_METRICS:
                 crit_details = det_fit.crit_details[SCENARIO_CRITERIA[i_scenario]]
                 if i_variant == 0:
                     THRESH_LW = 0.75
-                    ax.axvline(crit_details.metric_thresh, c='lightgray', 
-                               lw=THRESH_LW)
+                    crit_thresh = SCENARIO_QUAL_CRIT_THRESHS[i_scenario]
+                    ax.axvline(crit_thresh, c='lightgray', lw=THRESH_LW)
                     if i_base > 0:
-                        arr_base_x = crit_details.metric_thresh
+                        #arr_base_x = crit_details.metric_thresh
+                        arr_base_x = crit_thresh
                         arr_len = 0.1*(xlims[1]-xlims[0])
                         if not crit_details.crit_greater_than:
                             arr_len = -arr_len
