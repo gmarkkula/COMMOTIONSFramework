@@ -30,24 +30,26 @@ PLOT_DET_EXAMPLES = True
 
 OVERWRITE_SAVED_DET_SIM_RESULTS = False
 
-SAVE_PDF = True
+SAVE_PDF = False
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
     SCALE_DPI = 0.5
 
 SCENARIOS = sc_fitting.ONE_AG_SCENARIOS
-SCENARIO_NAMES = SCENARIOS.keys()
+#SCENARIO_NAMES = SCENARIOS.keys()
+SCENARIO_NAMES = ['VehShortStop', 'VehPrioAssert', 'PedHesitateVehConst', 
+                  'PedHesitateVehYield', 'PedCrossVehYield']
 N_COLS = len(SCENARIO_NAMES)
 N_ROWS = 5
-SCENARIO_CRITERIA = ('Priority assertion', 'Short-stopping', 'Gap acceptance hesitation',
+SCENARIO_CRITERIA = ('Short-stopping', 'Priority assertion', 'Gap acceptance hesitation',
           'Yield acceptance hesitation', 'Early yield acceptance')
-SCENARIO_METRIC_NAMES = ('$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
-                         '$\overline{d - d_\mathrm{stop}}$ (m/s²)',
+SCENARIO_METRIC_NAMES = ('$\overline{d - d_\mathrm{stop}}$ (m/s²)',
+                         '$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
                          '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
                          '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
                          '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)')
-SCENARIO_METRIC_XLIMS = ((0.95, 1.02), (-1, 4), (0.7, 1.05), (0, 1.5), (-2, 15))
+SCENARIO_METRIC_XLIMS = ((-1, 4), (0.95, 1.02), (0.7, 1.05), (0, 1.5), (-2, 15))
 N_KDE_POINTS = 200
 
 PANEL_LABEL_X = 0.02
@@ -272,8 +274,8 @@ if PLOT_DET_EXAMPLES:
     
     # plot
     PED_V_LIMS = (-.5, 2.5)
-    V_LIMS = ((12.5, 14.5), (-1, 17), PED_V_LIMS, PED_V_LIMS, PED_V_LIMS)
-    T_MAXS = (3.5, 10.5, 9.5, 10.5, 6.5)
+    V_LIMS = ((-1, 17), (12.5, 14.5), PED_V_LIMS, PED_V_LIMS, PED_V_LIMS)
+    T_MAXS = (10.5, 3.5, 9.5, 10.5, 6.5)
     PANEL_W = 0.65 * ILL_W
     PANEL_H = 0.09
     for i_model, model_name in enumerate(DET_MODEL_NAMES):
@@ -351,23 +353,24 @@ if PLOT_DET_EXAMPLES:
 
 # legends
 # - base model
-ax = fig_axs[1, 2]
+LEG_X = -0.77
+ax = fig_axs[1, 1]
 leg_lines = []
 for i_base in range(2):
     line, = ax.plot((-1, -1), (-1, -1), color='lightgray', 
                     dashes=BASE_DASHES[i_base], label=BASE_NAMES[i_base])
     leg_lines.append(line)
-legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.75, 0.5), 
+legend = ax.legend(handles=leg_lines, frameon=False, loc=(LEG_X, 0.7), 
           title='Value estimation:')
 legend._legend_box.align = 'left'
 # - model variant
-ax = fig_axs[2, 2]
+ax = fig_axs[2, 1]
 leg_lines = []
 for i_variant in range(3):
     line, = ax.plot((-1, -1), (-1, -1), '-', color=VARIANT_COLORS[i_variant], 
                     label=VARIANT_NAMES[i_variant])
     leg_lines.append(line)
-legend = ax.legend(handles=leg_lines, frameon=False, loc=(-0.75, 0.8), 
+legend = ax.legend(handles=leg_lines, frameon=False, loc=(LEG_X, 0.9), 
           title='Behavior estimation:')
 legend._legend_box.align = 'left'
 
