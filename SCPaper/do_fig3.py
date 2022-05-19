@@ -24,7 +24,7 @@ import sc_plot
 
 plt.close('all')
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:

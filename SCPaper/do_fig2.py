@@ -32,7 +32,7 @@ PLOT_MODEL_STATES = True
 OVERWRITE_SAVED_SIM_RESULTS = False
 
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
