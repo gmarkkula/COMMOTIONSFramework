@@ -22,7 +22,8 @@ import sc_plot
 import do_2_analyse_deterministic_fits
 from do_2_analyse_deterministic_fits import (get_max_crit_parameterisations, 
                                              get_best_parameterisations_for_crit,
-                                             get_best_scen_var_for_paramet)
+                                             get_best_scen_var_for_paramet, 
+                                             i_MAIN, i_SEC)
 
 SAVE_PDF = True
 if SAVE_PDF:
@@ -32,10 +33,10 @@ else:
 
 MODEL_NAMES = ('oBEo', 'oBEvoAI', 'oBEooBEvoAI',
                'oVAoBEo', 'oVAoBEvoAI', 'oVAoBEooBEvoAI', 
-               'oVAaoBEvoAI', 'oVAaoVAloBEvoAI')
+               'oVAaoBEvoAI', 'oVAaoVAloBEvoAI', 'oVAaoVAloBEvoAI_gapacches')
 MODEL_FOCUS_CRITS = ('Gap acceptance hesitation', 'none', 'none',
                      'Gap acceptance hesitation', 'Priority assertion', 'Priority assertion',
-                     'none', 'Priority assertion')
+                     'none', 'Priority assertion', 'Gap acceptance hesitation')
 
 SCENARIOS = sc_fitting.ONE_AG_SCENARIOS
 SCENARIO_NAMES = SCENARIOS.keys()
@@ -76,14 +77,38 @@ else:
     for i_model, model_name in enumerate(MODEL_NAMES):
         sim_results[model_name] = {}
         # get the parameterisation to simulate
-        det_fit = det_fits[model_name]
-        idx_max_crit_params = get_max_crit_parameterisations(det_fit)
+        clean_model_name = model_name.split('_')[0]
+        det_fit = det_fits[clean_model_name]
+        # - get a pool to choose from
+        if '_' in model_name:
+            # get a pool of model parameterisations achieving the focus criterion, 
+            # and as many main criteria as possible
+            assert(MODEL_FOCUS_CRITS[i_model] != 'none')
+            if MODEL_FOCUS_CRITS[i_model] in det_fit.criterion_names[i_MAIN]:
+                idx_focus_crit = det_fit.criterion_names[i_MAIN].index(
+                    MODEL_FOCUS_CRITS[i_model])
+                bidx_focus_met = det_fit.main_criteria_matrix[idx_focus_crit,:]
+            elif MODEL_FOCUS_CRITS[i_model] in det_fit.criterion_names[i_SEC]:
+                idx_focus_crit = det_fit.criterion_names[i_SEC].index(
+                    MODEL_FOCUS_CRITS[i_model])
+                bidx_focus_met = det_fit.sec_criteria_matrix[idx_focus_crit,:]
+            else:
+                raise Exception(f'Unexpected criterion "{MODEL_FOCUS_CRITS[i_model]}".')
+            n_max_main_met = np.amax(det_fit.n_main_criteria_met[bidx_focus_met])
+            bidx_params_pool = (bidx_focus_met &
+                                (det_fit.n_main_criteria_met == n_max_main_met))
+            idx_params_pool = np.nonzero(bidx_params_pool)[0]
+        else:
+            # get a pool of model parameterisations achieving as many main 
+            # criteria as possible
+            idx_params_pool = get_max_crit_parameterisations(det_fit)
+        # - consider the focus criterion when choosing a parameterisation from the pool
         if MODEL_FOCUS_CRITS[i_model] == 'none':
-            idx_param = idx_max_crit_params[0]
+            idx_param = idx_params_pool[0]
         else:
             idx_crit_params = get_best_parameterisations_for_crit(
                 det_fit, MODEL_FOCUS_CRITS[i_model], 
-                idx_params_subset=idx_max_crit_params)
+                idx_params_subset=idx_params_pool)
             idx_param = idx_crit_params[0]
         params_array = det_fit.results.params_matrix[idx_param, :]
         params_dict = det_fit.get_params_dict(params_array)
@@ -99,7 +124,7 @@ else:
             scenario.end_time = 12
             sim_results[model_name][scenario.name] = \
                 sc_fitting.construct_model_and_simulate_scenario(
-                    model_name, params_dict, scenario,
+                    clean_model_name, params_dict, scenario,
                     i_variation=i_variation, 
                     zero_acc_after_exit=False, 
                     apply_stop_criteria=False)
@@ -193,7 +218,8 @@ for i_model_name, model_name in enumerate(MODEL_NAMES):
     # model variant and parameterisation 
     LABEL_LEFT = 0.03
     LABEL_BOTTOM = 0.96
-    plt.annotate(model_name, xy=(LABEL_LEFT, LABEL_BOTTOM), xycoords='figure fraction',
+    plt.annotate(model_name.split('_')[0], xy=(LABEL_LEFT, LABEL_BOTTOM), 
+                 xycoords='figure fraction',
                  fontweight='bold', fontsize=sc_plot.PANEL_LABEL_FONT_SIZE)
     plt.annotate(sc_plot.get_display_params_str(sim_results[model_name]['params_dict']), 
                  xy=(LABEL_LEFT, LABEL_BOTTOM - 0.04), 
