@@ -24,7 +24,7 @@ import sc_plot
 
 plt.close('all')
 
-SAVE_PDF = True
+SAVE_PDF = False
 if SAVE_PDF:
     SCALE_DPI = 1
 else:
@@ -182,17 +182,20 @@ if __name__ == '__main__':
     fig, axs = plt.subplot_mosaic(layout=('024\n'
                                           '025\n'
                                           '136\n'
-                                          '137'),
-                                  figsize=(sc_plot.FULL_WIDTH, 
-                                           0.5*sc_plot.FULL_WIDTH), 
+                                          '136'),
+                                  figsize=(0.73*sc_plot.FULL_WIDTH, 
+                                           0.25*sc_plot.FULL_WIDTH), 
                                   dpi=sc_plot.DPI * SCALE_DPI)
 
     
     
     
     # - kinematic states
+    AX_LEFT = 0.12
     AX_W = 0.18
-    AX_H = 0.28
+    AX_X_DIST = 0.24
+    AX_H = 0.35
+    AX_Y_DIST = 0.4
     #i_EXS = np.arange(0, 15, 3)
     i_EXS = np.arange(5)
     i_STATES_EX = 0 # 0 passes before, 5 passes behind
@@ -203,11 +206,11 @@ if __name__ == '__main__':
                                 / SCENARIO.initial_speeds[sc_fitting.i_VEH_AGENT])
     for i_model, model_name in enumerate(MODEL_NAMES):
         kin_axs = []
-        ax_x = 0.14 + i_model * 0.25
+        ax_x = AX_LEFT + i_model * AX_X_DIST
         for i_plot in range(2):
             kin_axs.append(axs[str(i_model*2 + i_plot)])
             #print(kin_axs[i_plot].get_position())
-            ax_y = 0.51 - 0.33 * i_plot
+            ax_y = 0.54 - AX_Y_DIST * i_plot
             kin_axs[i_plot].set_position((ax_x, ax_y, AX_W, AX_H))
         sim_result = sim_results[model_name]
         ped_coll_dist = sim_result['ped_coll_dist']
@@ -223,6 +226,9 @@ if __name__ == '__main__':
         kin_axs[1].fill(np.array((veh_entry_t, veh_exit_t, veh_exit_t, veh_entry_t)),
                 np.array((1, 1, -1, -1)) * ped_coll_dist,
                 c='red', edgecolor='none', alpha=0.3)
+        if i_model == 0:
+            kin_axs[1].text(s='Vehicle\npassing', x=veh_exit_t+0.5, y=ped_coll_dist, 
+                            color='red', alpha=0.3)
         # find simulations where pedestrian passes first vs second, and plot quantile fills
         idx_veh_entry = np.nonzero(time_stamps >= veh_entry_t)[0][0]
         bidxs_ped_first = sim_result['ped_CP_dist'][:, idx_veh_entry] <= ped_coll_dist
@@ -244,13 +250,20 @@ if __name__ == '__main__':
         kin_axs[0].set_ylim(-0.1, 4.1)     
         if i_model == 0:
             kin_axs[0].set_ylabel('Speed (m/s)')
-            kin_axs[1].set_ylabel('Distance (m)')
+            kin_axs[1].set_ylabel('Position (m)')
         # add separate time axis
         sc_plot.add_linked_time_axis(kin_axs[-1])
-            
+    
+    # add panel labels
+    # LABEL_Y = 0.89
+    # sc_plot.add_panel_label('A', (0.09, LABEL_Y))
+    # sc_plot.add_panel_label('B', (0.37, LABEL_Y))
+    LABEL_Y = 0.92
+    sc_plot.add_panel_label('D', (0.07, LABEL_Y))
+    sc_plot.add_panel_label('E', (0.35, LABEL_Y))
     
     # - internal model states
-    N_ST_PLOTS = 4
+    N_ST_PLOTS = 3
     V_YLIM = (0.21, 0.25)
     st_axs = []
     for i_plot in range(N_ST_PLOTS):
@@ -259,8 +272,8 @@ if __name__ == '__main__':
     time_stamps = sim_result['time_stamps']
     # vehicle TTA
     ax = st_axs[0]
-    veh_ttcss = veh_entry_t - np.arange(0, SCENARIO.end_time, SCENARIO.time_step) 
-    ax.plot(time_stamps, veh_ttcss, 'r--', alpha=0.5)
+    # veh_ttcss = veh_entry_t - np.arange(0, SCENARIO.end_time, SCENARIO.time_step) 
+    # ax.plot(time_stamps, veh_ttcss, 'r--', alpha=0.5)
     do_state_panel_plots(ax, sim_result, 'perc_ttc', i_STATES_EX, 'k', posinf_replace=100) 
     ax.set_ylim(-1, 12)
     ax.set_ylabel('TTA (s)')
@@ -269,35 +282,38 @@ if __name__ == '__main__':
     NON_ACT_COL = 'green'
     do_state_panel_plots(ax, sim_result, 'V_none', i_STATES_EX, NON_ACT_COL)
     ax.set_ylim(V_YLIM[0], V_YLIM[1])
-    ax.text(4, 0.247, 'No adjustment', c=NON_ACT_COL)
+    ax.text(4, 0.247, 'Maintain speed', c=NON_ACT_COL)
     # value of decelerating
     ax = st_axs[1]
     DEC_COL = 'magenta'
     do_state_panel_plots(ax, sim_result, 'V_dec', i_STATES_EX, DEC_COL)
     ax.set_ylim(V_YLIM[0], V_YLIM[1])
-    ax.text(6, 0.225, 'Decelerate', c=DEC_COL)
+    ax.text(6, 0.225, 'Slow down', c=DEC_COL)
     ax.set_ylabel('$V_a$ (-)')
-    # accumulated surplus value of decelerating
-    ax = st_axs[2]
-    do_state_panel_plots(ax, sim_result, 'DeltaV', i_STATES_EX, 'magenta')   
-    ax.set_ylim(-0.015, 0.005)
-    ax.set_ylabel('$\Delta V_a$ (-)')
+    # # accumulated surplus value of decelerating
+    # ax = st_axs[2]
+    # do_state_panel_plots(ax, sim_result, 'DeltaV', i_STATES_EX, 'magenta')   
+    # ax.set_ylim(-0.015, 0.005)
+    # ax.set_ylabel('$\Delta V_a$ (-)')
     # acceleration
-    ax = st_axs[3]
+    ax = st_axs[2]
     ax.plot(time_stamps, sim_result['ped_acc'][i_STATES_EX, :], 
                    c=STATES_EX_COL, lw=0.5, alpha=STATES_EX_ALPHA)     
     ax.set_ylabel('Acc. (m/s$^2$)')
+    AX_X = 0.66
+    AX_W = 0.25
+    AX_H = 0.245
+    AX_Y_DIST = 0.29
     for i_plot in range(N_ST_PLOTS):
         st_axs[i_plot].set_xlim(-.1, 9.1)
         sc_plot.leave_only_yaxis(st_axs[i_plot])
+        ax_y = 0.73 - AX_Y_DIST * i_plot
+        st_axs[i_plot].set_position((AX_X, ax_y, AX_W, AX_H))
     # add separate time axis
     sc_plot.add_linked_time_axis(st_axs[-1])
     
-    
-    # add panel labels
-    sc_plot.add_panel_label('A', (0.055, 0.87))
-    sc_plot.add_panel_label('B', (0.345, 0.87))
-    sc_plot.add_panel_label('C', (0.64, 0.91))
+    # add panel label
+    sc_plot.add_panel_label('F', (0.58, 0.9))
     
     
     if SAVE_PDF:
