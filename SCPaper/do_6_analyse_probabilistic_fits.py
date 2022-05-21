@@ -34,7 +34,7 @@ DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 N_CRIT_FOR_TS_PLOT = 4
 DO_PARAMS_PLOTS = False
-DO_RETAINED_PARAMS_PLOT = False # supplementary figure
+DO_RETAINED_PARAMS_PLOT = True # supplementary figure
 DO_CRIT_PLOT = True # supplementary figure
 CRIT_PLOT_MODELS = ('oVAoAN', 'oVAoEAoAN',
                      'oVAoSNc', 'oVAoEAoSNc', 'oVAoSNcoPF', 'oVAoEAoSNcoPF',
@@ -42,7 +42,7 @@ CRIT_PLOT_MODELS = ('oVAoAN', 'oVAoEAoAN',
 CRIT_PLOT_FIG_NO = 13
 DO_OUTCOME_PLOT = False
 N_CRIT_FOR_PARAMS_PLOT = 4
-SAVE_FIGS = False
+SAVE_FIGS = True
 RET_PARAMS_PLOTS_TO_SAVE = ('oVAoEAoSNv', 'oVAoEAoSNvoPF')
 RET_PARAMS_PLOT_FIRST_FIG_NO = 14
 MODELS_TO_ANALYSE = 'all'

@@ -1142,6 +1142,16 @@ def do_params_plot(param_names, params_array, param_ranges=None,
                     ymax = PARAM_VAL_FOR_INF
                 yplotmin, yplotmax = get_plot_lims(ymin, ymax)
                 ax.set_ylim(yplotmin, yplotmax)
+            if param_names[i_x_param] == 'T':
+                # fix for problem with overlapping x tick labels
+                xticks = np.arange(xmin, xmax, 0.1)
+                ax.set_xticks(xticks)
+                xticklabels = []
+                for i in range(len(xticks)):
+                    xticklabels.append('')
+                xticklabels[0] = f'{xticks[0]:.1f}'
+                xticklabels[-1] = f'{xticks[-1]:.1f}'
+                ax.set_xticklabels(xticklabels)
             if i_x_param == 0:
                 ax.set_ylabel(display_param_names[i_y_param])
             if i_y_param == n_params-1:
