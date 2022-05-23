@@ -1034,7 +1034,7 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
         
 def do_params_plot(param_names, params_array, param_ranges=None, 
                    log=True, jitter=0, param_subsets=None, color='k', show=True,
-                   do_alpha=True):
+                   do_alpha=True, model_name=''):
     def get_plot_lims(minv, maxv):
         ZOOM = 0.1
         if log:
@@ -1048,6 +1048,19 @@ def do_params_plot(param_names, params_array, param_ranges=None,
     PARAM_VAL_FOR_INF = 10 # for T_Of = Inf
     n_params = len(param_names)
     assert(params_array.shape[1] == n_params)
+    # if oPF model, make sure to scale noise magnitude properly in plot
+    if 'oPF' in model_name:
+        if 'oSNc' in model_name:
+            noise_param_name = 'tau_d'
+        elif 'oSNv' in model_name:
+            noise_param_name = 'tau_theta'
+        else:
+            raise Exception('Found oPF model without oSN*.')
+        idx_noise_param = param_names.index(noise_param_name)
+        params_array[:, idx_noise_param] *= DEFAULT_PARAMS.c_tau
+        if param_ranges != None:
+            param_ranges[idx_noise_param] = (
+                np.array(param_ranges[idx_noise_param]) * DEFAULT_PARAMS.c_tau)
     # adapt plotting to number of parameters
     if n_params == 2:
         jitter = 0

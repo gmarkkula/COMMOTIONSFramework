@@ -273,24 +273,11 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name,
               f' ({100 * n_ret_params / n_total:.1f} %) parameterisations, across:')
         print(ret_model.param_names)
         if DO_PLOTS and DO_RETAINED_PARAMS_PLOT:
-            if 'oPF' in ret_model.model:
-                # make sure to plot noise magnitude actually used in the model
-                if 'oSNc' in ret_model.model:
-                    noise_param_name = 'tau_d'
-                elif 'oSNv' in ret_model.model:
-                    noise_param_name = 'tau_theta'
-                else:
-                    raise Exception('Found oPF model without oSN*.')
-                idx_noise_param = ret_model.param_names.index(noise_param_name)
-                ret_model.params_array[
-                    :, idx_noise_param] *= sc_fitting.DEFAULT_PARAMS.c_tau
-                ret_model.param_ranges[idx_noise_param] = (
-                    np.array(ret_model.param_ranges[idx_noise_param]) 
-                    * sc_fitting.DEFAULT_PARAMS.c_tau)
             sc_fitting.do_params_plot(ret_model.param_names, 
                                       ret_model.params_array, 
                                       ret_model.param_ranges, 
-                                      log=True, jitter=PARAMS_JITTER)
+                                      log=True, jitter=PARAMS_JITTER,
+                                      model_name=ret_model.model)
             if SAVE_FIGS and ret_model.model in RET_PARAMS_PLOTS_TO_SAVE:
                 fig_number = (RET_PARAMS_PLOT_FIRST_FIG_NO 
                               + RET_PARAMS_PLOTS_TO_SAVE.index(ret_model.model))
