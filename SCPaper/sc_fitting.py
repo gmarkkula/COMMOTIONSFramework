@@ -1057,8 +1057,10 @@ def do_params_plot(param_names, params_array, param_ranges=None,
         else:
             raise Exception('Found oPF model without oSN*.')
         idx_noise_param = param_names.index(noise_param_name)
+        params_array = np.copy(params_array)
         params_array[:, idx_noise_param] *= DEFAULT_PARAMS.c_tau
         if param_ranges != None:
+            param_ranges = np.copy(param_ranges)
             param_ranges[idx_noise_param] = (
                 np.array(param_ranges[idx_noise_param]) * DEFAULT_PARAMS.c_tau)
     # adapt plotting to number of parameters
@@ -1095,7 +1097,7 @@ def do_params_plot(param_names, params_array, param_ranges=None,
                             figsize=(figsize,figsize),
                             tight_layout=True)
     # get parameter ranges if not provided
-    if param_ranges == None:
+    if param_ranges is None:
         param_ranges = []
         for i_param in range(n_params):
             param_ranges.append((np.amin(params_array[:, i_param]),

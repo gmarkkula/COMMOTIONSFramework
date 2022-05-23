@@ -12,7 +12,7 @@ import do_1_deterministic_fitting
 import do_5_probabilistic_fitting 
 
 DO_RETAINED_COMB_PLOT = True
-DO_EXCL_INCTRL_EXP_PLOT = False
+DO_EXCL_INCTRL_EXP_PLOT = True
 
 SAVE_FIGS = True
 
@@ -52,7 +52,8 @@ if DO_RETAINED_COMB_PLOT:
                               param_ranges, 
                               param_subsets=param_subsets,
                               color=('lightgray', 'g'),
-                              log=True, jitter=PARAMS_JITTER)
+                              log=True, jitter=PARAMS_JITTER,
+                              model_name=MODEL_NAME)
     if SAVE_FIGS:
         file_name = sc_plot.FIGS_FOLDER + 'figS17.png'
         print(f'Saving {file_name}...')
@@ -69,15 +70,15 @@ if DO_EXCL_INCTRL_EXP_PLOT:
         params_array = excl_params[MODEL_NAME]['params_array']
         n_non_progress = excl_params[MODEL_NAME]['n_non_progress']
         param_subsets = (np.arange(params_array.shape[0]), 
-                         n_non_progress < 5,
-                         n_non_progress == 0)
+                         n_non_progress >= 1,
+                         n_non_progress >= 5)
         sc_fitting.do_params_plot(ret_model.param_names, 
                                   params_array, 
                                   param_ranges, 
                                   param_subsets=param_subsets,
                                   color = ('lightgray', 'deepskyblue', 'k'),
                                   log=True, jitter=PARAMS_JITTER,
-                                  do_alpha=False)
+                                  do_alpha=False, model_name=MODEL_NAME)
         if SAVE_FIGS:
             fig_no = FIRST_FIG_NO + i_excl
             file_name = sc_plot.FIGS_FOLDER + f'figS{fig_no}.png'
