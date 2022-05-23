@@ -6,4 +6,4 @@ This repository contains a Python 3 implementation of a modular framework for mo
 
 * The "*diary notebooks*" folder contains Jupyter notebooks which are effectively diary entries, documenting the work on developing and testing the code in this repository, providing further insight into the motivations behind the many modelling decisions made along the way.
 
-* The "*handwritten notes*" folder contains scans of mathematical derivations.
+* The "*handwritten notes*" folder contains scans of some mathematical derivations referenced in the code and diary notebooks.
