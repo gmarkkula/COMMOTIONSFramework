@@ -317,7 +317,7 @@ if __name__ == '__main__':
     
     
     if SAVE_PDF:
-        file_name = sc_plot.FIGS_FOLDER + 'fig3.pdf'
+        file_name = sc_plot.FIGS_FOLDER + 'fig3D-F.pdf'
         print(f'Saving {file_name}...')
         plt.savefig(file_name, bbox_inches='tight')
         

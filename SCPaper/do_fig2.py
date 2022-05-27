@@ -315,7 +315,7 @@ sc_plot.add_panel_label('C', (0.61, 0.76))
 
 
 if SAVE_PDF:
-    file_name = sc_plot.FIGS_FOLDER + 'fig2.pdf'
+    file_name = sc_plot.FIGS_FOLDER + 'fig3A-C.pdf'
     print(f'Saving {file_name}...')
     plt.savefig(file_name, bbox_inches='tight')
 
