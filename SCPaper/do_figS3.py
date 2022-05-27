@@ -50,7 +50,7 @@ for i_model, model_name in enumerate(MODELS):
         sc_plot.leave_only_yaxis(ax)
         sc_plot.add_linked_time_axis(ax)
         
-axs[0, 1].legend(('Snapshot payoffs', 'Affordance-based'), 
+axs[0, 1].legend(('Short-term payoffs', 'Affordance-based'), 
                  title='Value estimation:', frameon=False)
 
 if SAVE_PDF:
