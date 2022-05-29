@@ -1,6 +1,6 @@
 This folder contains code that uses the modules in the root of this repository to implement and test a range of models of interactions between one car driver and one pedestrian, travelling longitudinally on perpendicular intersecting paths. 
 
-The results of these tests have been written up as a paper, and the scripts in this folder allow running all tests and generating all figures in the paper.
+The results of these tests have been written up as a paper (working title "Explaining human interactions on the road requires large-scale integration of psychological theory"), and the scripts in this folder allow running all tests and generating all figures in the paper.
 
 * The scripts `do_#_[...].py` implement the sequence of model analysis steps, generating and saving results (as Pickle `.pkl` files) in the `results` folder, and in some cases also generating and saving supplementary figures in the `figs` folder:
     * `do_2_analyse_deterministic_fits.py` generates Figures S5 and S10-S12.
