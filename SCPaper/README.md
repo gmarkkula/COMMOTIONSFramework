@@ -11,6 +11,7 @@ The results of these tests have been written up as a paper (working title "Expla
 * The scripts `do_fig#.py` generate the figures provided in the main text of the paper.
 * The scripts `do_figS#.py` generate the supplementary figures not generated from the `do_#_[...].py` scripts.
 * The scripts `do_#.sh` are for running the more computationally intensive jobs on the University of Leeds [ARC4 HPC cluster](https://arcdocs.leeds.ac.uk/).
+* The modules `parameter_search.py` and `sc_fitting.py` provide functionality for running model simulations for a number of given scenarios across a grid of model parameters, and recording various metrics from thes simulations. The module `sc_plot.py` provides some figure-related constants and functionality.
 * The `data` folder contains the data from the two controlled experiments described in the paper. 
 
 
