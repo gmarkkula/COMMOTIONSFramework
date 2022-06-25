@@ -1944,157 +1944,96 @@ class SCSimulation(commotions.Simulation):
 
 
 
-### just some test code
-
+""" Some "unit tests" - not with pass/fail criteria but rather to provide a
+    means of seeing if e.g. code changes that shouldn't make a difference don't,
+    etc. The specific tests here are a subset of those I ran the last time I did
+    this in a diary notebook (2022-01-11b), plus some later additions.
+"""
 if __name__ == "__main__":
     
-    import time
-
-    # scenario basics
-    NAMES = ('P', 'V')
-    CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
-    #WIDTHS = (0.8, 1.8)
-    #LENGTHS = (0.8, 4.2)
-    WIDTHS = (2, 2)
-    LENGTHS = (2, 2)
-    COLL_DISTS = []
-    for i_agent in range(N_AGENTS):
-        COLL_DISTS.append(sc_scenario_helper.get_agent_coll_dist(
-            ego_length=LENGTHS[i_agent], oth_width=WIDTHS[1-i_agent]))
     
-    # set parameters and optional assumptions
+    def print_test_heading(heading):
+        print(f'\n\n***** {heading} *****')
+    
+    
+    # general settings (chosen for historical reasons, to permit comparison
+    # to previous tests in diary notebooks)
+    NAMES = ('P', 'V')
+    WIDTHS = (2, 2) 
+    LENGTHS = (2, 2) 
+    CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
+    GOALS = np.array([[0, 5], [-50, 0]])
     AFF_VAL_FCN = True
     (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
-    #params.T_delta = 30
-    #params.V_ny_rel = -1.5
-    #params.T_P = 1
-    params.T_O1 = 0.1
-    params.T_Of = 0.5
-    params.sigma_O = 0.01
-    params.thetaDot_1 = 0.04
-    params.beta_V = 160
     params.T_s = 0
     params.D_s = 0
-    params.tau_theta = 0.2
-    params.sigma_xdot = 0.1
-    params.DeltaV_th_rel = 0.001
-    params.T = 0.2
-    optional_assumptions = get_assumptions_dict(default_value = False,
-                                                oVA = AFF_VAL_FCN,
-                                                oVAa = False,
-                                                oVAl = False,
-                                                oSNc = False,
-                                                oSNv = False,
-                                                oPF = False,
-                                                oBEo = False,
-                                                oBEv = False,
-                                                oBEc = False,
-                                                oAI = False,
-                                                oEA = False, 
-                                                oAN = False)  
+    params.T_O1 = 0.1 
+    params.T_Of = 0.5
+    params.sigma_O = 0.01
+    params.beta_V = 160
     
-    # scenario
-    GOALS = np.array([[0, 5], [-50, 0]])
-    SCE_BASELINE = 0 # "baseline" kinematics
-    SCE_PEDLEAD = 1 # a scenario where both agents start at speed, with a lead for the pedestrian
-    SCE_KEIODECEL = 2 # a deceleration scenario from the Keio study
-    SCE_PEDATSPEEDDECEL = 3 # a deceleration scenario where the pedestrian is initially walking
-    SCE_PEDSTAT = 4 # pedestrian stationary at kerb
-    SCE_STARTUP = 5 # a scenario with both agents starting from zero speed, at non-interaction distance
-    SCENARIO = SCE_BASELINE
-    if SCENARIO == SCE_BASELINE:
-        INITIAL_POSITIONS = np.array([[0,-5], [40, 0]])
-        SPEEDS = np.array((0, 10))
-        CONST_ACCS = (None, None)
-    elif SCENARIO == SCE_PEDLEAD:
-        INITIAL_POSITIONS = np.array([[0,-8], [70, 0]])
-        SPEEDS = np.array((1.5, 10))
-        CONST_ACCS = (None, 0)
-    elif SCENARIO == SCE_KEIODECEL:
-        INITIAL_POSITIONS = np.array([[0,-COLL_DISTS[0] - params.D_s-.01], 
-                                      [13.9*2.29, 0]])
-        SPEEDS = np.array((0, 13.9))
-        stop_dist = INITIAL_POSITIONS[1][0] - COLL_DISTS[1] - params.D_s
-        # fix car behaviour to yielding, and simplify to only a single speed
-        # increase option for the pedestrian
-        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
-        DEFAULT_PARAMS.ctrl_deltas = np.array([0, 1.3])
-    elif SCENARIO == SCE_PEDATSPEEDDECEL:
-        INITIAL_POSITIONS = np.array([[0,-6], [30, 0]])
-        SPEEDS = np.array((1.5, 10))
-        stop_dist = INITIAL_POSITIONS[1][0] - COLL_DISTS[1] - params.D_s
-        CONST_ACCS = (None, -SPEEDS[1] ** 2 / (2 * stop_dist))
-    elif SCENARIO == SCE_PEDSTAT:
-        INITIAL_POSITIONS = np.array([[0,--COLL_DISTS[0] - params.D_s], [40, 0]])
-        SPEEDS = np.array((0, 10))
-        CONST_ACCS = (0, None)
-    elif SCENARIO == SCE_STARTUP:
-        INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
-        SPEEDS = np.array((0, 0))
-        CONST_ACCS = (None, None)
     
-    # initial Kalman estimates
-    KALMAN_PRIOR_SD_MULT = 2
-    KALMAN_PRIORS = []
-    for i_agent in range(N_AGENTS):
-        i_oth = 1 - i_agent
-        oth_dist = np.amax(np.abs(INITIAL_POSITIONS[i_oth, :]))
-        #oth_speed = SPEEDS[i_oth]
-        if CTRL_TYPES[i_oth] == CtrlType.SPEED:
-            oth_free_speed = FREE_SPEED_SPEED_CTRL
-        else:
-            oth_free_speed = FREE_SPEED_ACC_CTRL
-        KALMAN_PRIORS.append(sc_scenario_perception.KalmanPrior(
-            cp_dist_mean = oth_dist, 
-            cp_dist_stddev = KALMAN_PRIOR_SD_MULT * oth_dist, 
-            speed_mean = oth_free_speed,
-            speed_stddev = 0.5 * oth_free_speed))
-    
-    # run simulation
-    #CONST_ACCS = ( None, ((1, -2),(2, -4)) )
-    NOISE_SEEDS = (20, None)
-    SNAPSHOT_TIMES = (None, None)
-    STOP_CRITERIA = (SimStopCriterion.BOTH_AGENTS_EXITED_CS,)
-    #sc_scenario_helper.NEW_ACC_IMPL_CALCS = False
-    #np.seterr(invalid='raise')
+    # Startup behaviour of the base model
+    print_test_heading('Base model, just startup')
+    INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
+    SPEEDS = np.array((0, 0))
+    optional_assumptions = get_assumptions_dict(
+        default_value = False, oVA = AFF_VAL_FCN)
     sc_simulation = SCSimulation(
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
-            initial_speeds = SPEEDS, 
-            end_time = 8, optional_assumptions = optional_assumptions,
-            inhibit_first_pass_before_time = None,
-            const_accs = CONST_ACCS, zero_acc_after_exit = False,
-            agent_names = NAMES,  params = params, 
-            noise_seeds = NOISE_SEEDS, kalman_priors = KALMAN_PRIORS, 
-            snapshot_times = SNAPSHOT_TIMES, detailed_snapshots = True,
-            time_step = 0.1,
-            stop_criteria = STOP_CRITERIA)
-    tic = time.perf_counter()
+            initial_speeds = SPEEDS, end_time = 15, params = params,
+            optional_assumptions = optional_assumptions, agent_names = NAMES)
     sc_simulation.run()
-    toc = time.perf_counter()
-    print('Simulation took %.3f s.' % (toc - tic,))
+    sc_simulation.do_plots(kinem_states = True)
+
+            
+    # Base model with the "baseline kinematics" 
+    print_test_heading('Base model, baseline kinematics')
+    def run_baseline_kinematics(dist0s = (30, 40, 50), 
+                                plot_beh_probs = False, plot_beh_activs = False, 
+                                plot_beh_accs = False, plot_looming = False, 
+                                plot_surpl_act_vals = False,
+                                ped_snaps = None, veh_snaps = None, 
+                                print_dist = True):
+        SPEEDS = np.array((0, 10))
+        PED_Y0 = -5
+        for dist0 in dist0s:
+            INITIAL_POSITIONS = np.array([[0, PED_Y0], [dist0, 0]])
+            sc_simulation = SCSimulation(
+                    CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
+                    initial_speeds = SPEEDS, 
+                    end_time = 10, optional_assumptions = optional_assumptions,
+                    agent_names = NAMES, params = params,
+                    snapshot_times = (ped_snaps, veh_snaps))
+            sc_simulation.run()
+            if print_dist:
+                print('\nInitial car distance %d m:' % dist0)
+            sc_simulation.do_plots(kinem_states = True, 
+                                   beh_probs = plot_beh_probs,
+                                   beh_activs = plot_beh_activs, 
+                                   beh_accs = plot_beh_accs, 
+                                   surplus_action_vals = plot_surpl_act_vals,
+                                   looming = plot_looming)
+    run_baseline_kinematics()
     
-    # plot and give some results feedback
-    sc_simulation.do_plots(
-            trajs = True, action_val_ests = True, surplus_action_vals = True, 
-            kinem_states = True, beh_accs = True, beh_probs = True, action_vals = True, 
-            sensory_prob_dens = False, beh_activs = True, looming = False)
-    if sc_simulation.first_passer is None:
-        print('Neither agent entered the conflict area.')
-    else:
-        print(f'Agent {sc_simulation.first_passer.name} entered the conflict'
-              f' area first, at t = {sc_simulation.first_passer.ca_entry_time:.2f} s')
-        non_first_passer = sc_simulation.first_passer.other_agent
-        if math.isinf(non_first_passer.ca_entry_time):
-            print(f'Agent {non_first_passer.name} did not enter the conflict area.')
-        else:
-            print(f'Agent {non_first_passer.name} entered the conflict area second,'
-                  f' at t = {non_first_passer.ca_entry_time:.2f} s.')
-
-
-
-
-
-
-
-        
-
+    
+    # a sequence of turning on the behaviour observation-related assumptions
+    print_test_heading('Enabling behaviour observation assumptions')
+    def run_beh_est_test(test_name, oBEo=False, oBEv=False, oAI=False):
+        print(f'\n{test_name}:')
+        global optional_assumptions
+        optional_assumptions = get_assumptions_dict(
+                default_value = False, oVA = AFF_VAL_FCN, 
+                oBEo = oBEo, oBEv = oBEv, oAI = oAI)
+        run_baseline_kinematics(dist0s = (40,), plot_beh_probs = True,
+                                print_dist = False)
+    run_beh_est_test('Turning on oBEo', oBEo=True)
+    run_beh_est_test('Turning on oBEv', oBEo=True, oBEv=True)
+    run_beh_est_test('Turning on oAI', oBEo=True, oBEv=True, oAI=True)
+    
+    
+    # testing oEA
+    print_test_heading('Enabling evidence accumulation')
+    optional_assumptions = get_assumptions_dict(
+        default_value = False, oVA = AFF_VAL_FCN, oEA = True)
+    run_baseline_kinematics(dist0s = (30, 50), plot_surpl_act_vals=True)
