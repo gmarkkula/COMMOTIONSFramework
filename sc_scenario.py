@@ -106,17 +106,17 @@ DEFAULT_PARAMS.sigma_xdot = 0.1 # m/s; std dev of speed process noise in Kalman 
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
 #DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
-DEFAULT_PARAMS.beta_V = 60 # scaling of value evidence in behaviour belief activation
-DEFAULT_PARAMS.T_O1 = 0.05 # "sampling" time constant for behaviour observation (s)
+DEFAULT_PARAMS.beta_V = 160 # scaling of value evidence in behaviour belief activation
+DEFAULT_PARAMS.T_O1 = 0.1 # "sampling" time constant for behaviour observation (s)
 DEFAULT_PARAMS.T_Of = 0.5 # "forgetting" time constant for behaviour observation (s)
-DEFAULT_PARAMS.sigma_O = 0.1 # std dev of behaviour observation noise (m)
+DEFAULT_PARAMS.sigma_O = 0.01 # std dev of behaviour observation noise (m)
 DEFAULT_PARAMS.sigma_V = 0.1 # action value noise in evidence accumulation
 #DEFAULT_PARAMS.sigma_Vprime = DEFAULT_PARAMS.sigma_V # behaviour value noise in evidence accumulation
 DEFAULT_PARAMS.DeltaV_th_rel = 0.001 # action decision threshold when doing evidence accumulation, in multiples of squashed V_free
 DEFAULT_PARAMS.DeltaT = 0.5 # action duration (s)
 DEFAULT_PARAMS.T_P = DEFAULT_PARAMS.DeltaT # prediction time (s)
-DEFAULT_PARAMS.T_s = 0.5 # safety margin (post encroachment) time (s)
-DEFAULT_PARAMS.D_s = 0.5 # safety margin distance (m)
+DEFAULT_PARAMS.T_s = 0 # safety margin (post encroachment) time (s)
+DEFAULT_PARAMS.D_s = 0 # safety margin distance (m)
 DEFAULT_PARAMS.T_delta = 30 # s; half-life of delay-discounted value
 DEFAULT_PARAMS.V_0_rel = 4 # scale of value squashing function, in multiples of V_free
 DEFAULT_PARAMS.V_ny_rel = 0 # value function term for non-yielding, in multiples of V_free
@@ -1941,6 +1941,44 @@ class SCSimulation(commotions.Simulation):
 
 
         plt.show()
+        
+        
+def run_test_scenarios(optional_assumptions = None, params = None, 
+                       dist0s = (30, 40, 50),
+                       plot_beh_probs = False, plot_beh_activs = False, 
+                       plot_beh_accs = False, plot_looming = False, 
+                       plot_surpl_act_vals = False,
+                       ped_snaps = None, veh_snaps = None, 
+                       print_dist = True):
+    if optional_assumptions is None:
+        optional_assumptions = get_assumptions_dict(default_value=False)
+    if params is None:
+        (params, params_k) = get_default_params(
+            oVA = optional_assumptions[OptionalAssumption.oVA])
+    NAMES = ('P', 'V')
+    WIDTHS = (2, 2) 
+    LENGTHS = (2, 2) 
+    CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
+    GOALS = np.array([[0, 5], [-50, 0]])
+    SPEEDS = np.array((0, 10))
+    PED_Y0 = -5
+    for dist0 in dist0s:
+        INITIAL_POSITIONS = np.array([[0, PED_Y0], [dist0, 0]])
+        sc_simulation = SCSimulation(
+                CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
+                initial_speeds = SPEEDS, 
+                end_time = 10, optional_assumptions = optional_assumptions,
+                agent_names = NAMES, params = params,
+                snapshot_times = (ped_snaps, veh_snaps))
+        sc_simulation.run()
+        if print_dist:
+            print('\nInitial car distance %d m:' % dist0)
+        sc_simulation.do_plots(kinem_states = True, 
+                               beh_probs = plot_beh_probs,
+                               beh_activs = plot_beh_activs, 
+                               beh_accs = plot_beh_accs, 
+                               surplus_action_vals = plot_surpl_act_vals,
+                               looming = plot_looming)
 
 
 
@@ -1956,32 +1994,24 @@ if __name__ == "__main__":
         print(f'\n\n***** {heading} *****')
     
     
-    # general settings (chosen for historical reasons, to permit comparison
-    # to previous tests in diary notebooks)
+    # use affordance-based value estimation for all tests
+    AFF_VAL_FCN = True
+    
+    
+    # Startup behaviour of the base model
+    print_test_heading('Base model, just startup')
     NAMES = ('P', 'V')
     WIDTHS = (2, 2) 
     LENGTHS = (2, 2) 
     CTRL_TYPES = (CtrlType.SPEED, CtrlType.ACCELERATION) 
     GOALS = np.array([[0, 5], [-50, 0]])
-    AFF_VAL_FCN = True
-    (params, params_k) = get_default_params(oVA = AFF_VAL_FCN)
-    params.T_s = 0
-    params.D_s = 0
-    params.T_O1 = 0.1 
-    params.T_Of = 0.5
-    params.sigma_O = 0.01
-    params.beta_V = 160
-    
-    
-    # Startup behaviour of the base model
-    print_test_heading('Base model, just startup')
     INITIAL_POSITIONS = np.array([[0,-5], [400, 0]])
     SPEEDS = np.array((0, 0))
     optional_assumptions = get_assumptions_dict(
         default_value = False, oVA = AFF_VAL_FCN)
     sc_simulation = SCSimulation(
             CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
-            initial_speeds = SPEEDS, end_time = 15, params = params,
+            initial_speeds = SPEEDS, end_time = 15, 
             optional_assumptions = optional_assumptions, agent_names = NAMES)
     sc_simulation.run()
     sc_simulation.do_plots(kinem_states = True)
@@ -1989,32 +2019,7 @@ if __name__ == "__main__":
             
     # Base model with the "baseline kinematics" 
     print_test_heading('Base model, baseline kinematics')
-    def run_baseline_kinematics(dist0s = (30, 40, 50), 
-                                plot_beh_probs = False, plot_beh_activs = False, 
-                                plot_beh_accs = False, plot_looming = False, 
-                                plot_surpl_act_vals = False,
-                                ped_snaps = None, veh_snaps = None, 
-                                print_dist = True):
-        SPEEDS = np.array((0, 10))
-        PED_Y0 = -5
-        for dist0 in dist0s:
-            INITIAL_POSITIONS = np.array([[0, PED_Y0], [dist0, 0]])
-            sc_simulation = SCSimulation(
-                    CTRL_TYPES, WIDTHS, LENGTHS, GOALS, INITIAL_POSITIONS, 
-                    initial_speeds = SPEEDS, 
-                    end_time = 10, optional_assumptions = optional_assumptions,
-                    agent_names = NAMES, params = params,
-                    snapshot_times = (ped_snaps, veh_snaps))
-            sc_simulation.run()
-            if print_dist:
-                print('\nInitial car distance %d m:' % dist0)
-            sc_simulation.do_plots(kinem_states = True, 
-                                   beh_probs = plot_beh_probs,
-                                   beh_activs = plot_beh_activs, 
-                                   beh_accs = plot_beh_accs, 
-                                   surplus_action_vals = plot_surpl_act_vals,
-                                   looming = plot_looming)
-    run_baseline_kinematics()
+    run_test_scenarios(optional_assumptions = optional_assumptions)
     
     
     # a sequence of turning on the behaviour observation-related assumptions
@@ -2025,8 +2030,9 @@ if __name__ == "__main__":
         optional_assumptions = get_assumptions_dict(
                 default_value = False, oVA = AFF_VAL_FCN, 
                 oBEo = oBEo, oBEv = oBEv, oAI = oAI)
-        run_baseline_kinematics(dist0s = (40,), plot_beh_probs = True,
-                                print_dist = False)
+        run_test_scenarios(optional_assumptions = optional_assumptions,
+                           dist0s = (40,), plot_beh_probs = True,
+                           print_dist = False)
     run_beh_est_test('Turning on oBEo', oBEo=True)
     run_beh_est_test('Turning on oBEv', oBEo=True, oBEv=True)
     run_beh_est_test('Turning on oAI', oBEo=True, oBEv=True, oAI=True)
@@ -2036,4 +2042,5 @@ if __name__ == "__main__":
     print_test_heading('Enabling evidence accumulation')
     optional_assumptions = get_assumptions_dict(
         default_value = False, oVA = AFF_VAL_FCN, oEA = True)
-    run_baseline_kinematics(dist0s = (30, 50), plot_surpl_act_vals=True)
+    run_test_scenarios(optional_assumptions = optional_assumptions,
+                       dist0s = (30, 50), plot_surpl_act_vals=True)
