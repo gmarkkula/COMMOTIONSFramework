@@ -30,6 +30,7 @@ class OptionalAssumption(Enum):
     oSNv = 'oSNv'
     oPF = 'oPF'
     oEA = 'oEA'
+    oDA = 'oDA'
     oAN = 'oAN'
     oBEo = 'oBEo'
     oBEv = 'oBEv'
@@ -105,6 +106,8 @@ DEFAULT_PARAMS.H_e = 1.5 # m; height over ground of the eyes of an observed doin
 DEFAULT_PARAMS.sigma_xdot = 0.1 # m/s; std dev of speed process noise in Kalman filtering (oPF)
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
 #DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
+DEFAULT_PARAMS.T_xi = 0.3 # s; decision evidence accumulation time to decision for an action with DeltaV_a = V_free
+DEFAULT_PARAMS.C_xi = 0.05 # decision evidence accumulation leakage; fraction of V_free at which an action's DeltaV_a will never accumulate to threshold
 DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
 DEFAULT_PARAMS.beta_V = 160 # scaling of value evidence in behaviour belief activation
 DEFAULT_PARAMS.T_O1 = 0.1 # "sampling" time constant for behaviour observation (s)
@@ -223,6 +226,8 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.action_vals_given_behs = \
             math.nan * np.ones((self.n_actions, N_BEHAVIORS, 
                                 n_time_steps)) # V_A[xtilde(t)|(a,b)]
+        self.states.action_evidence = \
+            math.nan * np.ones((self.n_actions, n_time_steps)) # xi_a(t)
         #self.states.action_probs = \
         #    math.nan * np.ones((self.n_actions, n_time_steps)) # P_a(t)
         # - states regarding the behavior of the other agent
@@ -250,6 +255,7 @@ class SCAgent(commotions.AgentWithGoal):
         self.states.thetaDot = math.nan * np.ones(n_time_steps)
         # set initial values for states that depend on the previous time step
         self.states.est_action_vals[:, -1] = 0
+        self.states.action_evidence[:, -1] = 0
         self.states.beh_activ_V_given_actions[:, :, -1] = 0
         self.states.beh_activ_O[:, -1] = 0
         self.states.beh_activ_O[i_CONSTANT, -1] = 0
@@ -759,19 +765,40 @@ class SCAgent(commotions.AgentWithGoal):
                         * self.states.action_vals_given_behs[
                                 i_action, i_beh, i_time_step]
 
-        # update the accumulative estimates of action value
+        # update the accumulative (low-pass filtered) estimates of action value
         self.states.est_action_vals[:, i_time_step] = self.noisy_lp_filter(
             self.params.T, self.params.sigma_V,
             self.states.est_action_vals[:, i_time_step-1],
             self.states.mom_action_vals[:, i_time_step])
-
-        # any action over threshold?
+        
+        # get surplus action values (compared to non-action)
         self.states.est_action_surplus_vals[:, i_time_step] = \
             self.states.est_action_vals[:, i_time_step] \
             - self.states.est_action_vals[self.i_no_action, i_time_step]
-        i_best_action = np.argmax(self.states.est_action_surplus_vals[:, i_time_step])
-        if self.states.est_action_surplus_vals[i_best_action, i_time_step] \
-            > self.params.DeltaV_th:
+
+        # should any action be taken?
+        if self.assumptions[OptionalAssumption.oDA]:
+            # update the accumulated evidence for actions
+            dxidt = (self.states.est_action_surplus_vals[:, i_time_step]
+                     - self.params.gamma 
+                     * self.states.action_evidence[:, i_time_step-1])
+            self.states.action_evidence[:, i_time_step] = (
+                self.states.action_evidence[:, i_time_step-1] 
+                + self.simulation.settings.time_step * dxidt)
+            # check if the highest action evidence is above threshold
+            i_best_action = np.argmax(
+                self.states.action_evidence[:, i_time_step])
+            take_best_action = self.states.action_evidence[
+                i_best_action, i_time_step] > self.params.xi_th
+        else:
+            # if not using decision evidence accumulation, check if the highest
+            # estimated surplus action value is above threshold
+            i_best_action = np.argmax(
+                self.states.est_action_surplus_vals[:, i_time_step])
+            take_best_action = self.states.est_action_surplus_vals[
+                i_best_action, i_time_step] > self.params.DeltaV_th
+                
+        if take_best_action:
             # add action to the array of future acceleration values
             self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
                 self.simulation.state.i_time_step)
@@ -779,6 +806,9 @@ class SCAgent(commotions.AgentWithGoal):
                 # reset the value accumulators
                 self.states.est_action_vals[:, i_time_step] = 0
                 self.states.beh_activ_V_given_actions[:, :, i_time_step] = 0
+            if self.assumptions[OptionalAssumption.oDA]:
+                # reset the decision evidence accumulators
+                self.states.action_evidence[:, i_time_step] = 0
 
         # set long acc in actual trajectory
         self.trajectory.long_acc[i_time_step] = self.action_long_accs[i_time_step]
@@ -1356,6 +1386,14 @@ class SCAgent(commotions.AgentWithGoal):
         else:
             self.params.sigma_V = 0
             #self.params.sigma_Vprime = 0
+        if self.assumptions[OptionalAssumption.oDA]:
+            # doing decision evidence accumulation, so we should not be 
+            # thresholding surplus action values
+            self.params.DeltaV_th_rel = math.nan
+        else:
+            # no decision evidence accumulation
+            self.params.T_xi = math.nan
+            self.params.C_xi = math.nan
         if not self.assumptions[OptionalAssumption.oBEo]:
             self.params.beta_O = 0
         if not self.assumptions[OptionalAssumption.oBEv]:
@@ -1406,6 +1444,9 @@ class SCAgent(commotions.AgentWithGoal):
         self.params.DeltaV_th = (self.squash_value(self.V_free) 
                                  * self.params.DeltaV_th_rel)
         self.params.V_ny = self.V_free * self.params.V_ny_rel
+        # - decision evidence accumulation parameters; see diary notebook
+        self.params.gamma = -np.log(1 - self.params.C_xi) / self.params.T_xi
+        self.params.xi_th = self.params.C_xi * self.V_free / self.params.gamma
         
         # set up the object that implements perception of the other agent
         self.perception = sc_scenario_perception.Perception(
@@ -1704,7 +1745,8 @@ class SCSimulation(commotions.Simulation):
                  action_val_ests = False, surplus_action_vals = False, 
                  beh_activs = False, beh_accs = False, beh_probs = False, 
                  sensory_prob_dens = False, kinem_states = False, 
-                 veh_stop_dec = False, times_to_ca = False, looming = False):
+                 veh_stop_dec = False, times_to_ca = False, looming = False,
+                 action_evidences = False):
 
         n_plot_actions = max(self.agents[0].n_actions, self.agents[1].n_actions)
         
@@ -1938,6 +1980,29 @@ class SCSimulation(commotions.Simulation):
             plt.legend(legend_strs)
             plt.xlabel('Time (s)')
             plt.ylabel(r'$\dot{\theta}$ (rad/s)')
+            
+        
+        if action_evidences:
+            figname = 'Action evidence'
+            plt.figure(figname)
+            plt.clf()
+            fig, axs = plt.subplots(nrows = n_plot_actions, ncols = N_AGENTS,
+                                    sharex = 'col', sharey = 'col',
+                                    num = figname, figsize = (6, 5))
+            for i_agent, agent in enumerate(self.agents):
+                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
+                    ax = axs[i_action, i_agent]
+                    ax.plot(self.time_stamps, 
+                             agent.states.action_evidence[i_action, :])
+                    ax.plot([self.time_stamps[0], self.time_stamps[-1]], 
+                        [agent.params.xi_th, agent.params.xi_th], 
+                        '--', color = 'gray')
+                    #plt.ylim(-.5, .3)
+                    if i_action == 0:
+                        ax.set_title('Agent %s' % agent.name)
+                    if i_agent == 0:
+                        ax.set_ylabel('$\\xi(%.1f)$' % deltav)
+            
 
 
         plt.show()
@@ -1947,7 +2012,7 @@ def run_test_scenarios(optional_assumptions = None, params = None,
                        dist0s = (30, 40, 50),
                        plot_beh_probs = False, plot_beh_activs = False, 
                        plot_beh_accs = False, plot_looming = False, 
-                       plot_surpl_act_vals = False,
+                       plot_surpl_act_vals = False, plot_act_evidences = False,
                        ped_snaps = None, veh_snaps = None, 
                        print_dist = True):
     if optional_assumptions is None:
@@ -1978,7 +2043,8 @@ def run_test_scenarios(optional_assumptions = None, params = None,
                                beh_activs = plot_beh_activs, 
                                beh_accs = plot_beh_accs, 
                                surplus_action_vals = plot_surpl_act_vals,
-                               looming = plot_looming)
+                               looming = plot_looming,
+                               action_evidences = plot_act_evidences)
 
 
 
