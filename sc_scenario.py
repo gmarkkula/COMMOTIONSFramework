@@ -106,9 +106,7 @@ DEFAULT_PARAMS.H_e = 1.5 # m; height over ground of the eyes of an observed doin
 DEFAULT_PARAMS.sigma_xdot = 0.1 # m/s; std dev of speed process noise in Kalman filtering (oPF)
 DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation time (s)
 #DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
-DEFAULT_PARAMS.T_xi = 0.3 # s; decision evidence accumulation time to decision for an action with DeltaV_a = V_free
-DEFAULT_PARAMS.C_xi = 0.05 # decision evidence accumulation leakage; fraction of V_free at which an action's DeltaV_a will never accumulate to threshold
-#DEFAULT_PARAMS.xi_th = 0.0003
+DEFAULT_PARAMS.xi_th = 0.0003 # decision evidence threshold
 DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
 DEFAULT_PARAMS.beta_V = 160 # scaling of value evidence in behaviour belief activation
 DEFAULT_PARAMS.T_O1 = 0.1 # "sampling" time constant for behaviour observation (s)
@@ -229,6 +227,8 @@ class SCAgent(commotions.AgentWithGoal):
                                 n_time_steps)) # V_A[xtilde(t)|(a,b)]
         self.states.action_evidence = \
             math.nan * np.ones((self.n_actions, n_time_steps)) # xi_a(t)
+        self.states.action_triggered = \
+            np.full((self.n_actions, n_time_steps), False) 
         #self.states.action_probs = \
         #    math.nan * np.ones((self.n_actions, n_time_steps)) # P_a(t)
         # - states regarding the behavior of the other agent
@@ -780,19 +780,12 @@ class SCAgent(commotions.AgentWithGoal):
         # should any action be taken?
         if self.assumptions[OptionalAssumption.oDA]:
             # update the accumulated evidence for actions
-            dxidt = (self.states.est_action_surplus_vals[:, i_time_step]
-                     - self.params.gamma 
-                     * self.states.action_evidence[:, i_time_step-1])
+            dxidt = self.states.est_action_surplus_vals[:, i_time_step]
             self.states.action_evidence[:, i_time_step] = (
-                self.states.action_evidence[:, i_time_step-1] 
+                self.states.action_evidence[:, i_time_step-1]
                 + self.simulation.settings.time_step * dxidt)
-            # # update the accumulated evidence for actions
-            # dxidt = self.states.est_action_surplus_vals[:, i_time_step]
-            # self.states.action_evidence[:, i_time_step] = (
-            #     self.states.action_evidence[:, i_time_step-1]
-            #     + self.simulation.settings.time_step * dxidt)
-            # self.states.action_evidence[:, i_time_step] = np.maximum(
-            #     0, self.states.action_evidence[:, i_time_step])
+            self.states.action_evidence[:, i_time_step] = np.maximum(
+                0, self.states.action_evidence[:, i_time_step])
             # check if the highest action evidence is above threshold
             i_best_action = np.argmax(
                 self.states.action_evidence[:, i_time_step])
@@ -810,6 +803,9 @@ class SCAgent(commotions.AgentWithGoal):
             # add action to the array of future acceleration values
             self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
                 self.simulation.state.i_time_step)
+            # remember what action was taken when
+            self.states.action_triggered[i_best_action, i_time_step] = True
+            # reset accumulators if needed
             if self.assumptions[OptionalAssumption.oEA]:
                 # reset the value accumulators
                 self.states.est_action_vals[:, i_time_step] = 0
@@ -1379,7 +1375,12 @@ class SCAgent(commotions.AgentWithGoal):
                 pos_obs_noise_stddev = self.params.tau_d
             else:
                 pos_obs_noise_stddev = self.params.tau_theta
-            if not self.assumptions[OptionalAssumption.oPF]:
+            # assuming Bayesian perceptual filtering?
+            if self.assumptions[OptionalAssumption.oPF]:
+                if kalman_prior is None:
+                    raise Exception('Need to supply a Kalman prior to enable oPF.')
+            else:
+                # scale down sensory noise if not filtering
                 pos_obs_noise_stddev *= self.params.c_tau
         if not self.assumptions[OptionalAssumption.oEA]:
             # no evidence accumulation, implemented by value accumulation 
@@ -1452,9 +1453,6 @@ class SCAgent(commotions.AgentWithGoal):
         self.params.DeltaV_th = (self.squash_value(self.V_free) 
                                  * self.params.DeltaV_th_rel)
         self.params.V_ny = self.V_free * self.params.V_ny_rel
-        # - decision evidence accumulation parameters; see diary notebook
-        self.params.gamma = -np.log(1 - self.params.C_xi) / self.params.T_xi
-        self.params.xi_th = self.params.C_xi * self.V_free / self.params.gamma
         
         # set up the object that implements perception of the other agent
         self.perception = sc_scenario_perception.Perception(
@@ -1831,6 +1829,17 @@ class SCSimulation(commotions.Simulation):
                             plt.legend(('$\\tilde{V}_a$', '$\\hat{V}_a$'))
                     if i_agent == 0:
                         ax.set_ylabel('$V(\\Delta v=%.1f)$' % deltav)
+                        
+        def plot_thresh_and_trigs(assumption, thresh, i_action):
+            if agent.assumptions[assumption]:
+                ax.plot([self.time_stamps[0], self.time_stamps[-1]], 
+                    [thresh, thresh], '--', color = 'gray')
+                action_time_steps = self.time_stamps[
+                    agent.states.action_triggered[i_action, :]]
+                n_actions = len(action_time_steps)
+                if n_actions > 0:
+                    ax.plot(action_time_steps, np.full(n_actions, thresh), 
+                            'k+', ms=10, markeredgewidth=2)
 
         if surplus_action_vals:
             # - surplus action values
@@ -1845,10 +1854,8 @@ class SCSimulation(commotions.Simulation):
                     ax = axs[i_action, i_agent]
                     ax.plot(self.time_stamps, 
                              agent.states.est_action_surplus_vals[i_action, :])
-                    ax.plot([self.time_stamps[0], self.time_stamps[-1]], 
-                        [agent.params.DeltaV_th, agent.params.DeltaV_th], 
-                        '--', color = 'gray')
-                    #plt.ylim(-.5, .3)
+                    plot_thresh_and_trigs(OptionalAssumption.oEA, 
+                                          agent.params.DeltaV_th, i_action)
                     if i_action == 0:
                         ax.set_title('Agent %s' % agent.name)
                     if i_agent == 0:
@@ -1866,10 +1873,9 @@ class SCSimulation(commotions.Simulation):
                     ax = axs[i_action, i_agent]
                     ax.plot(self.time_stamps, 
                              agent.states.action_evidence[i_action, :])
-                    ax.plot([self.time_stamps[0], self.time_stamps[-1]], 
-                        [agent.params.xi_th, agent.params.xi_th], 
-                        '--', color = 'gray')
-                    #plt.ylim(-.5, .3)
+                    plot_thresh_and_trigs(OptionalAssumption.oDA, 
+                                          agent.params.xi_th, i_action)
+                    ax.set_ylim(-.1 * agent.params.xi_th, 1.1 * agent.params.xi_th)
                     if i_action == 0:
                         ax.set_title('Agent %s' % agent.name)
                     if i_agent == 0:
