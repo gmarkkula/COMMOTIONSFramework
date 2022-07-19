@@ -108,6 +108,7 @@ DEFAULT_PARAMS.T = 0.2 # action value accumulator / low-pass filter relaxation t
 #DEFAULT_PARAMS.Tprime = DEFAULT_PARAMS.T  # behaviour value accumulator / low-pass filter relaxation time (s)
 DEFAULT_PARAMS.T_xi = 0.3 # s; decision evidence accumulation time to decision for an action with DeltaV_a = V_free
 DEFAULT_PARAMS.C_xi = 0.05 # decision evidence accumulation leakage; fraction of V_free at which an action's DeltaV_a will never accumulate to threshold
+#DEFAULT_PARAMS.xi_th = 0.0003
 DEFAULT_PARAMS.beta_O = 1 # scaling of action observation evidence in behaviour belief activation (no good theoretical reason for it not to be =1)
 DEFAULT_PARAMS.beta_V = 160 # scaling of value evidence in behaviour belief activation
 DEFAULT_PARAMS.T_O1 = 0.1 # "sampling" time constant for behaviour observation (s)
@@ -785,6 +786,13 @@ class SCAgent(commotions.AgentWithGoal):
             self.states.action_evidence[:, i_time_step] = (
                 self.states.action_evidence[:, i_time_step-1] 
                 + self.simulation.settings.time_step * dxidt)
+            # # update the accumulated evidence for actions
+            # dxidt = self.states.est_action_surplus_vals[:, i_time_step]
+            # self.states.action_evidence[:, i_time_step] = (
+            #     self.states.action_evidence[:, i_time_step-1]
+            #     + self.simulation.settings.time_step * dxidt)
+            # self.states.action_evidence[:, i_time_step] = np.maximum(
+            #     0, self.states.action_evidence[:, i_time_step])
             # check if the highest action evidence is above threshold
             i_best_action = np.argmax(
                 self.states.action_evidence[:, i_time_step])
@@ -1845,6 +1853,27 @@ class SCSimulation(commotions.Simulation):
                         ax.set_title('Agent %s' % agent.name)
                     if i_agent == 0:
                         ax.set_ylabel('$\\Delta V(%.1f)$' % deltav)
+              
+        if action_evidences:
+            figname = 'Action evidence'
+            plt.figure(figname)
+            plt.clf()
+            fig, axs = plt.subplots(nrows = n_plot_actions, ncols = N_AGENTS,
+                                    sharex = 'col', sharey = 'col',
+                                    num = figname, figsize = (6, 5))
+            for i_agent, agent in enumerate(self.agents):
+                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
+                    ax = axs[i_action, i_agent]
+                    ax.plot(self.time_stamps, 
+                             agent.states.action_evidence[i_action, :])
+                    ax.plot([self.time_stamps[0], self.time_stamps[-1]], 
+                        [agent.params.xi_th, agent.params.xi_th], 
+                        '--', color = 'gray')
+                    #plt.ylim(-.5, .3)
+                    if i_action == 0:
+                        ax.set_title('Agent %s' % agent.name)
+                    if i_agent == 0:
+                        ax.set_ylabel('$\\xi(%.1f)$' % deltav)
 
         if beh_activs:
             # - behavior activations
@@ -1967,8 +1996,7 @@ class SCSimulation(commotions.Simulation):
                     plt.ylabel('Time left (s)')
                 else:
                     plt.legend(('To CA entry', 'To CA exit'))
-                  
-                    
+                          
         if looming:
             plt.figure('Visual looming')
             plt.clf()
@@ -1981,30 +2009,7 @@ class SCSimulation(commotions.Simulation):
             plt.xlabel('Time (s)')
             plt.ylabel(r'$\dot{\theta}$ (rad/s)')
             
-        
-        if action_evidences:
-            figname = 'Action evidence'
-            plt.figure(figname)
-            plt.clf()
-            fig, axs = plt.subplots(nrows = n_plot_actions, ncols = N_AGENTS,
-                                    sharex = 'col', sharey = 'col',
-                                    num = figname, figsize = (6, 5))
-            for i_agent, agent in enumerate(self.agents):
-                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    ax = axs[i_action, i_agent]
-                    ax.plot(self.time_stamps, 
-                             agent.states.action_evidence[i_action, :])
-                    ax.plot([self.time_stamps[0], self.time_stamps[-1]], 
-                        [agent.params.xi_th, agent.params.xi_th], 
-                        '--', color = 'gray')
-                    #plt.ylim(-.5, .3)
-                    if i_action == 0:
-                        ax.set_title('Agent %s' % agent.name)
-                    if i_agent == 0:
-                        ax.set_ylabel('$\\xi(%.1f)$' % deltav)
             
-
-
         plt.show()
         
         
@@ -2027,6 +2032,7 @@ def run_test_scenarios(optional_assumptions = None, params = None,
     GOALS = np.array([[0, 5], [-50, 0]])
     SPEEDS = np.array((0, 10))
     PED_Y0 = -5
+    sims = []
     for dist0 in dist0s:
         INITIAL_POSITIONS = np.array([[0, PED_Y0], [dist0, 0]])
         sc_simulation = SCSimulation(
@@ -2036,6 +2042,7 @@ def run_test_scenarios(optional_assumptions = None, params = None,
                 agent_names = NAMES, params = params,
                 snapshot_times = (ped_snaps, veh_snaps))
         sc_simulation.run()
+        sims.append(sc_simulation)
         if print_dist:
             print('\nInitial car distance %d m:' % dist0)
         sc_simulation.do_plots(kinem_states = True, 
@@ -2045,6 +2052,7 @@ def run_test_scenarios(optional_assumptions = None, params = None,
                                surplus_action_vals = plot_surpl_act_vals,
                                looming = plot_looming,
                                action_evidences = plot_act_evidences)
+    return sims
 
 
 
@@ -2105,8 +2113,17 @@ if __name__ == "__main__":
     
     
     # testing oEA
-    print_test_heading('Enabling evidence accumulation')
+    print_test_heading('Enabling value accumulation')
     optional_assumptions = get_assumptions_dict(
         default_value = False, oVA = AFF_VAL_FCN, oEA = True)
     run_test_scenarios(optional_assumptions = optional_assumptions,
                        dist0s = (30, 50), plot_surpl_act_vals=True)
+    
+    
+    # testing oDA
+    print_test_heading('Enabling decision evidence accumulation')
+    optional_assumptions = get_assumptions_dict(
+        default_value = False, oVA = AFF_VAL_FCN, oDA = True)
+    run_test_scenarios(optional_assumptions = optional_assumptions,
+                       dist0s = (30, 50), plot_surpl_act_vals=True, 
+                       plot_act_evidences=True)
