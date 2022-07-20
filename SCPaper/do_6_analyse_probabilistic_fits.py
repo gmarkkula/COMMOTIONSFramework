@@ -37,14 +37,14 @@ DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = True # supplementary figure
 DO_CRIT_PLOT = True # supplementary figure
 CRIT_PLOT_MODELS = ('oVAoAN', 'oVAoEAoAN', 'oVAoDAoAN',
-                     'oVAoSNc', 'oVAoEAoSNc', 'oVAoSNcoPF', 
-                     'oVAoEAoSNcoPF', 'oVAoDAoSNcoPF',
+                     'oVAoSNc', 'oVAoEAoSNc', 'oVAoDAoSNc', 
+                     'oVAoSNcoPF', 'oVAoEAoSNcoPF', 'oVAoDAoSNcoPF',
                      'oVAoSNv', 'oVAoEAoSNv', 'oVAoDAoSNv', 
                      'oVAoSNvoPF', 'oVAoEAoSNvoPF', 'oVAoDAoSNvoPF') # all models - just reordered
 CRIT_PLOT_FIG_NO = 13
-DO_OUTCOME_PLOT = False
+DO_OUTCOME_PLOT = True
 N_CRIT_FOR_PARAMS_PLOT = 4
-SAVE_FIGS = True
+SAVE_FIGS = False
 RET_PARAMS_PLOTS_TO_SAVE = ('oVAoEAoSNv', 'oVAoEAoSNvoPF')
 RET_PARAMS_PLOT_FIRST_FIG_NO = 14
 MODELS_TO_ANALYSE = 'all'
