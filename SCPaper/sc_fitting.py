@@ -900,7 +900,10 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
             parameterisations to search. In both cases, only those parameters 
             relevant given optional_assumptions will be included in the grid/list.
         list_search : bool, optional
-            If True, param_arrays is not interpreted as 
+            If True, param_arrays is interpreted as specifying one big list of 
+            parameterisations to search (rather than as specifying one list of 
+            values for each parameter separately, to be combined in a grid 
+            search).
         n_repetitions : int, optional
             The number of times to test each parameterisation. If the scenarios
             have kinematical variations, this number must equal the number of
@@ -984,12 +987,16 @@ class SCPaperParameterSearch(parameter_search.ParameterSearch):
             consider_adding_free_param('k_e')
             consider_adding_free_param('k_sc')
             consider_adding_free_param('k_sg')
-        # evidence accumulation
+        # value accumulation
         if optional_assumptions[OptionalAssumption.oEA]:
             consider_adding_free_param('T')
             consider_adding_free_param('DeltaV_th_rel')
+        # value noise
         if optional_assumptions[OptionalAssumption.oAN]:
             consider_adding_free_param('sigma_V')
+        # decision evidence accumulation
+        if optional_assumptions[OptionalAssumption.oDA]:
+            consider_adding_free_param('xi_th')
         # value-based behaviour estimation
         if optional_assumptions[OptionalAssumption.oBEv]:
             consider_adding_free_param('beta_V')

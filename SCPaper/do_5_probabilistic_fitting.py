@@ -22,18 +22,19 @@ import multiprocessing as mp
 # set constants
 
 # - models 
-BASE_MODELS = ('oVA', 'oVAoEA')  
+BASE_MODELS = ('oVA', 'oVAoEA', 'oVAoDA')  
 MODEL_VARIANTS = ('oAN', 'oSNc', 'oSNv', 'oSNcoPF', 'oSNvoPF')
 
 
 # - free parameter values
-N_VALS_PER_PARAM = 10
+N_VALS_PER_PARAM = 5
 PARAM_ARRAYS = {}
 PARAM_ARRAYS['T'] = np.logspace(np.log10(0.1), np.log10(0.5), N_VALS_PER_PARAM)
 PARAM_ARRAYS['DeltaV_th_rel'] = np.logspace(np.log10(0.001), np.log10(0.1), N_VALS_PER_PARAM)
 PARAM_ARRAYS['sigma_V'] = np.logspace(np.log10(0.001), np.log10(1), N_VALS_PER_PARAM)
 PARAM_ARRAYS['tau_theta'] = np.logspace(np.log10(0.005), np.log10(5), N_VALS_PER_PARAM)
 PARAM_ARRAYS['tau_d'] = np.logspace(np.log10(0.5), np.log10(500), N_VALS_PER_PARAM)
+PARAM_ARRAYS['xi_th'] = np.logspace(np.log10(5e-6), np.log10(5e-3), N_VALS_PER_PARAM)
 
 
 
