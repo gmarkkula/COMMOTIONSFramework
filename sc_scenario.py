@@ -1304,7 +1304,7 @@ class SCAgent(commotions.AgentWithGoal):
     
 
     def __init__(self, name, ctrl_type, width, length, simulation, goal_pos, 
-                 initial_state, optional_assumptions = get_assumptions_dict(False), 
+                 initial_state, optional_assumptions = {}, 
                  params = None, params_k = None, 
                  noise_seed = None, kalman_prior = None, 
                  inhibit_first_pass_before_time = None, # NB: Currently only supported for oVA models
@@ -1333,8 +1333,11 @@ class SCAgent(commotions.AgentWithGoal):
         self.doing_snapshots = snapshot_times != None
         self.detailed_snapshots = detailed_snapshots
         
-        # store the optional assumptions
-        self.assumptions = optional_assumptions
+        # store any optional assumptions provided by the caller
+        self.assumptions = get_assumptions_dict(False)
+        for specified_assumption in optional_assumptions.keys():
+            self.assumptions[specified_assumption] = \
+                optional_assumptions[specified_assumption]
 
         # get default parameters or use user-provided parameters
         # - non-value function parameters
