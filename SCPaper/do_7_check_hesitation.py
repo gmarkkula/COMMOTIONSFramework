@@ -19,6 +19,7 @@ import pickle
 import numpy as np
 import itertools
 import multiprocessing as mp
+from dataclasses import dataclass
 import sc_fitting
 
 SCENARIO_TTCAS = (-3, 8)
@@ -38,6 +39,13 @@ def run_one_sim(model_name, params_dict, car_ttca):
     metrics = sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=False)
     return metrics['PedHesitateVehConst_ped_av_speed_to_CS']
 
+@dataclass
+class HesitationCheck:
+    params_dict: dict
+    mean_vs: list
+    ci_radii: list
+    passed: bool
+
 
 if __name__ == '__main__':
     
@@ -50,6 +58,7 @@ if __name__ == '__main__':
         retained_models = pickle.load(file_obj)
         
     # loop through the retained models
+    hesitation_check_results = {}
     for retained in retained_models:
         print(f'Model {retained.model}; {retained.param_names}:')
         
@@ -58,6 +67,7 @@ if __name__ == '__main__':
         # a scenario where the car has already passed the pedestrian (TTCA = - 3 s)
         n_params = retained.params_array.shape[0]
         retained.hesitation_verified = np.full(n_params, False)
+        hesitation_check_results[retained.model] = []
         for i_param in range(n_params):
             params_dict = dict(zip(retained.param_names, retained.params_array[i_param, :]))
             print(f'\t{params_dict}...')
@@ -84,10 +94,15 @@ if __name__ == '__main__':
             # separation between confidence intervals?
             baseline_lower = mean_vs[0] - ci_radii[0]
             test_upper = mean_vs[1] + ci_radii[1]
-            if test_upper < baseline_lower:
+            passed = test_upper < baseline_lower
+            if passed:
                 print('\t\t\tPassed.')
                 retained.hesitation_verified[i_param] = True
                 
+            # save hesitation check results
+            hesitation_check_results[retained.model].append(
+                HesitationCheck(params_dict, mean_vs, ci_radii, passed))  
+            
                 
     # print overall summary
     print('\n********** Summary **********\n')
@@ -99,8 +114,8 @@ if __name__ == '__main__':
               f' {n_params} parameterisations ({100 * n_verified/n_params:.1f} %).\n')
 
 
-    # resave the models, with the hesitation verification info added
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_PROB_FNAME, 
-              'wb') as file_obj:
-        pickle.dump(retained_models, file_obj)
+    # save the results
+    sc_fitting.save_results(hesitation_check_results, 
+                            sc_fitting.HESITATION_CHECK_FNAME)
+    
             
