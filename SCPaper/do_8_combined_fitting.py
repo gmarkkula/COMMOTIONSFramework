@@ -25,7 +25,8 @@ parameter_search.STATUS_REP_HEADER_LEN = 50 # long model names here...
 
 
 INCL_DET_MODELS = 'all' # ('oVAaoVAloBEvoAI', 'oVAoVAloBEvoAI') # either 'all' or a tuple of names of models to include
-EXCL_PROB_MODELS = ('oVAoAN', 'oVAoEAoAN')
+EXCL_PROB_MODELS = ('oVAoAN', 'oVAoEAoAN', 'oVAoDAoAN')
+REQ_PROB_ASSUMPTION = 'oDA' # a string to require, or None
 MAX_PARAMETERISATIONS = 5000
 
 
@@ -86,6 +87,9 @@ if __name__ == '__main__':
             
             # this probabilistic model excluded?
             if prob_model.model in EXCL_PROB_MODELS:
+                continue
+            if ((not(REQ_PROB_ASSUMPTION is None)) 
+                and (not(REQ_PROB_ASSUMPTION in prob_model.model))):
                 continue
             
             # get combined model name
