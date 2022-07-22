@@ -3,7 +3,7 @@
 #$ -V -cwd
 
 #Request some time- min 15 mins - max 48 hours
-#$ -l h_rt=16:00:00
+#$ -l h_rt=7:00:00
 
 #Request cores
 #$ -pe smp 40
