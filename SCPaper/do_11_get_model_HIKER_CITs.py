@@ -21,6 +21,8 @@ import sc_scenario
 import parameter_search
 import sc_fitting
 
+REQ_ASSUMPTION = 'oDA' # a string to require in model name, or None
+
 parameter_search.STATUS_REP_HEADER_LEN = 50 # long model names here...
 
 N_SCENARIO_REPS = 6
@@ -63,6 +65,10 @@ if __name__ == '__main__':
 
     n_total = 0
     for comb_model in comb_models:
+        
+        if ((not(REQ_ASSUMPTION is None)) 
+            and (not(REQ_ASSUMPTION in comb_model.model))):
+            continue
         
         # - subsample the matrix of parameterisations if needed
         n_parameterisations = comb_model.params_array.shape[0]
