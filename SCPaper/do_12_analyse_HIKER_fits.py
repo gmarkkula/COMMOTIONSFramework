@@ -24,15 +24,16 @@ import sc_plot
 
 DO_PARAMS_PLOT = False
 DO_CIT_CDF_PLOTS = True # supplementary figure
+PLOT_ALL_CIT_CDFS = True
 CIT_CDF_PLOT_MODELS_BASES = ('oVAoBEvoAI', 'oVAoBEooBEvoAI', 'oVAaoVAloBEvoAI')
-CIT_CDF_PLOT_MODELS_VARIANTS = ('oSNv', 'oEAoSNvoPF', 'oEAoSNv')
+CIT_CDF_PLOT_MODELS_VARIANTS = ('oSNv', 'oEAoSNvoPF', 'oEAoSNv', 'oDAoSNvoPF', 'oDAoSNv')
 CIT_CDF_PLOT_MODELS = []
 for base in CIT_CDF_PLOT_MODELS_BASES:
     for variant in CIT_CDF_PLOT_MODELS_VARIANTS:
         CIT_CDF_PLOT_MODELS.append(base + variant)
 CIT_CDF_LEGEND_MODEL = 'oVAoBEvoAIoSNv'
 CIT_CDF_FIG_NO = 18
-SAVE_FIGS = True
+SAVE_FIGS = False
 SAVE_CIT_DATA_FOR_MODELS = ('oVAoBEvoAIoEAoSNvoPF',)
 
 CIT_CDF_MAX_NON_CROSS_TRIALS = np.inf
@@ -79,7 +80,8 @@ for hiker_fit_file in hiker_fit_files:
                                   param_subsets=(noncross_yield_params, 
                                                  cross_yield_params))
     
-    do_this_cit_cdf_plot = DO_CIT_CDF_PLOTS and (hiker_fit.name in CIT_CDF_PLOT_MODELS)
+    do_this_cit_cdf_plot = DO_CIT_CDF_PLOTS and (
+        (hiker_fit.name in CIT_CDF_PLOT_MODELS) or PLOT_ALL_CIT_CDFS)
     if do_this_cit_cdf_plot or (hiker_fit.name in SAVE_CIT_DATA_FOR_MODELS):
         i_included_params = np.nonzero(cross_yield_params)[0]
         if len(i_included_params) == 0:
@@ -116,6 +118,7 @@ for hiker_fit_file in hiker_fit_files:
                     file_path = sc_plot.FIGS_FOLDER + file_name
                     print(f'Saving {file_path}...')
                     plt.savefig(file_path, bbox_inches='tight')
+                plt.show()
             if hiker_fit.name in SAVE_CIT_DATA_FOR_MODELS:
                 sc_fitting.save_results(
                     model_cits, sc_fitting.MODEL_CIT_FNAME_FMT % hiker_fit.name)
