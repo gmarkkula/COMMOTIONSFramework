@@ -14,9 +14,9 @@ import do_5_probabilistic_fitting
 DO_RETAINED_COMB_PLOT = True
 DO_EXCL_INCTRL_EXP_PLOT = True
 
-SAVE_FIGS = True
+SAVE_FIGS = False
 
-MODEL_NAME = 'oVAoBEvoAIoEAoSNvoPF'
+MODEL_NAME = 'oVAoBEvoAIoDAoSNvoPF'
 PARAMS_JITTER = 0.015
 
 
