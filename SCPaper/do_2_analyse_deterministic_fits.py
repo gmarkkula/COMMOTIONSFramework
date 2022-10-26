@@ -33,19 +33,19 @@ ExampleParameterisation = collections.namedtuple(
                                'params_dict', 'main_crit_dict', 'sec_crit_dict'])
 
 # constants
-SAVE_RETAINED_MODELS = True
+SAVE_RETAINED_MODELS = False
 DO_PLOTS = True # if False, all plots are disabled
 DO_TIME_SERIES_PLOTS = False
 DO_PARAMS_PLOTS = False
 DO_RETAINED_PARAMS_PLOT = True # supplementary figure
-DO_CRIT_PLOT = True # supplementary figure
+DO_CRIT_PLOT = False # supplementary figure
 RET_PARAMS_PLOT_FIRST_FIG_NO = 10
 SAVE_FIGS = True
 if SAVE_FIGS:
     SCALE_DPI = 1
 else:
     SCALE_DPI = 0.5
-RET_PARAMS_PLOTS_TO_SAVE = ('oVAoBEvoAI', 'oVAoVAloBEooBEvoAI', 'oVAaoVAloBEooBEvoAI')
+RET_PARAMS_PLOTS_TO_SAVE = ('oVAoBEvoAI',)
 N_MAIN_CRIT_FOR_PLOT = 4
 MODELS_TO_ANALYSE = 'all' # ('oVAoBEooBEvoAI',)
 ASSUMPTIONS_TO_NOT_ANALYSE = 'none'
@@ -367,13 +367,13 @@ def do():
               f' at least {N_MAIN_CRIT_FOR_RETAINING} main criteria,'
               ' and the pedestrian progress criterion, across:')
         print(ret_model.param_names)
-        if DO_PLOTS and DO_RETAINED_PARAMS_PLOT:
+        if DO_PLOTS and DO_RETAINED_PARAMS_PLOT and (ret_model.model in RET_PARAMS_PLOTS_TO_SAVE):
             param_subsets=(ret_model.n_main_criteria_met == N_MAIN_CRIT_FOR_RETAINING,
                            ret_model.n_main_criteria_met == len(CRITERIA[i_MAIN]))
             sc_fitting.do_params_plot(ret_model.param_names, ret_model.params_array, 
                                       ret_model.param_ranges, log=True, jitter=PARAMS_JITTER,
                                       param_subsets = param_subsets, 
-                                      color=('green','black'))
+                                      color=('green','black'), show=False)
             if SAVE_FIGS and ret_model.model in RET_PARAMS_PLOTS_TO_SAVE:
                 fig_number = (RET_PARAMS_PLOT_FIRST_FIG_NO 
                               + RET_PARAMS_PLOTS_TO_SAVE.index(ret_model.model))

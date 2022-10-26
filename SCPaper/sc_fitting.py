@@ -1075,7 +1075,7 @@ def do_params_plot(param_names, params_array, param_ranges=None,
     if n_params == 2:
         jitter = 0
         PARAM_ALPHA = 0.8
-        PARAM_MS = 6
+        PARAM_MS = 3
     elif n_params == 3:
         jitter = jitter / 2
         PARAM_ALPHA = 0.4

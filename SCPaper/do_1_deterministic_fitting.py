@@ -25,13 +25,13 @@ import multiprocessing as mp
 # set constants
 
 # - models 
-BASE_MODELS = ('', 'oVA', 'oVAa', 'oVAaoBEc', 'oVAoVAl', 'oVAaoVAl')  
-MODEL_VARIANTS = ('', 'oBEo', 'oBEv', 'oBEooBEv', 'oBEvoAI', 'oBEooBEvoAI')
+BASE_MODELS = ('oVA',)  
+MODEL_VARIANTS = ('oBEvoAI',)
 
 
 # - free parameter values
 PARAM_ARRAYS = {}
-N_GRID_SIDE = 10
+N_GRID_SIDE = 30
 PARAM_ARRAYS['k_c'] = np.logspace(np.log10(0.2), np.log10(2), N_GRID_SIDE)
 PARAM_ARRAYS['k_sc'] = np.logspace(np.log10(0.02), np.log10(0.2), N_GRID_SIDE)
 PARAM_ARRAYS['thetaDot_1'] = np.logspace(np.log10(0.001), np.log10(0.1), N_GRID_SIDE) 
