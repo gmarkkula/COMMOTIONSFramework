@@ -3,7 +3,7 @@ This folder contains code that uses the modules in the root of this repository t
 The results of these tests have been written up as a paper with working title "Explaining human interactions on the road requires large-scale integration of psychological theory", preprint available [here](https://doi.org/10.31234/osf.io/hdxbs). The scripts in this folder allow running all tests and generating all figures in the paper. Note that the current version of the preprint was generated based on [release v0.3](https://github.com/gmarkkula/COMMOTIONSFramework/releases/tag/v0.3) of this repository.
 
 * The scripts `do_#_[...].py` implement the sequence of model analysis steps, generating and saving results (as Pickle `.pkl` files) in the `results` folder, and in some cases also generating and saving supplementary figures in the `figs` folder:
-    * `do_2_analyse_deterministic_fits.py` generates Figures S5 and S10-S12.
+    * `do_2_analyse_deterministic_fits.py` generates Figures S5 and S10-S12 (the code on this master branch will generate a coarser-grid version of Figure S10; for simplicity the finer-grid version was generated on a [separate branch](https://github.com/gmarkkula/COMMOTIONSFramework/tree/finer-grid-deterministic-tests-oVAoBEvoAI)).
     * `do_4_analyse_short_stopping_check.py` generates Figure S6.
     * `do_6_analyse_probabilistic_fits.py` generates Figures S13-S15.
     * `do_9_analyse_combined_fits.py` generates Figure S16.
