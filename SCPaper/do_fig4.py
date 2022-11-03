@@ -28,7 +28,7 @@ import sc_plot
 
 
 
-SAVE_PDF = False
+SAVE_PDF = True
 if SAVE_PDF:
     SCALE_DPI = 1
     text_y_nudge = 0.02 # not sure why this is needed
@@ -263,7 +263,7 @@ if __name__ == '__main__':
                         
             # distance-distance plot
             ax = axs[0, i_scenario]
-            ax_x = 0.07 + 0.13 * i_scenario
+            ax_x = 0.62 + 0.13 * i_scenario
             for idx in sim_results['idx_retained']:
                 veh_cp_dist = sim_results[scenario.name][i_VEH_AGENT]['cp_dist'][idx, :]
                 ped_cp_dist = sim_results[scenario.name][i_PED_AGENT]['cp_dist'][idx, :]
@@ -352,7 +352,7 @@ if __name__ == '__main__':
                                                             'loc': (1, 1.3)})
             for i_ax, ax in enumerate(cit_axs):
                 sc_plot.leave_only_yaxis(ax) 
-                ax_x = 0.52 + i_ax * 0.10
+                ax_x = 0.06 + i_ax * 0.10
                 ax_y = 0.71 - i_source * 0.15
                 ax.set_position((ax_x, ax_y, AX_W, AX_H))
                 if i_source == 0:
@@ -363,7 +363,7 @@ if __name__ == '__main__':
                     sc_plot.add_linked_time_axis(ax, label='')
                     ylabel = 'Model'
             cit_axs[0].set_ylabel(ylabel + '\nCDF (-)')
-        plt.annotate('Crossing initiation time (s)', (0.72, 0.46 + text_y_nudge), 
+        plt.annotate('Crossing initiation time (s)', (0.26, 0.46 + text_y_nudge), 
                      xycoords='figure fraction', ha='center')
 
        
@@ -423,7 +423,7 @@ if __name__ == '__main__':
             ax.set_title(title, fontsize=sc_plot.DEFAULT_FONT_SIZE)
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
-            ax_x = 0.56 + i_source * 0.23
+            ax_x = 0.10 + i_source * 0.23
             ax.set_position((ax_x, AX_Y, AX_W, AX_H))
             
         # hide unused subplots
@@ -433,9 +433,9 @@ if __name__ == '__main__':
         
                 
     # add panel labels
-    sc_plot.add_panel_label('A', (0.05, 0.87 + text_y_nudge))
-    sc_plot.add_panel_label('B', (0.47, 0.88 + text_y_nudge))
-    sc_plot.add_panel_label('C', (0.5, 0.38 + text_y_nudge))
+    sc_plot.add_panel_label('B', (0.60, 0.87 + text_y_nudge))
+    sc_plot.add_panel_label('A', (0.01, 0.88 + text_y_nudge))
+    sc_plot.add_panel_label('C', (0.04, 0.38 + text_y_nudge))
     
     
     if SAVE_PDF:
