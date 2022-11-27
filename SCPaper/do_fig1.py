@@ -126,6 +126,7 @@ if PLOT_METRICS:
         kde_y = np.log10(kde_y)
         return base_y + kde_y
     
+    YLIMS = (0.2, len(CRIT_VARIANTS) + 1)
     for i_scenario in range(len(SCENARIO_NAMES)):
         xlims = SCENARIO_METRIC_XLIMS[i_scenario]
         xrange = xlims[1] - xlims[0]
@@ -142,23 +143,30 @@ if PLOT_METRICS:
                 det_fit = det_fits[model_name]
                 crit_details = det_fit.crit_details[SCENARIO_CRITERIA[i_scenario]]
                 if i_variant == 0:
-                    THRESH_LW = 0.75
+                    # indicate are where criterion is met
+                    THRESH_LW = 2
+                    THRESH_C = sc_plot.lighten_color(sc_plot.COLORS['active agent blue'], 0.6) # 'lightgray' 
                     crit_thresh = SCENARIO_QUAL_CRIT_THRESHS[i_scenario]
-                    ax.axvline(crit_thresh, c='lightgray', lw=THRESH_LW)
+                    ax.axvline(crit_thresh, ls='-', c=THRESH_C, lw=0.5)
                     if i_base > 0:
-                        #arr_base_x = crit_details.metric_thresh
                         arr_base_x = crit_thresh
-                        arr_len = 0.1*(xlims[1]-xlims[0])
+                        arr_len = 0.12 * (xlims[1] - xlims[0])
                         if not crit_details.crit_greater_than:
                             arr_len = -arr_len
-                        arr_y = 0.6
-                        ax.plot(arr_base_x + arr_len * np.array((0, 1)), 
-                                arr_y * np.ones(2), color='lightgray', 
-                                lw=THRESH_LW)
-                        for d in (-1, 1):
-                            ax.plot(arr_base_x + arr_len * np.array((0.8, 1)), 
-                                    arr_y + 0.1 * np.array((d, 0.0)), 
-                                    color='lightgray', lw=THRESH_LW)
+                        ARR_Y = 0.55
+                        ARR_HEAD_X_FRAC = 0.35
+                        ARR_R = 0.05
+                        ARR_HEAD_R_FRAC = 2.8
+                        # ax.plot(arr_base_x + arr_len * ARR_HEAD_X_FRAC * np.array((0.15, 1)), 
+                        #         ARR_Y * np.ones(2), color=THRESH_C, 
+                        #         lw=THRESH_LW)
+                        arr_xs = np.array((1, ARR_HEAD_X_FRAC, ARR_HEAD_X_FRAC, 0, 0, ARR_HEAD_X_FRAC, ARR_HEAD_X_FRAC)) * arr_len + arr_base_x
+                        arr_ys = np.array((0, ARR_HEAD_R_FRAC, 1, 1, -1, -1, -ARR_HEAD_R_FRAC)) * ARR_R + ARR_Y
+                        ax.fill(arr_xs, arr_ys, fc=THRESH_C, ec=None)
+                        # for d in (-1, 1):
+                        #     ax.plot(arr_base_x + arr_len * np.array((ARR_HEAD_X_FRAC, 1)), 
+                        #             ARR_Y + ARR_HEAD_Y_R * np.array((d, 0.0)), 
+                        #             color=THRESH_C, lw=THRESH_LW)
                 # if crit_details.crit_greater_than:
                 #     plot_values = np.nanmax(crit_details.metric_values, axis=1)
                 # else:
@@ -182,7 +190,7 @@ if PLOT_METRICS:
                 ax.plot(kde_x, kde_y, dashes = BASE_DASHES[i_base], color=color,
                         lw=1)
                 ax.set_xlim(xlims[0], xlims[1])
-                ax.set_ylim(0.2, len(CRIT_VARIANTS) + 1)
+                ax.set_ylim(YLIMS[0], YLIMS[1])
                 ax.get_yaxis().set_visible(False)
                 ax.spines['right'].set_visible(False)
                 ax.spines['top'].set_visible(False)
