@@ -23,12 +23,14 @@ i_EGOFIRST = AccessOrder.EGOFIRST.value
 i_EGOSECOND = AccessOrder.EGOSECOND.value
 N_ACCESS_ORDERS = len(AccessOrder)
 
+# a class for enumerating the different assumed consecutive phases for an agent 
+# in achieving a certain access order
 class AnticipationPhase(Enum):
-    ACTION = 0
-    ACH_ACCESS = 1
-    WAIT = 2
-    REGAIN_SPD = 3
-    CONTINUE = 4
+    ACTION = 0      # applying an action
+    ACH_ACCESS = 1  # constant acceleration to achieve 
+    WAIT = 2        # waiting at standstill
+    REGAIN_SPD = 3  # regaining free speed
+    CONTINUE = 4    # continuing at free speed
 i_ACTION = AnticipationPhase.ACTION.value
 i_ACH_ACCESS = AnticipationPhase.ACH_ACCESS.value
 i_WAIT = AnticipationPhase.WAIT.value
@@ -40,15 +42,21 @@ ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
 
 NEW_ACC_IMPL_CALCS = True
     
+# a class for storing the "implications" for an agent of achieving an access order,
+# by first applying a constant acceleration acc for a time T_acc, possibly followed
+# by a non-zero duration T_dw of waiting at standstill. After these steps, the 
+# agent is assumed to apply a constant acceleration (of value dependent on agent
+# type) to regain its free speed.
 AccessOrderImplication = collections.namedtuple('AccessOrderImplication',
                                                 ['acc', 'T_acc', 'T_dw'])
 
-#ANTICIPATION_PHASES = ('action', 'ach_access', 'wait', 'regain_spd', 'continue')
-#N_ANTICIPATION_PHASES = len(ANTICIPATION_PHASES)
-
+# a class for storing information about the value for an agent of achieving a
+# certain access order, including - optionally - some details about how these
+# values were calculated
 AccessOrderValue = collections.namedtuple('AccessOrderValue',
                                           ['value', 'details'])
 
+# a class for storing information about the calculations behind an access order value.
 AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
                                                  ['time_stamps', 
                                                   'cp_dists',
@@ -68,6 +76,7 @@ AccessOrderValueDetails = collections.namedtuple('AccessOrderValueDetails',
                                                   'phase_looming_values',
                                                   'inh_access_value'])
 
+# a class for storing static information about an agent
 SCAgentImage = collections.namedtuple('SCAgentImage', 
                                       ['ctrl_type', 'params', 'v_free', 
                                        'g_free', 'V_free', 'coll_dist',
@@ -221,6 +230,8 @@ def get_time_to_dist_with_acc(state, target_dist, consider_acc=True):
     
 
 def get_agent_coll_dist(ego_length, oth_width):
+    # Return the longitudinal position of the (centre point of) the agent, when 
+    # it is just at the edge of the contested space.
     return oth_width / 2 + ego_length / 2
 
 
@@ -303,13 +314,17 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
     
 
 def set_phase_acceleration(accelerations, idx_phase_starts, i_phase, phase_acc):
-    # Helper function for get_access_order_values().
+    # Helper function for get_access_order_values(), setting the acceleration for
+    # a specific phase during anticipated future time horizon to a value phase_acc.
+    # Just intended as a more human-readable version of the numpy array assignment
+    # below.
     accelerations[idx_phase_starts[i_phase]:idx_phase_starts[i_phase+1]] = phase_acc
 
 
 
 def anticipation_integration(x0, xdots, xdotdots=0):
-    # Helper function for get_access_order_values().
+    # Helper function for get_access_order_values(), to do integration of kinematical
+    # quantities over the anticipated future time horizon.
     xs = np.full(len(xdots), float(x0))
     if type(xdotdots) == np.ndarray:
         xs[1:] = x0 + np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP
@@ -324,8 +339,42 @@ def get_access_order_values(
         ego_image, ego_curr_state, action_acc0, action_jerk, 
         oth_image, oth_curr_state, oth_first_acc, oth_cont_acc,
         access_ord_impls, consider_looming = False, return_details = False):
-    # TODO add documentation here.
+    """ Return a dict over AccessOrder, with an AccessOrderValue object for each, 
+        giving information about the values for an ego agent of achieving each
+        access order.
     
+        Input arguments:
+            ego_image : SCAgentImage
+                Static information about the ego agent.
+            ego_curr_state : commotions.KinematicState 
+                Current state of the ego agent. 
+            action_acc0 : float
+                Average ego agent acceleration in the action/prediction interval.
+            action_jerk : float
+                Ego agent jerk during the action/prediction interval.
+            oth_image : SCAgentImage
+                Static information about the other agent.
+            oth_curr_state : commotions.KinematicState 
+                Current state of the other agent. 
+            oth_first_acc : float
+                Acceleration of the other agent during the action/prediction interval.
+            oth_cont_acc : float
+                Acceleration of the other agent after the action/prediction interval.
+            access_ord_impls : dict
+                Dictionary with keys of type AccessOrder, and values of type
+                AccessOrderImplication. Gives information on the future kinematics
+                required of the ego agent to achieve the different access orders.
+            consider_looming : bool
+                If True, looming aversion will be considered as part of the value
+                calculations. Default value is False.
+            return_details : bool
+                If False, the details property of the returned AccessOrderValue 
+                objects will be None. If True, they will be AccessOrderValueDetails
+                objects. Default value is False.
+    """
+    
+    # loop through the access orders, and get create an AccessOrderValue object
+    # for each
     access_ord_values = {}
     for access_ord in AccessOrder:
         
