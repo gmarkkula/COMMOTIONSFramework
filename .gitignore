@@ -4,3 +4,4 @@ _deleted
 SCPaper/results/fig_*
 SCPaper/results/test_*
 .vscode
+.hypothesis

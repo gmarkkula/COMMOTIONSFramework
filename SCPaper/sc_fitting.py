@@ -126,10 +126,43 @@ DEFAULT_PARAMS.ctrl_deltas = np.array([-1, -0.5, 0, 0.5, 1])
 
 @dataclass
 class ModelWithParams:
+    """ A class for storing information on a model and a set of 
+        parameterisations for it.
+        
+        Properties
+        ----------
+            model: str
+                A string identifier for the model, e.g., oVAoBEvoAI.
+            param_names: list
+                A list of strings, names of the parameters of this model.
+            n_params: int
+                Number of parameters, equal to len(param_names).
+            params_array:
+                A numpy array with one column for each parameter in param_names,
+                and one row for each parameterisation for the model.
+            n_parameterisations: int
+                Number of parameterisations, equal to params_array.shape[0].
+            param_ranges:
+                A list with one tuple for each parameter in param_names,
+                indicating the lower and upper bound of the original parameter
+                ranges searched for the parameter.
+    """
     model: str
     param_names: list
     param_ranges: list
     params_array: np.ndarray
+    def get_params_dict(self, idx_parameterisation):
+        """ Return parameterisation number idx_parameterisation from
+            self.params_array, as a dict with parameter names as dict keys and
+            parameter values as dict values.
+        """
+        return dict(zip(self.param_names, 
+                        self.params_array[idx_parameterisation, :]))
+    def __post_init__(self):
+        self.n_parameterisations = self.params_array.shape[0]
+        self.n_params = self.params_array.shape[1]
+        assert(self.n_params == len(self.param_names))
+        
         
 
 # class for defining scenarios to simulate
@@ -202,6 +235,7 @@ class SCPaperScenario:
     def __init__(self, name, initial_ttcas, ped_prio=False,
                  ped_start_standing=False, ped_standing_margin=COLLISION_MARGIN,
                  ped_const_speed=False, veh_const_speed=False, 
+                 ped_initial_speed=AGENT_FREE_SPEEDS[i_PED_AGENT],
                  veh_initial_speed=AGENT_FREE_SPEEDS[i_VEH_AGENT],
                  veh_yielding=False, veh_yielding_start_time=0,
                  veh_yielding_margin=COLLISION_MARGIN,
@@ -246,7 +280,9 @@ class SCPaperScenario:
         self.initial_speeds = np.copy(AGENT_FREE_SPEEDS)
         self.initial_speeds[i_VEH_AGENT] = veh_initial_speed
         if ped_start_standing:
-            self.initial_speeds[i_PED_AGENT] = 0       
+            self.initial_speeds[i_PED_AGENT] = 0     
+        else:  
+            self.initial_speeds[i_PED_AGENT] = ped_initial_speed
         # set initial distances and constant accelerations here only if 
         # scenario has just a single variation
         if self.n_variations == 1:
