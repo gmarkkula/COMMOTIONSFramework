@@ -64,11 +64,11 @@ CRITERIA = (('Priority assertion', 'Short-stopping',
              'Pedestrian progressing after vehicle yield')
             )
 assert(N_CRIT_GROUPS == len(CRITERIA))
-CRIT_METRICS = (('$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
-                 '$\overline{d - d_\mathrm{stop}}$ (m/s²)',
-                 '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
-                 '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)'), 
-                ('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
+CRIT_METRICS = ((r'$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
+                 r'$\overline{d - d_\mathrm{stop}}$ (m/s²)',
+                 r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
+                 r'$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)'), 
+                (r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
                  '# of non-progress variants (-)'))
 N_CRITERIA = 0
 for grp_criteria in CRITERIA:

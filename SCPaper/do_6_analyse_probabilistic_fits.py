@@ -173,7 +173,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name,
                     ax.set_xlim(0.2, 1.2)
                     ax.axvline(HESITATION_SPEED_FRACT, ls=':', color='gray')
                     if i_row == nrows-1:
-                        ax.set_xlabel('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
+                        ax.set_xlabel(r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
                         
             elif crit == 'Pedestrian progress in constant-speed scenario':
                 ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')

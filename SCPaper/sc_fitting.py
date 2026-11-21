@@ -164,6 +164,32 @@ class ModelWithParams:
         assert(self.n_params == len(self.param_names))
         
         
+@dataclass
+class HesitationCheck:
+    """ A class for storing the results of the pedestrian hesitation check
+        for one model parameterisation (see do_7_check_hesitation.py).
+        
+        (Previously defined in do_7_check_hesitation.py, and therefore pickled
+        as __main__.HesitationCheck in HesitationChecks.pkl - load_results() 
+        maps that to this class.)
+        
+        Properties
+        ----------
+            params_dict: dict
+                The model parameterisation, parameter names as keys.
+            mean_vs: list
+                The mean pedestrian speeds before the conflict space, one per
+                tested scenario.
+            ci_radii: list
+                The radii of the 95 % confidence intervals for mean_vs.
+            passed: bool
+                True if the hesitation check was passed.
+    """
+    params_dict: dict
+    mean_vs: list
+    ci_radii: list
+    passed: bool
+
 
 # class for defining scenarios to simulate
 class SCPaperScenario:
@@ -767,15 +793,56 @@ def save_results(results, file_name, verbose=True):
         print('\tDone.')
 
 
+class _ResultsUnpickler(pickle.Unpickler):
+    """ An unpickler which maps classes that were pickled as defined in a 
+        script run as __main__ (e.g., HesitationCheck in 
+        do_7_check_hesitation.py) to the class with the same name in this 
+        module, if there is one.
+    """
+    def find_class(self, module, name):
+        if module == '__main__' and name in globals():
+            return globals()[name]
+        return super().find_class(module, name)
+
+
+def _load_pickle(file_path):
+    """ Load and return the object pickled in file_path. Falls back on
+        pandas.read_pickle() if needed, to be able to load pandas objects
+        pickled with older versions of pandas (e.g., pandas 1.x objects 
+        referencing the pandas.core.indexes.numeric module, which was removed
+        in pandas 2.0).
+    """
+    try:
+        with open(file_path, 'rb') as file_obj:
+            return _ResultsUnpickler(file_obj).load()
+    except (ImportError, AttributeError):
+        # (ModuleNotFoundError is a subclass of ImportError)
+        import pandas as pd
+        return pd.read_pickle(file_path)
+
+
 def load_results(file_name, verbose=True):
     file_path = FIT_RESULTS_FOLDER + file_name
     if verbose:
         print(f'Loading "{file_path}"...')
-    with open(file_path, 'rb') as file_obj:
-        results = pickle.load(file_obj)
-        if verbose:
-            print('\tDone.')
-        return results
+    results = _load_pickle(file_path)
+    if verbose:
+        print('\tDone.')
+    return results
+
+
+def load_hiker_data(verbose=False):
+    """ Load and return the observed HIKER crossing initiation time data, as
+        saved by do_10_get_empirical_HIKER_CITs.py: a dict with scenario names
+        as keys and pandas DataFrames as values.
+    """
+    file_path = DATA_FOLDER + HIKER_DATA_FILE_NAME
+    if verbose:
+        print(f'Loading "{file_path}"...')
+    hiker_data = _load_pickle(file_path)
+    if verbose:
+        print('\tDone.')
+    return hiker_data
     
     
 def results_exist(file_name, verbose=False):
@@ -1249,7 +1316,7 @@ def do_hiker_cit_cdf_plot(cit_data, fig_name='Crossing initiation CDFs',
                 ecdf = ECDF(cit_data[scen_name]['crossing_time'])
                 alpha = get_speed_alpha(i_speed)
                 color = get_yielding_color(veh_yielding)
-                ax.step(ecdf.x, ecdf.y, 'k-', lw=i_speed+1, color=color, 
+                ax.step(ecdf.x, ecdf.y, '-', lw=i_speed+1, color=color, 
                         alpha=alpha)
                 ax.set_xlim(-1, 11)
                 ax.set_ylim(-.1, 1.1)

@@ -22,6 +22,8 @@ Some of the scripts use the `multiprocessing` module to run model simulations ov
 
 The bulk of the results in this repository and in the paper was generated on the ARC4 cluster mentioned above, running Python 3.7.4, with package versions from the [Anaconda 2019.10 release](https://docs.anaconda.com/anaconda/reference/release-notes/#anaconda-2019-10-october-15-2019) (as described on [this ARC4 page](https://arcdocs.leeds.ac.uk/software/compilers/anaconda.html), accessed 2022-05-26). Some results, and all figures, were generated on the lead author's own computer, running Python 3.9.2, with package versions from the [WinPython 2021-01 release](https://winpython.github.io/); in cases where the same analyses were tested in both places the obtained results were identical between the two.
 
+The scripts and stored `.pkl` results/data files have since been updated for compatibility with Python 3.10+ and modern versions of NumPy (2.x), SciPy, pandas (2.0+), Matplotlib, and statsmodels; see `pyproject.toml` and `requirements.txt` in the repository root for current dependency specifications.
+
 ---
 
 This work is licensed under a

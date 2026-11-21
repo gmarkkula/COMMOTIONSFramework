@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "commotions-framework"
+version = "0.4.0.dev0"
+description = "A modular framework for modelling road user interactions (COMMOTIONS project), with the code for the SCPaper model tests and figures."
+readme = "README.md"
+license = {text = "CC-BY-NC-SA-4.0"}
+authors = [{name = "Gustav Markkula"}]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "statsmodels>=0.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+notebooks = [
+    "jupyter>=1.0",
+    "ipykernel>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/gmarkkula/COMMOTIONSFramework"
+
+[tool.setuptools]
+# flat set of top-level modules, not a package (the SCPaper scripts and
+# modules are not installed; they add the repository root to sys.path
+# themselves)
+py-modules = ["commotions", "sc_scenario", "sc_scenario_helper", "sc_scenario_perception"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["diary notebooks"]
+
+[tool.ruff.lint]
+# conservative selection (syntax errors, invalid comparisons/statements and
+# undefined names in __all__/type annotations), so as not to flag the many
+# pre-existing style issues
+select = ["E9", "F63", "F7", "F82"]

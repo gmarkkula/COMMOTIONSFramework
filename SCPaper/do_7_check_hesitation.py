@@ -15,12 +15,13 @@ if not PARENT_DIR in sys.path:
 
 # other imports
 import math
-import pickle
 import numpy as np
 import itertools
 import multiprocessing as mp
-from dataclasses import dataclass
 import sc_fitting
+# (HesitationCheck used to be defined here, but is now defined in sc_fitting,
+# to allow unpickling of the saved results also outside of this script)
+from sc_fitting import HesitationCheck
 
 SCENARIO_TTCAS = (-3, 8)
 N_SIMS = 50
@@ -39,13 +40,6 @@ def run_one_sim(model_name, params_dict, car_ttca):
     metrics = sc_fitting.get_metrics_for_scenario(scenario, sim, verbose=False)
     return metrics['PedHesitateVehConst_ped_av_speed_to_CS']
 
-@dataclass
-class HesitationCheck:
-    params_dict: dict
-    mean_vs: list
-    ci_radii: list
-    passed: bool
-
 
 if __name__ == '__main__':
     
@@ -53,9 +47,7 @@ if __name__ == '__main__':
     pool = mp.Pool(mp.cpu_count()-1)
 
     # load the retained models
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' + sc_fitting.RETAINED_PROB_FNAME,
-              'rb') as file_obj:
-        retained_models = pickle.load(file_obj)
+    retained_models = sc_fitting.load_results(sc_fitting.RETAINED_PROB_FNAME)
         
     # loop through the retained models
     hesitation_check_results = {}
