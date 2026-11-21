@@ -8,6 +8,31 @@ This repository contains a Python 3 implementation of a modular framework for mo
 
 * The "*handwritten notes*" folder contains scans of some mathematical derivations referenced in the code and diary notebooks.
 
+## Installation
+
+Python 3.10 or newer is required. Install the runtime dependencies with `pip`:
+
+```bash
+pip install -r requirements.txt
+```
+
+Alternatively, install the top-level framework modules in editable mode (optionally including development or notebook dependencies declared in `pyproject.toml`):
+
+```bash
+pip install -e .
+pip install -e ".[dev,notebooks]"
+```
+
+## Running tests
+
+Install the development dependencies (`pytest` and `ruff`) and run the test suite and linter from the repository root:
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -q
+ruff check .
+```
+
 ---
 
 This work is licensed under a
