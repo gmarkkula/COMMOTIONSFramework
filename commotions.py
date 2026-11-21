@@ -20,14 +20,22 @@ def add_uniform_action_to_array(\
         action_magnitude
 
 
+_LINEAR_RAMP_CACHE = {}
+
+
 def add_linear_ramp_action_to_array(action_array, action_magnitude, \
     n_action_time_steps, i_start_time_step):
     """ Add a ramp from zero to action_magnitude to action_array over
         n_action_time_steps starting at i_start_time_step, and then adds
         action_magnitude to the rest of action_array.
     """
-    action_array[i_start_time_step : i_start_time_step + n_action_time_steps] += \
-        np.linspace(0, action_magnitude, n_action_time_steps)
+    cache_key = (float(action_magnitude), int(n_action_time_steps))
+    ramp = _LINEAR_RAMP_CACHE.get(cache_key)
+    if ramp is None:
+        ramp = np.linspace(0, action_magnitude, n_action_time_steps)
+        ramp.flags.writeable = False
+        _LINEAR_RAMP_CACHE[cache_key] = ramp
+    action_array[i_start_time_step : i_start_time_step + n_action_time_steps] += ramp
     action_array[i_start_time_step + n_action_time_steps : ] += action_magnitude
 
 
@@ -36,36 +44,78 @@ def get_future_kinematic_state(initial_state, long_acc, yaw_rate, \
     can_reverse = True, as_tuple = False):
     
     # handle vector vs scalar input for the action variables
-    if type(long_acc) is np.ndarray:
-        get_long_acc = lambda i : long_acc[i]
-    else:
-        get_long_acc = lambda i : long_acc
-    if type(yaw_rate) is np.ndarray:
-        get_yaw_rate = lambda i : yaw_rate[i]
-    else:
-        get_yaw_rate = lambda i : yaw_rate
+    long_acc_is_vector = type(long_acc) is np.ndarray
+    yaw_rate_is_vector = type(yaw_rate) is np.ndarray
 
     # copy initial state into a new KinematicState object
     local_state = copy.copy(initial_state)
 
     # do the Euler time-stepping
-    for i in range(i_start_time_step + 1, 
-                    i_start_time_step + n_time_steps_to_advance + 1):
+    # (implemented with scalar arithmetic on the x and y coordinates, rather 
+    # than with 2-element numpy arrays, for speed - each coordinate undergoes 
+    # exactly the same floating-point operations as in an array-based 
+    # implementation, so results are identical)
+    if n_time_steps_to_advance > 0:
         if can_reverse:
             min_speed = -math.inf
         else:
             min_speed = 0
-        # a more exact version of the position update below should also take into
-        # account the effect of non-zero yaw rate
-        local_state.pos = (
-            local_state.pos
-            + max(min_speed, time_step * local_state.long_speed 
-                + get_long_acc(i-1) * (time_step ** 2) / 2)
-            * np.array([math.cos(local_state.yaw_angle), 
-                        math.sin(local_state.yaw_angle)]))
-        local_state.long_speed += get_long_acc(i-1) * time_step
-        local_state.long_speed = max(min_speed, local_state.long_speed)
-        local_state.yaw_angle += get_yaw_rate(i-1) * time_step
+        time_step_sq = time_step ** 2
+        pos = local_state.pos
+        pos_x = float(pos[0])
+        pos_y = float(pos[1])
+        long_speed = float(local_state.long_speed)
+        yaw_angle = float(local_state.yaw_angle)
+        const_zero_yaw = (not yaw_rate_is_vector) and (yaw_rate == 0) and (yaw_angle != 0.0)
+        if const_zero_yaw:
+            cos_yaw = math.cos(yaw_angle)
+            sin_yaw = math.sin(yaw_angle)
+            if long_acc_is_vector:
+                accs = long_acc[i_start_time_step : i_start_time_step + n_time_steps_to_advance].tolist()
+                for curr_long_acc in accs:
+                    dist = time_step * long_speed + curr_long_acc * time_step_sq / 2
+                    if not dist > min_speed:
+                        dist = min_speed
+                    pos_x = pos_x + dist * cos_yaw
+                    pos_y = pos_y + dist * sin_yaw
+                    long_speed += curr_long_acc * time_step
+                    if not long_speed > min_speed:
+                        long_speed = min_speed
+            else:
+                curr_long_acc = float(long_acc)
+                half_acc_dt_sq = curr_long_acc * time_step_sq / 2
+                acc_dt = curr_long_acc * time_step
+                for _ in range(n_time_steps_to_advance):
+                    dist = time_step * long_speed + half_acc_dt_sq
+                    if not dist > min_speed:
+                        dist = min_speed
+                    pos_x = pos_x + dist * cos_yaw
+                    pos_y = pos_y + dist * sin_yaw
+                    long_speed += acc_dt
+                    if not long_speed > min_speed:
+                        long_speed = min_speed
+        else:
+            for i in range(i_start_time_step, 
+                           i_start_time_step + n_time_steps_to_advance):
+                if long_acc_is_vector:
+                    curr_long_acc = float(long_acc[i])
+                else:
+                    curr_long_acc = float(long_acc)
+                dist = time_step * long_speed + curr_long_acc * time_step_sq / 2
+                if not dist > min_speed:
+                    dist = min_speed
+                pos_x = pos_x + dist * math.cos(yaw_angle)
+                pos_y = pos_y + dist * math.sin(yaw_angle)
+                long_speed += curr_long_acc * time_step
+                if not long_speed > min_speed:
+                    long_speed = min_speed
+                if yaw_rate_is_vector:
+                    yaw_angle += float(yaw_rate[i]) * time_step
+                else:
+                    yaw_angle += float(yaw_rate) * time_step
+        local_state.pos = np.array([pos_x, pos_y])
+        local_state.long_speed = long_speed
+        local_state.yaw_angle = yaw_angle
 
     # return the final state, as tuple or as KinematicState object
     if as_tuple:
