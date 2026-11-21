@@ -14,7 +14,6 @@ if not PARENT_DIR in sys.path:
     sys.path.append(PARENT_DIR)
     
 # other imports
-import pickle
 import multiprocessing as mp
 import numpy as np
 import sc_scenario
@@ -57,12 +56,8 @@ if __name__ == '__main__':
     sc_fitting.run_dummy_prob_sim()
     
     # load the retained models
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/'
-              + sc_fitting.RETAINED_DET_FNAME, 'rb') as file_obj:
-        det_models = pickle.load(file_obj)
-    with open(sc_fitting.FIT_RESULTS_FOLDER + '/' 
-              + sc_fitting.RETAINED_PROB_FNAME, 'rb') as file_obj:
-        prob_models = pickle.load(file_obj)
+    det_models = sc_fitting.load_results(sc_fitting.RETAINED_DET_FNAME)
+    prob_models = sc_fitting.load_results(sc_fitting.RETAINED_PROB_FNAME)
         
     # initialise random number generator
     rng = np.random.default_rng()

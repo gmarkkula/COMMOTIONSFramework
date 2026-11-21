@@ -289,7 +289,9 @@ class ParameterSearch:
 
         """
         # figure out how many parameterisations are in the grid
-        n_param_values = np.full(self.n_params, math.nan, dtype=int)
+        # (NB: integer array, so not NaN-initialised - casting NaN to int gives
+        # "RuntimeWarning: invalid value encountered in cast" in modern NumPy)
+        n_param_values = np.zeros(self.n_params, dtype=int)
         for i in range(self.n_params):
             n_param_values[i] = len(param_arrays[self.param_names[i]])
         n_cum_param_combs = np.cumprod(n_param_values)

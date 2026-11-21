@@ -17,7 +17,6 @@ if not PARENT_DIR in sys.path:
 import math
 import itertools
 import multiprocessing as mp
-import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -333,9 +332,7 @@ if __name__ == '__main__':
             # get CITs to plot
             if source == 'data':
                 # observed CDFs
-                with open(sc_fitting.DATA_FOLDER + '/' + sc_fitting.HIKER_DATA_FILE_NAME,
-                          'rb') as file_obj:
-                    cits = pickle.load(file_obj)
+                cits = sc_fitting.load_hiker_data()
             else:
                 # model CDFs
                 cits = sc_fitting.load_results(
@@ -410,8 +407,8 @@ if __name__ == '__main__':
                 else:
                     ls = '-'
                     color = 'black'
-                ax.plot(DSS_GAPS, ped_cross[zebra], 'k-o', ls=ls, color=color,
-                        ms=4)
+                ax.plot(DSS_GAPS, ped_cross[zebra], marker='o', ls=ls, 
+                        color=color, ms=4)
             ax.set_xlabel('Gap (s)')
             if i_source == 0:
                 ax.set_ylabel('$P$(pedestrian first) (-)')
