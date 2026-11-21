@@ -167,12 +167,39 @@ def get_default_params(oVA):
 TTC_FOR_COLLISION = 0.1
 MIN_BEH_PROB = 0.0 # behaviour probabilities below this value are considered zero
 
+def _nanmax2(a, b):
+    """Fast 2-element IEEE nanmax matching np.nanmax([a, b])."""
+    if math.isnan(a):
+        return b
+    if math.isnan(b):
+        return a
+    return a if a >= b else b
+
+
 class States():
     pass
 
 class SCAgent(commotions.AgentWithGoal):
 
+    def _refresh_cached_flags(self):
+        """Cache enum-keyed assumption booleans as plain attributes for hot loops."""
+        a = self.assumptions
+        self._oVA = bool(a[OptionalAssumption.oVA])
+        self._oVAa = bool(a[OptionalAssumption.oVAa])
+        self._oVAl = bool(a[OptionalAssumption.oVAl])
+        self._oEA = bool(a[OptionalAssumption.oEA])
+        self._oDA = bool(a[OptionalAssumption.oDA])
+        self._oBEo = bool(a[OptionalAssumption.oBEo])
+        self._oBEv = bool(a[OptionalAssumption.oBEv])
+        self._oBEc = bool(a[OptionalAssumption.oBEc])
+        self._oAI = bool(a[OptionalAssumption.oAI])
+        self._dBE = bool(a[DerivedAssumption.dBE])
+        self._is_speed_ctrl = self.ctrl_type is CtrlType.SPEED
+        self._consider_oth_acc_for_beh = self._oVAa and (self.ctrl_type is CtrlType.ACCELERATION)
+        self._pred_window_len = max(self.n_action_time_steps, self.n_prediction_time_steps) + 1
+
     def prepare_for_simulation(self):
+        self._refresh_cached_flags()
         # make sure this agent isn't used for a simulation with more than two
         # agents
         assert(len(self.simulation.agents) == 2)
@@ -399,9 +426,13 @@ class SCAgent(commotions.AgentWithGoal):
             return
         
         # update this agent's current perception of the other agent
-        # - save the percept from the previous time step
-        self.perception.prev_perc_oth_state = copy.deepcopy(
-            self.perception.perc_oth_state)
+        # - save the percept from the previous time step (shallow copy + pos copy
+        #   avoids copy.deepcopy overhead per step)
+        perc_oth = self.perception.perc_oth_state
+        prev_perc = copy.copy(perc_oth)
+        if prev_perc.pos is not None:
+            prev_perc.pos = prev_perc.pos.copy()
+        self.perception.prev_perc_oth_state = prev_perc
         # - do the perception update
         self.perception.update(i_time_step, self.curr_state, 
                                self.other_agent.curr_state)
@@ -464,8 +495,7 @@ class SCAgent(commotions.AgentWithGoal):
                      ego_state=self.perception.perc_oth_state, 
                      oth_image=self.self_image,
                      oth_state=self.curr_state, 
-                     consider_oth_acc=self.assumptions[OptionalAssumption.oVAa] 
-                     and self.ctrl_type == CtrlType.ACCELERATION)
+                     consider_oth_acc=self._consider_oth_acc_for_beh)
              
         # determine which behaviours are valid at this time step
         # - the helper function above returns nan if behaviour is invalid for 
@@ -473,8 +503,8 @@ class SCAgent(commotions.AgentWithGoal):
         beh_is_valid = np.invert(np.isnan(
                 self.states.beh_long_accs[:, i_time_step]))
         # - is the constant behaviour valid for this time step?
-        if (self.assumptions[DerivedAssumption.dBE] and 
-            (not self.assumptions[OptionalAssumption.oBEc])
+        if (self._dBE and 
+            (not self._oBEc)
             and (beh_is_valid[i_PASS1ST] or beh_is_valid[i_PASS2ND])):
             # no the constant behaviour is not valid, because we are 
             # estimating behaviours, oBEc is not enabled, and at least one of 
@@ -482,7 +512,7 @@ class SCAgent(commotions.AgentWithGoal):
             beh_is_valid[i_CONSTANT] = False
             self.states.beh_long_accs[i_CONSTANT, i_time_step] = math.nan
         # - are the pass 1st/2nd behaviours valid? (are we estimating behs?)
-        elif not self.assumptions[DerivedAssumption.dBE]:
+        elif not self._dBE:
             for i_beh in (i_PASS1ST, i_PASS2ND):
                 beh_is_valid[i_beh] = False
                 self.states.beh_long_accs[i_beh, i_time_step] = math.nan
@@ -558,7 +588,7 @@ class SCAgent(commotions.AgentWithGoal):
                                                  self.other_agent.plot_color, 
                                                  speed_label = True)
                     # what type of value functions (affordance-based or not?)
-                    if self.assumptions[OptionalAssumption.oVA]:
+                    if self._oVA:
                         # affordance-based value functions
                         # get value for me of this action/behavior combination,
                         # storing both the per-access-order values and the max value
@@ -567,70 +597,53 @@ class SCAgent(commotions.AgentWithGoal):
                             # prepare for receiving and storing snapshot 
                             # details about the action value estimates
                             self.prep_for_snapshot_details(True, i_action, i_beh)                    
+                        my_outc_vals = self.get_access_order_values_for_me_v02(
+                                pred_own_states[i_action],
+                                pred_oth_states[i_beh])
                         self.states.action_vals_given_behs_outcs[
-                                i_action, i_beh, i_time_step, :] = (
-                                self.get_access_order_values_for_me_v02(
-                                        pred_own_states[i_action],
-                                        pred_oth_states[i_beh]))
+                                i_action, i_beh, i_time_step, :] = my_outc_vals
                         self.states.action_vals_given_behs[
-                                i_action, i_beh, i_time_step] = np.nanmax(
-                                self.states.action_vals_given_behs_outcs[
-                                        i_action, i_beh, i_time_step, :])
+                                i_action, i_beh, i_time_step] = _nanmax2(
+                                float(my_outc_vals[0]), float(my_outc_vals[1]))
                         # get value for for the other agent of this 
                         # action/behavior combination
                         # - first across both possible outcomes
                         if self.detailed_snapshots:
                             # not storing snapshot details for behaviour value estimates
                             self.prep_for_snapshot_details(False)    
-                        if self.assumptions[OptionalAssumption.oAI]:
+                        if self._oAI:
                             # considering impact of own actions on value for other agent
+                            oth_outc_vals = self.get_access_order_values_for_other_v02(
+                                    pred_oth_states[i_beh],
+                                    pred_own_states[i_action])
                             self.states.beh_vals_given_actions_outcs[
-                                    i_beh, i_action, i_time_step, :] = (
-                                    self.get_access_order_values_for_other_v02(
-                                            pred_oth_states[i_beh],
-                                            pred_own_states[i_action]) )
+                                    i_beh, i_action, i_time_step, :] = oth_outc_vals
                         else:
                             # not considering impact of own actions on value for other agent
                             if i_action == 0:
+                                oth_outc_vals = self.get_access_order_values_for_other_v02(
+                                        pred_oth_states[i_beh],
+                                        pred_own_states[self.i_no_action])
                                 self.states.beh_vals_given_actions_outcs[
-                                    i_beh, i_action, i_time_step, :] = (
-                                    self.get_access_order_values_for_other_v02(
-                                            pred_oth_states[i_beh],
-                                            pred_own_states[self.i_no_action]) )
+                                    i_beh, i_action, i_time_step, :] = oth_outc_vals
                             else:
                                 # no need to recalculate the same value as above
+                                oth_outc_vals = self.states.beh_vals_given_actions_outcs[
+                                    i_beh, 0, i_time_step, :]
                                 self.states.beh_vals_given_actions_outcs[
-                                    i_beh, i_action, i_time_step, :] = (
-                                        self.states.beh_vals_given_actions_outcs[
-                                            i_beh, 0, i_time_step, :])
+                                    i_beh, i_action, i_time_step, :] = oth_outc_vals
                         # - then use the value for the outcome corresponding
                         #   to the behaviour in question
                         if i_beh == i_PASS1ST:
                             self.states.beh_vals_given_actions[
-                                    i_beh, i_action, i_time_step] = (
-                                    self.states.beh_vals_given_actions_outcs[
-                                            i_beh, i_action, i_time_step, 
-                                            i_EGOFIRST])
+                                    i_beh, i_action, i_time_step] = oth_outc_vals[i_EGOFIRST]
                         elif i_beh == i_PASS2ND:
                             self.states.beh_vals_given_actions[
-                                    i_beh, i_action, i_time_step] = (
-                                    self.states.beh_vals_given_actions_outcs[
-                                            i_beh, i_action, i_time_step, 
-                                            i_EGOSECOND])
+                                    i_beh, i_action, i_time_step] = oth_outc_vals[i_EGOSECOND]
                         elif i_beh == i_CONSTANT:
-                            # not quite sure what is appropriate to do here -
-                            # constant behaviour being considered valid means
-                            # that we are either not estimating behaviours (in
-                            # which case these behaviour values shouldn't
-                            # be used anywhere), or no other behaviour is 
-                            # considered valid, which means that the
-                            # interaction is over anyway (I am pretty sure of
-                            # that at least?) - so the value set here may
-                            # not matter much anyway
                             self.states.beh_vals_given_actions[
-                                    i_beh, i_action, i_time_step] = np.nanmax(
-                                    self.states.beh_vals_given_actions_outcs[
-                                            i_beh, i_action, i_time_step, :])
+                                    i_beh, i_action, i_time_step] = _nanmax2(
+                                    float(oth_outc_vals[0]), float(oth_outc_vals[1]))
                         else:
                             raise Exception('Unexpected behaviour.')
                     else:
@@ -643,7 +656,7 @@ class SCAgent(commotions.AgentWithGoal):
                                                   i_action)
                         # get value for the other agent of this action/behavior 
                         # combination
-                        if self.assumptions[OptionalAssumption.oAI]:
+                        if self._oAI:
                             # considering impact of own actions on value for other agent
                             self.states.beh_vals_given_actions[
                                 i_beh, i_action, i_time_step] = \
@@ -687,7 +700,7 @@ class SCAgent(commotions.AgentWithGoal):
                     i_beh, :, i_time_step] = 0
             else:
                 # update value-based activations
-                if self.assumptions[OptionalAssumption.oBEv]:
+                if self._oBEv:
                     # get momentary estimates of the value-based activations
                     # (currently simply equal to the predicted value of
                     # the behaviour given the actions - but in more advanced 
@@ -710,16 +723,16 @@ class SCAgent(commotions.AgentWithGoal):
                     self.states.beh_activ_V_given_actions[
                         i_beh, :, i_time_step] = 0
                 # update the "Kalman filter" activations
-                if self.assumptions[OptionalAssumption.oBEo]:
+                if self._oBEo:
                     self.states.beh_activ_O[i_beh, i_time_step] = (
-                        (1 - self.simulation.settings.time_step / self.params.T_Of) 
+                        (1 - time_step / self.params.T_Of) 
                         * self.states.beh_activ_O[i_beh, i_time_step-1])
                     if i_time_step > 0:
                         self.states.sensory_probs_given_behs[
                             i_beh, i_time_step] = \
                             self.get_prob_of_current_state_given_beh(i_beh)
                         self.states.beh_activ_O[i_beh, i_time_step] += \
-                            (self.simulation.settings.time_step / self.params.T_O1) \
+                            (time_step / self.params.T_O1) \
                             * math.log(self.states.sensory_probs_given_behs[
                                 i_beh, i_time_step])
                 else:
@@ -734,18 +747,26 @@ class SCAgent(commotions.AgentWithGoal):
                         self.states.beh_activ_O[i_beh, i_time_step] 
 
         # get my estimated probabilities for the other agent's behavior
-        if self.assumptions[DerivedAssumption.dBE]:
+        if self._dBE:
+            inv_beh_valid = np.invert(beh_is_valid)
+            n_valid = int(np.count_nonzero(beh_is_valid))
             for i_action in range(self.n_actions):
                 # get probabilities as softmax over activations for valid
-                # behaviors
+                # behaviors (inline exp/sum avoids scipy.special.softmax dispatch)
+                valid_act = self.states.beh_activations_given_actions[
+                    beh_is_valid, i_action, i_time_step]
+                if n_valid == 2:
+                    mx = valid_act[0] if valid_act[0] >= valid_act[1] else valid_act[1]
+                elif n_valid == 1:
+                    mx = valid_act[0]
+                else:
+                    mx = np.amax(valid_act)
+                exp_shifted = np.exp(valid_act - mx)
                 self.states.beh_probs_given_actions[
-                        beh_is_valid, i_action, i_time_step] = \
-                    scipy.special.softmax(
-                        self.states.beh_activations_given_actions[
-                            beh_is_valid, i_action, i_time_step])
+                        beh_is_valid, i_action, i_time_step] = exp_shifted / np.sum(exp_shifted)
                 # set probabilities of invalid behaviors to zero
                 self.states.beh_probs_given_actions[
-                        np.invert(beh_is_valid), i_action, i_time_step] = 0
+                        inv_beh_valid, i_action, i_time_step] = 0
         else:
             # not estimating behaviors, so set probability for constant 
             # acceleration behavior to one
@@ -778,12 +799,12 @@ class SCAgent(commotions.AgentWithGoal):
             - self.states.est_action_vals[self.i_no_action, i_time_step]
 
         # should any action be taken?
-        if self.assumptions[OptionalAssumption.oDA]:
+        if self._oDA:
             # update the accumulated evidence for actions
             dxidt = self.states.est_action_surplus_vals[:, i_time_step]
             self.states.action_evidence[:, i_time_step] = (
                 self.states.action_evidence[:, i_time_step-1]
-                + self.simulation.settings.time_step * dxidt)
+                + time_step * dxidt)
             self.states.action_evidence[:, i_time_step] = np.maximum(
                 0, self.states.action_evidence[:, i_time_step])
             # check if the highest action evidence is above threshold
@@ -802,15 +823,15 @@ class SCAgent(commotions.AgentWithGoal):
         if take_best_action:
             # add action to the array of future acceleration values
             self.add_action_to_acc_array(self.action_long_accs, i_best_action, \
-                self.simulation.state.i_time_step)
+                i_time_step)
             # remember what action was taken when
             self.states.action_triggered[i_best_action, i_time_step] = True
             # reset accumulators if needed
-            if self.assumptions[OptionalAssumption.oEA]:
+            if self._oEA:
                 # reset the value accumulators
                 self.states.est_action_vals[:, i_time_step] = 0
                 self.states.beh_activ_V_given_actions[:, :, i_time_step] = 0
-            if self.assumptions[OptionalAssumption.oDA]:
+            if self._oDA:
                 # reset the decision evidence accumulators
                 self.states.action_evidence[:, i_time_step] = 0
 
@@ -854,7 +875,7 @@ class SCAgent(commotions.AgentWithGoal):
         implications = sc_scenario_helper.get_access_order_implications(
                 ego_image=ego_image, ego_state=ego_pred_state, 
                 oth_image=oth_image, oth_state=oth_pred_state, 
-                consider_oth_acc=self.assumptions[OptionalAssumption.oVAa])
+                consider_oth_acc=self._oVAa)
         
         # inhibit early entry (slightly inelegant solution for emulating the 
         # "first vehicle" in the HIKER scenarios)
@@ -865,7 +886,6 @@ class SCAgent(commotions.AgentWithGoal):
             early_entry_value = 0
         
         # get values for the respective access orders
-        access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
         if NEW_AFF_VAL_CALCS:
             
             # get the assumed-constant accelerations of the other agent in the 
@@ -876,7 +896,7 @@ class SCAgent(commotions.AgentWithGoal):
                              - oth_curr_state.long_speed) 
                              / ego_image.params.DeltaT)
             # - after action/prediction interval - depends on model assumptions
-            if self.assumptions[OptionalAssumption.oVAa]:
+            if self._oVAa:
                 oth_cont_acc = oth_pred_state.long_acc
             else:
                 oth_cont_acc = 0
@@ -889,14 +909,13 @@ class SCAgent(commotions.AgentWithGoal):
                 oth_image = oth_image, oth_curr_state = oth_curr_state,
                 oth_first_acc = oth_first_acc, oth_cont_acc = oth_cont_acc, 
                 access_ord_impls = implications, 
-                consider_looming = self.assumptions[OptionalAssumption.oVAl],
+                consider_looming = self._oVAl,
                 return_details = self.do_snapshot_now)     
             
-            # do value squashing and store in output array
-            for access_order in AccessOrder:
-                value = self.squash_value(access_ord_values_dict[access_order].value 
-                                          + early_entry_value)
-                access_order_values[access_order.value] = value
+            # do value squashing and store in output array (single vector tanh call)
+            raw_pair = np.array((access_ord_values_dict[AccessOrder.EGOFIRST].value + early_entry_value,
+                                 access_ord_values_dict[AccessOrder.EGOSECOND].value + early_entry_value))
+            access_order_values = self.squash_value(raw_pair)
             
             # doing a snapshot?
             if self.do_snapshot_now:
@@ -946,6 +965,7 @@ class SCAgent(commotions.AgentWithGoal):
                                                           alpha=0.5)
                                 
         else:
+            access_order_values = np.full(N_ACCESS_ORDERS, math.nan)
             
             # get value of the action itself
             action_value = sc_scenario_helper.get_value_of_const_jerk_interval(
@@ -1198,14 +1218,15 @@ class SCAgent(commotions.AgentWithGoal):
             raise RuntimeError('Unexpected control type %s.' % self.ctrl_type)
 
     def get_predicted_own_state(self, i_action):
-        local_long_accs = np.copy(self.action_long_accs)
-        self.add_action_to_acc_array(
-                local_long_accs, i_action, self.simulation.state.i_time_step)
-        predicted_state = self.get_future_kinematic_state(
-                local_long_accs, yaw_rate = 0, 
-                n_time_steps_to_advance = self.n_prediction_time_steps)
-        predicted_state.long_acc = local_long_accs[
-                self.simulation.state.i_time_step + self.n_prediction_time_steps]
+        i_ts = self.simulation.state.i_time_step
+        local_long_accs = self.action_long_accs[i_ts : i_ts + self._pred_window_len].copy()
+        self.add_action_to_acc_array(local_long_accs, i_action, 0)
+        initial_state = self.get_kinematic_state(i_ts)
+        predicted_state = commotions.get_future_kinematic_state(
+                initial_state, local_long_accs, 0,
+                self.simulation.settings.time_step, self.n_prediction_time_steps,
+                0, self.can_reverse, False)
+        predicted_state.long_acc = local_long_accs[self.n_prediction_time_steps]
         # add SC scenario specific state info
         predicted_state = self.add_sc_state_info(predicted_state, self.coll_dist)
         return predicted_state
@@ -1482,6 +1503,7 @@ class SCAgent(commotions.AgentWithGoal):
         # with added actions
         self.action_long_accs = np.zeros(self.n_actions_vector_length)
         self.action_yaw_rates = np.zeros(self.n_actions_vector_length) # yaw rate should really always remain zero in this class - but leaving this vector here anyway
+        self._refresh_cached_flags()
 
 
 class SCSimulation(commotions.Simulation):

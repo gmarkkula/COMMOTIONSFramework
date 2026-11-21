@@ -141,9 +141,9 @@ def get_pos_from_signed_dist_to_conflict_pt(conflict_point, state):
     """Get the 2D position from the specified agent state (.signed_CP_dist, 
         .yaw_angle) to the conflict point. 
     """
-    heading_vect = \
-        np.array((math.cos(state.yaw_angle), math.sin(state.yaw_angle)))
-    return conflict_point - state.signed_CP_dist * heading_vect
+    d = state.signed_CP_dist
+    return np.array((conflict_point[0] - d * math.cos(state.yaw_angle),
+                     conflict_point[1] - d * math.sin(state.yaw_angle)))
 
 
 def get_acc_to_be_at_dist_at_time(speed, target_dist, target_time, consider_stop):
@@ -313,6 +313,53 @@ def get_value_of_const_jerk_interval(v0, a0, j, T, k):
     return T * av_value_rate
     
 
+# Optional fast O(1) polynomial-moment evaluation of discounted horizon kinematics
+# when looming and snapshot details are not needed. Matches discrete Riemann sum
+# within machine precision (~1e-13); kept False by default for exact IEEE bit-identity.
+FAST_ANALYTIC_HORIZON = False
+
+_HORIZON_CACHE = {}
+_MOMENT_PREFIX_CACHE = {}
+
+
+def _get_horizon_arrays(T_delta, dt, n_needed):
+    """Return cached (time_stamps, discount_factors) prefixes of length >= n_needed."""
+    key = (float(T_delta), float(dt))
+    entry = _HORIZON_CACHE.get(key)
+    if entry is None or len(entry[0]) < n_needed:
+        cap = 2048
+        while cap < n_needed:
+            cap *= 2
+        ts = np.arange(0, cap * dt, dt)[:cap]
+        df = 2 ** (-ts / T_delta)
+        ts.flags.writeable = False
+        df.flags.writeable = False
+        entry = (ts, df)
+        _HORIZON_CACHE[key] = entry
+    return entry[0][:n_needed], entry[1][:n_needed]
+
+
+def _get_moment_prefixes(T_delta, dt, n_needed):
+    """Return cached prefix sums S[m, n] = sum_{k=0}^{n-1} k^m * r^k for m=0..4."""
+    key = (float(T_delta), float(dt))
+    S = _MOMENT_PREFIX_CACHE.get(key)
+    if S is None or S.shape[1] <= n_needed:
+        cap = 2048
+        while cap <= n_needed:
+            cap *= 2
+        _, df = _get_horizon_arrays(T_delta, dt, cap)
+        ks = np.arange(cap, dtype=float)
+        S = np.zeros((5, cap + 1), dtype=float)
+        term = df.copy()
+        for m in range(5):
+            np.cumsum(term, out=S[m, 1:])
+            if m < 4:
+                term = term * ks
+        S.flags.writeable = False
+        _MOMENT_PREFIX_CACHE[key] = S
+    return S
+
+
 def set_phase_acceleration(accelerations, idx_phase_starts, i_phase, phase_acc):
     # Helper function for get_access_order_values(), setting the acceleration for
     # a specific phase during anticipated future time horizon to a value phase_acc.
@@ -325,14 +372,100 @@ def set_phase_acceleration(accelerations, idx_phase_starts, i_phase, phase_acc):
 def anticipation_integration(x0, xdots, xdotdots=0):
     # Helper function for get_access_order_values(), to do integration of kinematical
     # quantities over the anticipated future time horizon.
-    xs = np.full(len(xdots), float(x0))
-    if type(xdotdots) == np.ndarray:
-        xs[1:] = x0 + np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP
-                                + xdotdots[:-1] * ANTICIPATION_TIME_STEP ** 2 / 2)
-    else: 
-        xs[1:] = x0 + np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP
-                                + xdotdots * ANTICIPATION_TIME_STEP ** 2 / 2)
+    n = len(xdots)
+    xs = np.empty(n, dtype=float)
+    x0_f = float(x0)
+    xs[0] = x0_f
+    if n > 1:
+        if type(xdotdots) is np.ndarray:
+            np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP
+                      + xdotdots[:-1] * (ANTICIPATION_TIME_STEP ** 2 / 2),
+                      out=xs[1:])
+        elif xdotdots == 0:
+            np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP, out=xs[1:])
+        else:
+            np.cumsum(xdots[:-1] * ANTICIPATION_TIME_STEP
+                      + xdotdots * (ANTICIPATION_TIME_STEP ** 2 / 2),
+                      out=xs[1:])
+        xs[1:] += x0_f
     return xs
+
+
+def _eval_const_acc_phase_discounted(u0, a_p, s, e, dt, T_delta, k_g, k_dv, k_da, S):
+    """Exact discounted kinematics value sum over indices k in [s, e) with constant acc,
+    using phase-local index m = k - s to avoid large-index cancellation."""
+    length = e - s
+    if length <= 0:
+        return 0.0
+    b1 = a_p * dt
+    c0 = dt * (k_g * u0 - k_dv * (u0 * u0) - k_da * (a_p * a_p))
+    c1 = dt * (k_g * b1 - 2.0 * k_dv * u0 * b1)
+    c2 = -dt * k_dv * (b1 * b1)
+    r_s = 1.0 if s == 0 else (2.0 ** (-(s * dt) / T_delta))
+    return r_s * (c0 * S[0, length] + c1 * S[1, length] + c2 * S[2, length])
+
+
+def _eval_fast_analytic_horizon(ego_v0, action_acc0, action_jerk, impl_acc,
+                                ego_v_free, d2_wait, d3_regain,
+                                i_final_integr_phase, idx_phase_starts, n_time_steps,
+                                dt, T_delta, k_g, k_dv, k_da):
+    """Evaluate np.sum(kinematics_values * discount_factors) in O(1) via moment prefixes."""
+    if n_time_steps <= 0:
+        return 0.0
+    S = _get_moment_prefixes(T_delta, dt, n_time_steps)
+    idx1 = min(idx_phase_starts[1], n_time_steps)
+    # Phase 0: ACTION [0, idx1)
+    if action_jerk == 0:
+        disc_sum = _eval_const_acc_phase_discounted(
+            ego_v0, action_acc0, 0, idx1, dt, T_delta, k_g, k_dv, k_da, S)
+        v_end = ego_v0 + action_acc0 * dt * idx1
+    else:
+        j_dt = action_jerk * dt
+        half_j_dt2 = 0.5 * action_jerk * dt * dt
+        p0 = ego_v0
+        p1 = action_acc0 * dt - half_j_dt2
+        p2 = half_j_dt2
+        # v(k) = p0 + p1*k + p2*k^2, a(k) = a0 + j_dt*k
+        c0 = dt * (k_g * p0 - k_dv * p0 * p0 - k_da * action_acc0 * action_acc0)
+        c1 = dt * (k_g * p1 - 2.0 * k_dv * p0 * p1 - 2.0 * k_da * action_acc0 * j_dt)
+        c2 = dt * (k_g * p2 - k_dv * (p1 * p1 + 2.0 * p0 * p2) - k_da * j_dt * j_dt)
+        c3 = -dt * k_dv * (2.0 * p1 * p2)
+        c4 = -dt * k_dv * (p2 * p2)
+        disc_sum = (c0 * S[0, idx1] + c1 * S[1, idx1] + c2 * S[2, idx1]
+                    + c3 * S[3, idx1] + c4 * S[4, idx1])
+        v_end = (ego_v0 + action_acc0 * dt * idx1
+                 + half_j_dt2 * idx1 * (idx1 - 1))
+    idx_last = idx1
+
+    if i_final_integr_phase >= i_ACH_ACCESS:
+        idx2 = min(idx_phase_starts[2], n_time_steps)
+        disc_sum += _eval_const_acc_phase_discounted(
+            v_end, impl_acc, idx1, idx2, dt, T_delta, k_g, k_dv, k_da, S)
+        v_end = v_end + impl_acc * dt * (idx2 - idx1)
+        idx_last = idx2
+        if i_final_integr_phase >= i_WAIT:
+            idx3 = min(idx_phase_starts[3], n_time_steps)
+            if d2_wait > 0:
+                v_wait = 0.0 if i_final_integr_phase >= i_REGAIN_SPD else v_end
+                disc_sum += _eval_const_acc_phase_discounted(
+                    v_wait, 0.0, idx2, idx3, dt, T_delta, k_g, k_dv, k_da, S)
+                v_end = v_wait
+                vprime = 0.0
+            else:
+                vprime = v_end
+            idx_last = idx3
+            if i_final_integr_phase >= i_REGAIN_SPD:
+                idx4 = min(idx_phase_starts[4], n_time_steps)
+                regain_acc = (ego_v_free - vprime) / d3_regain
+                disc_sum += _eval_const_acc_phase_discounted(
+                    vprime, regain_acc, idx3, idx4, dt, T_delta, k_g, k_dv, k_da, S)
+                v_end = vprime + regain_acc * dt * (idx4 - idx3)
+                idx_last = idx4
+
+    if n_time_steps > idx_last:
+        disc_sum += _eval_const_acc_phase_discounted(
+            v_end, 0.0, idx_last, n_time_steps, dt, T_delta, k_g, k_dv, k_da, S)
+    return disc_sum
 
 
 def get_access_order_values(
@@ -372,104 +505,133 @@ def get_access_order_values(
                 objects will be None. If True, they will be AccessOrderValueDetails
                 objects. Default value is False.
     """
-    
-    # loop through the access orders, and get create an AccessOrderValue object
+    ego_params = ego_image.params
+    DeltaT = ego_params.DeltaT
+    T_delta = ego_params.T_delta
+    k_params = ego_params.k
+    k_g = k_params._g
+    k_dv = k_params._dv
+    k_da = k_params._da
+    ego_v0 = ego_curr_state.long_speed
+    ego_v_free = ego_image.v_free
+    post_value_raw = ego_image.V_free
+    is_acc_ctrl = ego_image.ctrl_type is CtrlType.ACCELERATION
+    d3_regain = ACC_CTRL_REGAIN_SPD_TIME if is_acc_ctrl else DeltaT
+    horizon_limit = ANTICIPATION_LIMIT * T_delta
+    dt = ANTICIPATION_TIME_STEP
+    need_looming_or_details = consider_looming or return_details
+
+    # loop through the access orders, and create an AccessOrderValue object
     # for each
     access_ord_values = {}
-    for access_ord in AccessOrder:
-        
-        if np.isnan(access_ord_impls[access_ord].acc):
+    for access_ord in (AccessOrder.EGOFIRST, AccessOrder.EGOSECOND):
+        impl = access_ord_impls[access_ord]
+        impl_acc = impl.acc
+        if math.isnan(impl_acc):
             # access order not valid from this state
             access_ord_values[access_ord] = AccessOrderValue(
-            value = -math.inf, details = None)
+                value = -math.inf, details = None)
             continue
-        
+
         # inherent value of this access order
-        if (access_ord is AccessOrder.EGOFIRST 
-              and ego_image.ctrl_type is CtrlType.ACCELERATION):
-            inh_access_value = ego_image.params.V_ny
+        if access_ord is AccessOrder.EGOFIRST and is_acc_ctrl:
+            inh_access_value = ego_params.V_ny
         else:
             inh_access_value = 0
-        
-        # get the duration of the anticipation phases 
-        # (except the final "continue" phase)
-        phase_durations = np.full(N_ANTICIPATION_PHASES-1, math.nan)
-        phase_durations[i_ACTION] = ego_image.params.DeltaT
-        if access_ord_impls[access_ord].T_acc == 0:
-            phase_durations[i_ACH_ACCESS] = 0
-        else:
-            phase_durations[i_ACH_ACCESS] = max(
-                ANTICIPATION_TIME_STEP, access_ord_impls[access_ord].T_acc)
-        phase_durations[i_WAIT] = access_ord_impls[access_ord].T_dw
-        if ego_image.ctrl_type is CtrlType.SPEED:
-            phase_durations[i_REGAIN_SPD] = ego_image.params.DeltaT
-        else:
-            phase_durations[i_REGAIN_SPD] = ACC_CTRL_REGAIN_SPD_TIME
-        cont_phase_start_time = np.sum(phase_durations)
-            
-        # get various vectors concerning time stamps and phase starts
-        phase_start_times = np.concatenate((np.array((0.,)), np.cumsum(phase_durations)))
-        distant_phases = np.nonzero(
-            phase_start_times > ANTICIPATION_LIMIT * ego_image.params.T_delta)[0]
-        if len(distant_phases) > 0:
-            i_final_integr_phase = distant_phases[0] - 2
+
+        # get the duration of the anticipation phases (sequential scalar sums
+        # match 4-element numpy sum/cumsum bit-for-bit)
+        d0 = DeltaT
+        d1 = 0.0 if impl.T_acc == 0 else (dt if impl.T_acc < dt else impl.T_acc)
+        d2 = impl.T_dw
+        s1 = d0
+        s2 = s1 + d1
+        s3 = s2 + d2
+        cont_phase_start_time = s3 + d3_regain
+
+        # find first distant phase (> horizon_limit)
+        if s1 > horizon_limit:
+            i_final_integr_phase = -1
+        elif s2 > horizon_limit:
+            i_final_integr_phase = 0
+        elif s3 > horizon_limit:
+            i_final_integr_phase = 1
+        elif cont_phase_start_time > horizon_limit:
+            i_final_integr_phase = 2
         else:
             i_final_integr_phase = i_REGAIN_SPD
-        idx_phase_starts = np.floor(
-            phase_start_times[:i_final_integr_phase+2] / ANTICIPATION_TIME_STEP).astype(int)
-        integr_end_time = phase_start_times[i_final_integr_phase + 1]
-        time_stamps = np.arange(0, integr_end_time, ANTICIPATION_TIME_STEP)
-        n_time_steps = len(time_stamps)
-        
+
+        phase_starts_all = (0.0, s1, s2, s3, cont_phase_start_time)
+        integr_end_time = phase_starts_all[i_final_integr_phase + 1]
+
+        if FAST_ANALYTIC_HORIZON and (not need_looming_or_details) and i_final_integr_phase >= 0:
+            idx_starts_list = [math.floor(t / dt) for t in phase_starts_all[:i_final_integr_phase + 2]]
+            n_ts = math.ceil(integr_end_time / dt) if integr_end_time > 0 else 0
+            disc_sum = _eval_fast_analytic_horizon(
+                ego_v0, action_acc0, action_jerk, impl_acc,
+                ego_v_free, d2, d3_regain,
+                i_final_integr_phase, idx_starts_list, n_ts,
+                dt, T_delta, k_g, k_dv, k_da)
+            post_value_discounted = (2.0 ** (-cont_phase_start_time / T_delta)) * post_value_raw
+            total_value = (inh_access_value + disc_sum + post_value_discounted)
+            access_ord_values[access_ord] = AccessOrderValue(
+                value = total_value, details = None)
+            continue
+
+        if return_details:
+            idx_phase_starts = np.floor(
+                np.array(phase_starts_all[:i_final_integr_phase + 2]) / dt).astype(int)
+        else:
+            idx_phase_starts = [math.floor(t / dt) for t in phase_starts_all[:i_final_integr_phase + 2]]
+
+        n_time_steps = math.ceil(integr_end_time / dt) if integr_end_time > 0 else 0
+        time_stamps, discount_factors = _get_horizon_arrays(T_delta, dt, n_time_steps)
+        if return_details:
+            time_stamps = time_stamps.copy()
+            discount_factors = discount_factors.copy()
+
         # get vector of accelerations up until just before the "continue" phase
         accelerations = np.zeros(n_time_steps)
         # - action phase
+        idx_act_end = idx_phase_starts[i_ACTION + 1]
         if action_jerk == 0:
-            action_acc = action_acc0
+            accelerations[:idx_act_end] = action_acc0
         else:
-            action_acc = action_acc0 + action_jerk * time_stamps[
-                :idx_phase_starts[i_ACTION+1]]
-        set_phase_acceleration(accelerations, idx_phase_starts, 
-                               i_ACTION, action_acc)
+            accelerations[:idx_act_end] = action_acc0 + action_jerk * time_stamps[:idx_act_end]
         # - achieving access order phase
         if i_final_integr_phase >= i_ACH_ACCESS:
-            set_phase_acceleration(accelerations, idx_phase_starts, 
-                                   i_ACH_ACCESS, access_ord_impls[access_ord].acc)
+            idx_ach_end = idx_phase_starts[i_ACH_ACCESS + 1]
+            accelerations[idx_act_end:idx_ach_end] = impl_acc
             # - waiting phase
             if i_final_integr_phase >= i_WAIT:
-                if phase_durations[i_WAIT] > 0:
-                    set_phase_acceleration(accelerations, idx_phase_starts, 
-                                           i_WAIT, 0)
+                idx_wait_end = idx_phase_starts[i_WAIT + 1]
+                if d2 > 0:
+                    accelerations[idx_ach_end:idx_wait_end] = 0
                     vprime = 0
                 else:
-                    vprime = ego_curr_state.long_speed + np.sum(
-                        accelerations[:idx_phase_starts[i_WAIT]] 
-                        * ANTICIPATION_TIME_STEP)
-                    #assert(abs(vprime) < 1)
+                    vprime = ego_v0 + np.sum(
+                        accelerations[:idx_ach_end] * dt)
                 # - regain free speed phase
                 if i_final_integr_phase >= i_REGAIN_SPD:
-                    regain_spd_acc = ((ego_image.v_free - vprime) 
-                                      / phase_durations[i_REGAIN_SPD])
-                    set_phase_acceleration(accelerations, idx_phase_starts, 
-                                           i_REGAIN_SPD, regain_spd_acc)
-        
+                    regain_spd_acc = ((ego_v_free - vprime) / d3_regain)
+                    accelerations[idx_wait_end:idx_phase_starts[i_REGAIN_SPD + 1]] = regain_spd_acc
+
         # integrate to get corresponding vector of speeds
-        speeds = anticipation_integration(ego_curr_state.long_speed, 
-                                          accelerations)
-        if i_final_integr_phase >= i_REGAIN_SPD and phase_durations[i_WAIT] > 0:
+        speeds = anticipation_integration(ego_v0, accelerations)
+        if i_final_integr_phase >= i_REGAIN_SPD and d2 > 0:
             # make sure to adjust so that the speed while waiting is exactly zero
-            vprime_actual = speeds[idx_phase_starts[i_WAIT]]
-            speeds[idx_phase_starts[i_WAIT]:] -= vprime_actual
-        
+            idx_wait_start = idx_phase_starts[i_WAIT]
+            vprime_actual = speeds[idx_wait_start]
+            speeds[idx_wait_start:] -= vprime_actual
+
         # get the kinematics value contributions
-        kinematics_values = ((ego_image.params.k._g * speeds
-                              - ego_image.params.k._dv * speeds ** 2
-                              - ego_image.params.k._da * accelerations ** 2)
-                             * ANTICIPATION_TIME_STEP)
-        post_value_raw = ego_image.V_free
-        
+        kinematics_values = ((k_g * speeds
+                              - k_dv * speeds ** 2
+                              - k_da * accelerations ** 2)
+                             * dt)
+
         # get the looming value contributions
-        if consider_looming or return_details:
+        if need_looming_or_details:
             # get anticipated ego conflict point distances
             cp_dists = anticipation_integration(ego_curr_state.signed_CP_dist, 
                                                 -speeds, -accelerations)
@@ -511,22 +673,18 @@ def get_access_order_values(
             thetaDots[np.logical_not(app_coll_courses)] = 0
             # get the looming value contributions
             if consider_looming:
-                looming_values = (-ego_image.g_free * ANTICIPATION_TIME_STEP
-                                  * np.maximum(thetaDots - ego_image.params.thetaDot_0, 0)
-                                  / (ego_image.params.thetaDot_1
-                                     - ego_image.params.thetaDot_0))
+                looming_values = (-ego_image.g_free * dt
+                                  * np.maximum(thetaDots - ego_params.thetaDot_0, 0)
+                                  / (ego_params.thetaDot_1
+                                     - ego_params.thetaDot_0))
+                discounted_values = (kinematics_values + looming_values) * discount_factors
             else:
                 looming_values = np.zeros(n_time_steps)
+                discounted_values = (kinematics_values + looming_values) * discount_factors
         else:
-            looming_values = np.zeros(n_time_steps)
-        
-        # apply time discounting and get the total value
-        discount_factors = get_delay_discount(time_stamps, 
-                                              ego_image.params.T_delta)
-        discounted_values = (kinematics_values 
-                             + looming_values) * discount_factors
-        post_value_discounted = (get_delay_discount(cont_phase_start_time, 
-                                                   ego_image.params.T_delta)
+            discounted_values = kinematics_values * discount_factors
+
+        post_value_discounted = ((2.0 ** (-cont_phase_start_time / T_delta))
                                  * post_value_raw)
         total_value = (inh_access_value + np.sum(discounted_values) 
                        + post_value_discounted)
@@ -536,12 +694,12 @@ def get_access_order_values(
             phase_kinem_values = np.zeros(N_ANTICIPATION_PHASES)
             phase_looming_values = np.zeros(N_ANTICIPATION_PHASES)
             for i_phase in range(i_final_integr_phase+1):
-                phase_idxs = np.arange(idx_phase_starts[i_phase],
-                                      idx_phase_starts[i_phase+1])
-                phase_kinem_values[i_phase] = np.sum(kinematics_values[phase_idxs] 
-                                                     * discount_factors[phase_idxs])
-                phase_looming_values[i_phase] = np.sum(looming_values[phase_idxs] 
-                                                       * discount_factors[phase_idxs])
+                s_idx = idx_phase_starts[i_phase]
+                e_idx = idx_phase_starts[i_phase+1]
+                phase_kinem_values[i_phase] = np.sum(kinematics_values[s_idx:e_idx] 
+                                                     * discount_factors[s_idx:e_idx])
+                phase_looming_values[i_phase] = np.sum(looming_values[s_idx:e_idx] 
+                                                       * discount_factors[s_idx:e_idx])
             phase_kinem_values[i_CONTINUE] = post_value_discounted
             details = AccessOrderValueDetails(
                 time_stamps = time_stamps,
