@@ -64,7 +64,7 @@ if __name__ == '__main__':
             
     # loop through the models and retest any parameterisations which were found
     # to achieve short-stopping in the analyses so far
-    idx_short_stop = CRITERIA[i_MAIN].index('Vehicle short-stopping')
+    idx_short_stop = CRITERIA[i_MAIN].index('Short-stopping')
     for model_str, det_fit in det_fits.items():
         idx_did_short_stop = det_fit.main_criteria_matrix[idx_short_stop, :]
         n_did_short_stop = len(np.nonzero(idx_did_short_stop)[0])

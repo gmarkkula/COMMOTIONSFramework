@@ -75,7 +75,7 @@ if __name__ == '__main__':
                     found_model = True
                     break
             if not found_model:
-                raise Exception('Model {model_name} not found among retained models.')
+                raise Exception(f'Model {model_name} not found among retained models.')
                 
             # draw retained parameterisations at random and simulate
             n_ret_paramets = ret_model.params_array.shape[0]

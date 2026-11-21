@@ -731,15 +731,16 @@ def construct_model_and_simulate_scenario(
     params_k = copy.deepcopy(get_default_params_k(model_name))
     set_params(params, params_k, params_dict)
     tic = time.perf_counter()
-    return simulate_scenario(scenario, assumptions, params, params_k,
-                             i_variation=i_variation, snapshots=snapshots, 
-                             detailed_snapshots=detailed_snapshots, 
-                             noise_seeds=noise_seeds, 
-                             zero_acc_after_exit=zero_acc_after_exit,
-                             apply_stop_criteria=apply_stop_criteria)
+    sim = simulate_scenario(scenario, assumptions, params, params_k,
+                            i_variation=i_variation, snapshots=snapshots, 
+                            detailed_snapshots=detailed_snapshots, 
+                            noise_seeds=noise_seeds, 
+                            zero_acc_after_exit=zero_acc_after_exit,
+                            apply_stop_criteria=apply_stop_criteria)
     toc = time.perf_counter()
     if report_time:
         print('Initialising and running simulation took %.3f s.' % (toc - tic,))
+    return sim
 
 
 def run_dummy_prob_sim(verbose=True):

@@ -118,15 +118,26 @@ def run_simulation(model, initial_cp_distances, initial_speeds, end_time,
         params_dict = model.get_params_dict(idx_parameterisation)
     # define SCPaperScenario object
     # - calculate initial times to conflict area from distances and speeds
-    #   (assuming non-zero speeds for now)
-    initial_ttcas = ((initial_cp_distances 
-                      - np.array(sc_fitting.AGENT_COLL_DISTS)) 
-                     / initial_speeds)             
+    #   (zero speeds are handled below, so suppressing the division warnings)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        initial_ttcas = ((np.array(initial_cp_distances, dtype=float) 
+                          - np.array(sc_fitting.AGENT_COLL_DISTS)) 
+                         / np.array(initial_speeds, dtype=float))
     # - handle zero speeds
     # -- pedestrian
     if initial_speeds[sc_fitting.i_PED_AGENT] == 0:
         ped_start_standing = True
-        ped_standing_margin = initial_cp_distances[sc_fitting.i_PED_AGENT]
+        # (SCPaperScenario defines the initial distance of a standing 
+        # pedestrian as the margin to the conflict space, i.e., the collision
+        # distance is added to this margin)
+        ped_standing_margin = (initial_cp_distances[sc_fitting.i_PED_AGENT]
+                               - sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_PED_AGENT])
+        if ped_standing_margin < 0:
+            raise ValueError('Initial distance of standing pedestrian to the'
+                             ' conflict point is inside the conflict space'
+                             f' (less than {sc_fitting.AGENT_COLL_DISTS[sc_fitting.i_PED_AGENT]} m).')
+        # (the initial TTCA is not used for a standing pedestrian)
+        initial_ttcas[sc_fitting.i_PED_AGENT] = np.nan
     else:
         ped_start_standing = False
         ped_standing_margin = None
@@ -148,7 +159,7 @@ def run_simulation(model, initial_cp_distances, initial_speeds, end_time,
                                           time_step=time_step,
                                           end_time=end_time)
     # run simulation
-    sc_simulation = sc_fitting.construct_model_and_simulate_scenario(model_name, params_dict, scenario)
+    sc_simulation = sc_fitting.construct_model_and_simulate_scenario(model_name, params_dict, scenario, noise_seeds=noise_seeds)
     return sc_simulation
 
 

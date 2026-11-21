@@ -44,11 +44,11 @@ N_COLS = len(SCENARIO_NAMES)
 N_ROWS = 5
 SCENARIO_CRITERIA = ('Short-stopping', 'Priority assertion',
           'Yield acceptance hesitation', 'Early yield acceptance', 'Gap acceptance hesitation')
-SCENARIO_METRIC_NAMES = ('$\overline{d - d_\mathrm{stop}}$ (m/s²)',
-                         '$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)',
-                         '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
-                         '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)', 
-                         '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
+SCENARIO_METRIC_NAMES = (r'$\overline{d - d_\mathrm{stop}}$ (m/s²)',
+                         r'$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)',
+                         r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
+                         r'$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)', 
+                         r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
 SCENARIO_METRIC_XLIMS = ((-1, 4), (0.95, 1.02), (0, 1.5), (-2, 15), (0.7, 1.05))
 SCENARIO_QUAL_CRIT_THRESHS = (0, 1, 1, 0, 1)
 N_KDE_POINTS = 200

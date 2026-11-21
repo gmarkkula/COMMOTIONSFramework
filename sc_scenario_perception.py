@@ -14,6 +14,17 @@ import sc_scenario_helper
 
 N_STATE_DIMS = 2 # position and speed
 
+# When doing noisy perception without Kalman filtering, the perceived speed of 
+# the other agent is obtained by finite differencing of the two most recent 
+# noisy position observations. On the very first time step there is no previous
+# observation, so the legacy implementation obtains a NaN speed, which 
+# Perception.update() then (implicitly, previously via max(0, nan)) turns into
+# a perceived speed of zero, i.e., the other agent is perceived as stationary
+# on the first time step. The published SCPaper results were obtained with this
+# legacy behaviour, so it is kept as the default (False). Set to True to 
+# instead use the true speed of the other agent on the first time step.
+FIX_FIRST_STEP_SPEED = False
+
 class PerceptionStates:
     pass
         
@@ -91,8 +102,10 @@ class Perception:
                                         filtering, since only observing noisy
                                         distances to conflict point)
             x_estimated: maximum probability Kalman filter estimates
-            x_perceived: the perceived values; for many uses of this class
-                          this will be a pointer to one of the arrays above
+            x_perceived: the perceived values (speeds truncated to 
+                          non-negative values); a separate array except for 
+                          noisy perception without Kalman filtering, where
+                          this is a pointer to x_noisy
             cov_matrix: Kalman filter estimates of the covariance matrix 
         
     """
@@ -115,9 +128,12 @@ class Perception:
         # get true state of other agent
         self.states.x_true[:, i_time_step] = (oth_state.signed_CP_dist, 
                                               oth_state.long_speed)
-        # if perception is noise-free, we are done now (since the other output 
-        # arrays in self.states are already pointing to x_true)
+        # if perception is noise-free, we are done now (x_noisy is pointing to
+        # x_true, and x_perceived is a separate array, so that the speed
+        # truncation in update() doesn't affect x_true)
         if not self.noisy_perception:
+            self.states.x_perceived[:, i_time_step] = \
+                self.states.x_true[:, i_time_step]
             return
         # get observation noise magnitude 
         if self.angular_perception:
@@ -149,10 +165,18 @@ class Perception:
             # get a simple noisy estimate of speed based on the two most recent 
             # position observations - this should only really used if perception
             # is noisy but without filtering
-            self.states.x_noisy[1, i_time_step] = -(
-                (self.states.x_noisy[0, i_time_step] 
-                 - self.states.x_noisy[0, i_time_step-1])
-                / self.simulation.settings.time_step)
+            if i_time_step == 0 and FIX_FIRST_STEP_SPEED:
+                # no previous observation exists, so use the true speed
+                self.states.x_noisy[1, i_time_step] = \
+                    self.states.x_true[1, i_time_step]
+            else:
+                # (legacy behaviour on the first time step: NaN speed, since 
+                # x_noisy[0, -1] has not been observed - see 
+                # FIX_FIRST_STEP_SPEED)
+                self.states.x_noisy[1, i_time_step] = -(
+                    (self.states.x_noisy[0, i_time_step] 
+                     - self.states.x_noisy[0, i_time_step-1])
+                    / self.simulation.settings.time_step)
             return
         # do Kalman filtering (see 2021-10-30 handwritten notes and 
         # https://en.wikipedia.org/wiki/Kalman_filter#Details)
@@ -180,6 +204,12 @@ class Perception:
             self.states.x_perceived[:, i_time_step] = self.rng.multivariate_normal(
                 mean=self.states.x_estimated[:, i_time_step],
                 cov=self.states.cov_matrix[:, :, i_time_step])
+        else:
+            # perceiving the maximum probability estimate - copied into the
+            # separate x_perceived array, so that the speed truncation in 
+            # update() doesn't affect the Kalman filter state
+            self.states.x_perceived[:, i_time_step] = \
+                self.states.x_estimated[:, i_time_step]
 
 
     def update(self, i_time_step, ego_state, oth_state):
@@ -193,14 +223,35 @@ class Perception:
         # - the value estimation in sc_scenario etc currently can't handle 
         # - reversing other agents, and if it could handle it, the values reported
         # - for a reversing agent should anyway be equal or very similar to the
-        # - values reported for a stationary agent.
+        # - values reported for a stationary agent. An undefined (NaN) speed,
+        # - which can happen on the first time step for noisy perception 
+        # - without Kalman filtering (see FIX_FIRST_STEP_SPEED), is also set 
+        # - to zero.
         self.perc_oth_state.signed_CP_dist = self.states.x_perceived[0, i_time_step]
-        self.states.x_perceived[1, i_time_step] = max(
-            0, self.states.x_perceived[1, i_time_step]) 
+        perc_speed = self.states.x_perceived[1, i_time_step]
+        if math.isnan(perc_speed):
+            perc_speed = 0
+        self.states.x_perceived[1, i_time_step] = max(0, perc_speed)
         self.perc_oth_state.long_speed = self.states.x_perceived[1, i_time_step]
         # - also set the position in the .pos attribute
         self.perc_oth_state.pos = sc_scenario_helper.get_pos_from_signed_dist_to_conflict_pt(
             self.simulation.conflict_point, self.perc_oth_state)
+        
+        
+    def finalise(self):
+        """ Call after the simulation is done. If the last time step of the
+            simulation was never reached by .update() (e.g., because the 
+            simulation was stopped early), the last elements of the state
+            arrays still hold the Kalman prior (stored there as the 
+            "previous time step" values for the first update) - set these to
+            NaN, like for all other time steps that were not updated.
+        """
+        n_time_steps = self.simulation.settings.n_time_steps
+        if self.i_time_step >= n_time_steps - 1:
+            return
+        if self.noisy_perception and self.kalman_filter:
+            self.states.x_estimated[:, -1] = np.nan
+            self.states.cov_matrix[:, :, -1] = np.nan
         
     
     def __post_init__(self):
@@ -226,18 +277,20 @@ class Perception:
                 # initial states
                 self.states.x_estimated[:, -1] = self.prior.x_estimated
                 self.states.cov_matrix[:, :, -1] = self.prior.cov_matrix
-                if self.draw_from_estimate:
-                    self.states.x_perceived = np.full((2, n_time_steps), np.nan)
-                else:
-                    # not drawing noisy samples from the Kalman estimate
-                    self.states.x_perceived = self.states.x_estimated
+                # perceived states - either random draws from the Kalman 
+                # estimate, or copies of the Kalman estimates (in a separate
+                # array, so that the speed truncation in update() doesn't 
+                # affect the Kalman filter state)
+                self.states.x_perceived = np.full((2, n_time_steps), np.nan)
             else:
                 # not doing Kalman filtering
                 self.states.x_perceived = self.states.x_noisy
         else:
-            # not doing noisy perception
+            # not doing noisy perception - the true values will be copied into
+            # x_perceived in update_states() (a separate array, so that the 
+            # speed truncation in update() doesn't affect x_true)
             self.states.x_noisy = self.states.x_true
-            self.states.x_perceived = self.states.x_true
+            self.states.x_perceived = np.full((2, n_time_steps), np.nan)
         # object for storing updated current perceived state of other agent
         self.perc_oth_state = commotions.KinematicState(
             pos=None, long_speed=None, yaw_angle=None)

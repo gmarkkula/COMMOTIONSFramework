@@ -24,10 +24,15 @@ def add_linear_ramp_action_to_array(action_array, action_magnitude, \
     n_action_time_steps, i_start_time_step):
     """ Add a ramp from zero to action_magnitude to action_array over
         n_action_time_steps starting at i_start_time_step, and then adds
-        action_magnitude to the rest of action_array.
+        action_magnitude to the rest of action_array. If action_array is too
+        short to hold the full ramp, the ramp is truncated at the end of
+        action_array.
     """
-    action_array[i_start_time_step : i_start_time_step + n_action_time_steps] += \
-        np.linspace(0, action_magnitude, n_action_time_steps)
+    ramp = np.linspace(0, action_magnitude, n_action_time_steps)
+    n_ramp_steps_in_array = max(0, min(n_action_time_steps, 
+                                       len(action_array) - i_start_time_step))
+    action_array[i_start_time_step : i_start_time_step + n_ramp_steps_in_array] += \
+        ramp[:n_ramp_steps_in_array]
     action_array[i_start_time_step + n_action_time_steps : ] += action_magnitude
 
 
@@ -101,6 +106,16 @@ def get_intersection_of_lines(line1_pointA, line1_pointB, line2_pointA, line2_po
 
 
 def get_real_quadratic_roots(a, b, c):
+    """ Return a tuple with the real roots of a * x^2 + b * x + c = 0. If 
+        a == 0, the equation is linear, with a single root -c/b if b != 0, and
+        no roots (an empty tuple) if also b == 0.
+    """
+    if a == 0:
+        # linear (or degenerate) case
+        if b == 0:
+            return ()
+        else:
+            return (-c / b,)
     d = b ** 2 - 4 * a * c # discriminant
     if d < 0:
         return ()
@@ -129,6 +144,10 @@ def get_time_to_agent_collision(state1, state2, collision_distance):
     a = delta_v_x ** 2 + delta_v_y ** 2
     b = 2 * (delta_x * delta_v_x + delta_y * delta_v_y)
     c = delta_x ** 2 + delta_y ** 2
+    if a == 0:
+        # identical velocity vectors, so the distance between the agents is 
+        # constant - and we know from above that they are not colliding now
+        return math.inf
     # get roots t for D^2 = D_collision^2 <=> D^2 - D_collision^2 = 0
     coll_times = \
         get_real_quadratic_roots(a, b, c - collision_distance ** 2)
@@ -137,8 +156,12 @@ def get_time_to_agent_collision(state1, state2, collision_distance):
         # no collision (identical agent headings)
         return math.inf
     elif len(coll_times) == 1:
-        # just barely touching
-        return coll_times[0]
+        # just barely touching - now or in the future?
+        if coll_times[0] >= 0:
+            return coll_times[0]
+        else:
+            # touching happened in the past
+            return math.inf
     else:
         # passing collision threshold twice (typical case) - check when
         # this happens
@@ -158,21 +181,33 @@ def get_time_to_agent_collision(state1, state2, collision_distance):
 class Parameters:
     pass
 
+# sentinel default value for KinematicState.pos, meaning "a new array of zeros"
+_ZEROS_POS = object()
+
 class ActionState:
     def __init__(self, long_acc = 0, yaw_rate = 0):
         self.long_acc = long_acc
         self.yaw_rate = yaw_rate
 
 class KinematicState:
-    def __init__(self, pos = np.zeros(2), \
+    def __init__(self, pos = _ZEROS_POS, \
         long_speed = 0, yaw_angle = 0):
+        # (if no pos is given, use a new array of zeros - rather than an array
+        # default argument, which would be shared between all instances; 
+        # an explicitly passed pos = None is kept as None, meaning unspecified)
+        if pos is _ZEROS_POS:
+            pos = np.zeros(2)
         self.pos = pos
         self.long_speed = long_speed
         self.yaw_angle = yaw_angle
 
 class Trajectory:
-    def __init__(self, simulation, initial_state = KinematicState(), \
-        initial_action_state = ActionState()):
+    def __init__(self, simulation, initial_state = None, \
+        initial_action_state = None):
+        if initial_state is None:
+            initial_state = KinematicState()
+        if initial_action_state is None:
+            initial_action_state = ActionState()
         # allocate and initialise numpy arrays for action variables
         self.long_acc = initial_action_state.long_acc \
             * np.ones(simulation.settings.n_time_steps)
@@ -255,7 +290,7 @@ class BaseAgent:
                 
 
     def __init__(self, name, simulation, initial_state, \
-        initial_action_state = ActionState(), can_reverse = True, plot_color = 'k'):
+        initial_action_state = None, can_reverse = True, plot_color = 'k'):
         # store some basic info about the agent
         self.name = name
         self.can_reverse = can_reverse
@@ -263,16 +298,22 @@ class BaseAgent:
         # assign agent to simulation
         self.i_agent = simulation.add_agent(self)
         self.simulation = simulation
-        # parse the provided initial state, if any
+        # parse the provided initial state, if any (working on a copy, so as
+        # not to modify the caller's object)
         if initial_state is None:
             initial_state = KinematicState() # all zeros
         else:
+            initial_state = copy.copy(initial_state)
             if initial_state.pos is None:
                 initial_state.pos = np.zeros(2)
+            else:
+                initial_state.pos = np.copy(initial_state.pos)
             if initial_state.long_speed is None:
                 initial_state.long_speed = 0
             if initial_state.yaw_angle is None:
                 initial_state.yaw_angle = 0
+        if initial_action_state is None:
+            initial_action_state = ActionState()
         # create a Trajectory object for the agent
         self.trajectory = \
             Trajectory(simulation, initial_state, initial_action_state)
@@ -286,13 +327,15 @@ class AgentWithGoal(BaseAgent):
 
 
     def __init__(self, name, simulation, goal, initial_kinematic_state, \
-        initial_action_state = ActionState(), can_reverse = True, plot_color = 'k'):
+        initial_action_state = None, can_reverse = True, plot_color = 'k'):
         # check if the caller has provided start and goal positions, but no
-        # starting yaw angle - if so set it to point at goal
+        # starting yaw angle - if so set it to point at goal (in a copy of the
+        # provided state, so as not to modify the caller's object)
         if (initial_kinematic_state is not None) \
             and (initial_kinematic_state.pos is not None) \
             and (goal is not None) \
             and (initial_kinematic_state.yaw_angle is None):
+            initial_kinematic_state = copy.copy(initial_kinematic_state)
             agent_to_goal_vector = goal - initial_kinematic_state.pos
             initial_kinematic_state.yaw_angle = \
                 np.arctan2(agent_to_goal_vector[1], agent_to_goal_vector[0])
