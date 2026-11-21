@@ -173,7 +173,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name,
                     ax.set_xlim(0.2, 1.2)
                     ax.axvline(HESITATION_SPEED_FRACT, ls=':', color='gray')
                     if i_row == nrows-1:
-                        ax.set_xlabel('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
+                        ax.set_xlabel(r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)')
                         
             elif crit == 'Pedestrian progress in constant-speed scenario':
                 ped_av_speed = prob_fit.get_metric_results('PedHesitateVehConst_ped_av_speed_to_CS')
@@ -214,11 +214,11 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name,
         prob_fit.n_criteria_met = n_criteria_met
         
         # retain models and parameterisations meeting all criteria
+        param_ranges = []
+        for i_param in range(prob_fit.n_params):
+            param_ranges.append((np.amin(prob_fit.results.params_matrix[:, i_param]),
+                                 np.amax(prob_fit.results.params_matrix[:, i_param])))
         if n_max_criteria_met == len(CRITERIA):
-            param_ranges = []
-            for i_param in range(prob_fit.n_params):
-                param_ranges.append((np.amin(prob_fit.results.params_matrix[:, i_param]),
-                                     np.amax(prob_fit.results.params_matrix[:, i_param])))
             retained_models.append(sc_fitting.ModelWithParams(
                 model=prob_fit.name, param_names=copy.copy(prob_fit.param_names), 
                 param_ranges=param_ranges,
@@ -252,7 +252,12 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name,
                 sc_simulation.do_plots(kinem_states=True, beh_probs=be_plots)
                 sc_fitting.get_metrics_for_scenario(scenario, sc_simulation, verbose=True)
         if n_max_criteria_met >= N_CRIT_FOR_PARAMS_PLOT and DO_PLOTS and DO_PARAMS_PLOTS:
-            sc_fitting.do_crit_params_plot(prob_fit, criteria_matrix, log=True)
+            print(f'\tParameterisations meeting at least {N_CRIT_FOR_PARAMS_PLOT} criteria:')
+            sc_fitting.do_params_plot(
+                prob_fit.param_names, prob_fit.results.params_matrix[
+                    n_criteria_met >= N_CRIT_FOR_PARAMS_PLOT], 
+                param_ranges, log=True, jitter=PARAMS_JITTER,
+                model_name=prob_fit.name)
             
     # end for loop through prob_fit_files
     
@@ -307,7 +312,7 @@ def do(prob_fit_file_name_fmt, retained_fits_file_name,
             for i_scenario in range(N_INTERACTIVE_SCENARIOS):
                 
                 idx_retained = np.nonzero(prob_fit.n_criteria_met == len(CRITERIA))[0]
-                assert(len(idx_retained > 0))
+                assert len(idx_retained) > 0
                 
                 # first-exiter
                 # - array for storing results

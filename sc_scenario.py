@@ -276,6 +276,22 @@ class SCAgent(commotions.AgentWithGoal):
             assert(np.linalg.norm(self.simulation.conflict_point
                                  - apparent_conflict_point) < 0.0001)
 
+
+    def finalise_states(self):
+        """ Called by SCSimulation.after_simulation() if the simulation was 
+            stopped before its last time step. The initial values for states
+            that depend on the previous time step are stored at the last time
+            step (index -1) of the state arrays by prepare_for_simulation(), 
+            and are normally overwritten when the last time step is simulated. 
+            Here they are instead reset to NaN, like the values for all other
+            time steps that were not simulated.
+        """
+        self.states.est_action_vals[:, -1] = math.nan
+        self.states.action_evidence[:, -1] = math.nan
+        self.states.beh_activ_V_given_actions[:, :, -1] = math.nan
+        self.states.beh_activ_O[:, -1] = math.nan
+        self.perception.finalise()
+
     
     def add_sc_state_info(self, state, coll_dist):
         state.signed_CP_dist = (
@@ -1586,6 +1602,12 @@ class SCSimulation(commotions.Simulation):
     
     
     def after_simulation(self):
+        # if the simulation was stopped before reaching its last time step, 
+        # make sure that no initial ("previous time step") values remain 
+        # stored at the last time step of the agents' state arrays
+        if self.state.i_time_step < self.settings.n_time_steps - 1:
+            for agent in self.agents:
+                agent.finalise_states()
         for agent in self.agents:
             ## signed distances to conflict point
             #vectors_to_CP = self.conflict_point - agent.trajectory.pos.T
@@ -1593,7 +1615,9 @@ class SCSimulation(commotions.Simulation):
             #yaw_vector = np.array((math.cos(yaw_angle), math.sin(yaw_angle)))
             #agent.signed_CP_dists = np.dot(vectors_to_CP, yaw_vector)
             # entry time/sample
-            ca_entered = np.nonzero(np.linalg.norm(agent.trajectory.pos, axis = 0)
+            ca_entered = np.nonzero(np.linalg.norm(
+                agent.trajectory.pos 
+                - np.reshape(self.conflict_point, (2, 1)), axis = 0)
                                     <= agent.coll_dist)[0]
             if len(ca_entered) == 0:
                 agent.ca_entry_sample = math.inf
@@ -1795,20 +1819,10 @@ class SCSimulation(commotions.Simulation):
                         plt.ylabel('$V(%.1f | b)$' % deltav)
 
         if action_probs:
-            # - action probabilities
-            plt.figure('Action probabilities', figsize = (10.0, 10.0))
-            plt.clf()
-            for i_agent, agent in enumerate(self.agents):
-                for i_action, deltav in enumerate(agent.params.ctrl_deltas):
-                    plt.subplot(n_plot_actions, N_AGENTS, \
-                                i_action * N_AGENTS + i_agent + 1)
-                    plt.plot(self.time_stamps, 
-                             agent.states.action_probs[i_action, :])
-                    plt.ylim(-.1, 1.1)
-                    if i_action == 0:
-                        plt.title('Agent %s' % agent.name)
-                    if i_agent == 0:
-                        plt.ylabel('$P(\\Delta v=%.1f)$' % deltav)
+            # - action probabilities (no longer stored by SCAgent)
+            warnings.warn('Action probabilities are no longer calculated by'
+                          ' SCAgent, so skipping the action probabilities'
+                          ' plot.')
 
         if action_val_ests:
             # - momentary and accumulative estimates of action values

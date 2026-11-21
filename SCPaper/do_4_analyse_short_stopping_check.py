@@ -50,8 +50,8 @@ N_CRIT_GROUPS = len(CRITERION_GROUPS)
 CRITERIA = (('Short-stopping - deceleration', 
             'Short-stopping - distance margin'),)
 assert(N_CRIT_GROUPS == len(CRITERIA))
-CRIT_METRICS = (('$\overline{d - d_\mathrm{stop}}$ (m/s²)',
-                 '$D_\mathrm{stop}$ (m)'),) 
+CRIT_METRICS = ((r'$\overline{d - d_\mathrm{stop}}$ (m/s²)',
+                 r'$D_\mathrm{stop}$ (m)'),) 
 N_CRITERIA = 0
 CRIT_XMAX = (2.5, 20)
 for grp_criteria in CRITERIA:

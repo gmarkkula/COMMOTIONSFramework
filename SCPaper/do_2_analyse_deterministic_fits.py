@@ -64,11 +64,11 @@ CRITERIA = (('Priority assertion', 'Short-stopping',
              'Pedestrian progressing after vehicle yield')
             )
 assert(N_CRIT_GROUPS == len(CRITERIA))
-CRIT_METRICS = (('$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
-                 '$\overline{d - d_\mathrm{stop}}$ (m/s²)',
-                 '$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
-                 '$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)'), 
-                ('$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
+CRIT_METRICS = ((r'$\overline{v}_\mathrm{v}/v_\mathrm{v,free}$ (-)', 
+                 r'$\overline{d - d_\mathrm{stop}}$ (m/s²)',
+                 r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)', 
+                 r'$v_\mathrm{v}(t_\mathrm{cross})$ (m/s)'), 
+                (r'$\overline{v}_\mathrm{p}/v_\mathrm{p,free}$ (-)',
                  '# of non-progress variants (-)'))
 N_CRITERIA = 0
 for grp_criteria in CRITERIA:
@@ -481,8 +481,8 @@ def plot_example(fit, idx_example):
         
         # plot behaviour probabilities if and as appropriate
         if beh_est:
-            BEH_PLOT_COLORS = ('blue', sc_plot.COLORS['other passes first red'], 
-                               sc_plot.COLORS['other passes second green'])
+            BEH_PLOT_COLORS = ('blue', sc_plot.COLORS['Passing first green'], 
+                               sc_plot.COLORS['Passing second red'])
             if 'oBEc' in fit.name:
                 behs = (sc_scenario.i_CONSTANT, sc_scenario.i_PASS1ST, sc_scenario.i_PASS2ND)
             else:
@@ -493,7 +493,7 @@ def plot_example(fit, idx_example):
                 ylabel = '$P_{b|a}$ (-)'
             else:
                 acts = (act_agent.i_no_action,)
-                act_ls = ('-')
+                act_ls = ('-',)
                 ylabel = '$P_b$ (-)'
             for i_beh, beh in enumerate(behs):
                 for i_act, act in enumerate(acts):

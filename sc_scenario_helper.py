@@ -41,6 +41,18 @@ ANTICIPATION_TIME_STEP = 0.025
 ANTICIPATION_LIMIT = 6 # in units of T_delta (2^-6 = 0.016)
 
 NEW_ACC_IMPL_CALCS = True
+
+# In get_access_order_values(), the other agent's anticipated acceleration
+# should be oth_first_acc during the action/prediction phase and oth_cont_acc 
+# thereafter. The legacy implementation, used for the published SCPaper 
+# results, applies oth_first_acc only for the first anticipation time step 
+# (i.e., it uses idx_phase_starts[i_ACTION]+1 rather than 
+# idx_phase_starts[i_ACTION+1] as the start index for oth_cont_acc - flagged as
+# a probable bug by the original author). This only affects the anticipated 
+# looming (oVAl) and the returned value details. Set to True to apply 
+# oth_first_acc for the whole action phase. The default (False) keeps the 
+# legacy behaviour, so that the published results are reproduced.
+FIX_OTH_ACC_PHASE = False
     
 # a class for storing the "implications" for an agent of achieving an access order,
 # by first applying a constant acceleration acc for a time T_acc, possibly followed
@@ -475,7 +487,11 @@ def get_access_order_values(
                                                 -speeds, -accelerations)
             # get anticipated speeds and conflict point distances for the other agent
             oth_accs = np.full(n_time_steps, oth_first_acc)
-            oth_accs[idx_phase_starts[i_ACTION]+1:] = oth_cont_acc # seems like a bug: ]+1: should be +1]: I believe
+            if FIX_OTH_ACC_PHASE:
+                oth_accs[idx_phase_starts[i_ACTION+1]:] = oth_cont_acc
+            else:
+                # legacy behaviour (see FIX_OTH_ACC_PHASE above)
+                oth_accs[idx_phase_starts[i_ACTION]+1:] = oth_cont_acc # seems like a bug: ]+1: should be +1]: I believe
             oth_speeds = np.maximum(0, anticipation_integration(
                 oth_curr_state.long_speed, oth_accs))
             oth_cp_dists = anticipation_integration(oth_curr_state.signed_CP_dist,
