@@ -22,6 +22,34 @@ Some of the scripts use the `multiprocessing` module to run model simulations ov
 
 The bulk of the results in this repository and in the paper was generated on the ARC4 cluster mentioned above, running Python 3.7.4, with package versions from the [Anaconda 2019.10 release](https://docs.anaconda.com/anaconda/reference/release-notes/#anaconda-2019-10-october-15-2019) (as described on [this ARC4 page](https://arcdocs.leeds.ac.uk/software/compilers/anaconda.html), accessed 2022-05-26). Some results, and all figures, were generated on the lead author's own computer, running Python 3.9.2, with package versions from the [WinPython 2021-01 release](https://winpython.github.io/); in cases where the same analyses were tested in both places the obtained results were identical between the two.
 
+## Analysing simulations
+
+The module `sc_run.py` (see also `sc_run demo.ipynb`) provides convenience functions for running simulations with retained model parameterisations from the paper, either individually (`run_simulation`) or across a population of parameterisations in parallel (`run_population`, `summarise_population`). Completed `sc_scenario.SCSimulation` objects can be analysed and exported using `sc_analysis.py` (in the repository root) or the corresponding convenience methods on `SCSimulation` (`get_pet`, `get_ttc_series`, `summarise_interaction`, `to_dataframe`, `to_csv`):
+
+```python
+import sc_fitting
+import sc_run
+
+if __name__ == "__main__":
+    # single simulation: interaction safety metrics and trajectory export
+    det_model = sc_run.get_model_with_params('oVAoBEvoAI')
+    sim = sc_run.run_simulation(det_model, initial_cp_distances=(3, 40),
+                                initial_speeds=sc_fitting.AGENT_FREE_SPEEDS,
+                                end_time=10, ped_prio=False,
+                                idx_parameterisation=0)
+    print(sim.summarise_interaction())  # PET, min TTC, min distance margin, entry/exit times, collision
+    traj_df = sim.to_dataframe()        # per-step kinematics, perception, and TTC (sim.to_csv('traj.csv') to save)
+
+    # population of parameterisations in parallel with reproducible noise seeds
+    stoch_model = sc_run.get_model_with_params('oVAoBEvoAIoEAoSNvoPF')
+    sims = sc_run.run_population(stoch_model, initial_cp_distances=(3, 40),
+                                 initial_speeds=sc_fitting.AGENT_FREE_SPEEDS,
+                                 end_time=10, ped_prio=True,
+                                 n_parameterisations=20, base_seed=0)
+    pop_df = sc_run.summarise_population(sims)
+    print(pop_df.head())
+```
+
 ---
 
 This work is licensed under a
