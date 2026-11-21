@@ -1612,6 +1612,49 @@ class SCSimulation(commotions.Simulation):
             self.first_passer = self.agents[i_first_passer]
             
     
+    # convenience methods for analysing a completed simulation - see the
+    # sc_analysis module for details (imported here rather than at module 
+    # level, to keep the dependencies of this module unchanged)
+    def to_dataframe(self, include_perception=True, include_internal=False,
+                     ttc_consider_acc=False):
+        """ Return the simulated time series as a pandas DataFrame, see 
+            sc_analysis.sim_to_dataframe().
+        """
+        import sc_analysis
+        return sc_analysis.sim_to_dataframe(
+            self, include_perception=include_perception, 
+            include_internal=include_internal, 
+            ttc_consider_acc=ttc_consider_acc)
+    
+    def to_csv(self, path, **kwargs):
+        """ Write the simulated time series to a CSV file, see
+            sc_analysis.export_csv().
+        """
+        import sc_analysis
+        return sc_analysis.export_csv(self, path, **kwargs)
+    
+    def get_pet(self, return_order=False):
+        """ Return the post-encroachment time, see sc_analysis.get_pet().
+        """
+        import sc_analysis
+        return sc_analysis.get_pet(self, return_order=return_order)
+    
+    def get_ttc_series(self, consider_acc=False):
+        """ Return the time to collision per time step, see 
+            sc_analysis.get_ttc_series().
+        """
+        import sc_analysis
+        return sc_analysis.get_ttc_series(self, consider_acc=consider_acc)
+    
+    def summarise_interaction(self, consider_acc=False):
+        """ Return a dict of interaction summary metrics, see
+            sc_analysis.summarise_interaction().
+        """
+        import sc_analysis
+        return sc_analysis.summarise_interaction(self, 
+                                                 consider_acc=consider_acc)
+            
+    
     def do_kinem_states_plot(self, axs, veh_stop_dec=False, axis_labels=True,
                              alpha=1, i_plot_agents=range(N_AGENTS),
                              agent_alpha=np.ones(N_AGENTS),
