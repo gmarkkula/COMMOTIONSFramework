@@ -126,8 +126,11 @@ class TorchRLCrossingPPOTrainer:
         )
         obs_np, _ = self.env.reset(seed=seed)
         for _ in range(n_steps):
+            obs_tensor = torch.as_tensor(
+                obs_np, dtype=torch.float32, device=self.device
+            ).unsqueeze(0)
             td_in = TensorDict(
-                {"observation": torch.as_tensor(obs_np, dtype=torch.float32, device=self.device).unsqueeze(0)},
+                {"observation": obs_tensor},
                 batch_size=[1],
                 device=self.device,
             )
@@ -176,7 +179,9 @@ class TorchRLCrossingPPOTrainer:
         )
         return batch
 
-    def train_step(self, rollout_steps: int = 64, ppo_epochs: int = 2, seed: int | None = 0) -> Dict[str, float]:
+    def train_step(
+        self, rollout_steps: int = 64, ppo_epochs: int = 2, seed: int | None = 0
+    ) -> Dict[str, float]:
         rollout = self.collect_rollout(n_steps=rollout_steps, seed=seed)
         with torch.no_grad():
             self.advantage_module(rollout)

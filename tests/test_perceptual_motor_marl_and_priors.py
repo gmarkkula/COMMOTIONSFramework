@@ -194,7 +194,8 @@ class TestCooperativeIntermittentGazeAgents:
 
         sim.run()
         # Agent progresses smoothly toward goal with valid binary Markov states
-        assert set(np.unique(ped.gaze_state)).issubset({int(GazeState.ON_PHONE), int(GazeState.ON_ROAD)})
+        valid_states = {int(GazeState.ON_PHONE), int(GazeState.ON_ROAD)}
+        assert set(np.unique(ped.gaze_state)).issubset(valid_states)
         assert ON_ROAD in ped.gaze_state  # Looked up from initial ON_PHONE state
         assert ped.trajectory.pos[1, -1] > 2.0
         assert not np.any(np.isnan(ped.lambda_up_history))
@@ -502,19 +503,22 @@ class TestPerceptualMotorMARLAndHikerCalibration:
         assert "torchrl" not in imports
         assert "commotions_marl" not in imports
 
-    def test_gym_parallel_env_motor_delay_and_torchrl_ppo(self):
+    def test_gym_and_pettingzoo_parallel_env_motor_delay(self):
+        pytest.importorskip("gymnasium")
+        pytest.importorskip("pettingzoo")
         from commotions_marl import (
             CrossingGlanceGymEnv,
             PerceptualMotorParallelEnv,
-            TorchRLCrossingPPOTrainer,
         )
 
-        gym_env = CrossingGlanceGymEnv(cohort="adult_baseline", dt=0.06, tau_motor=0.18)
+        gym_env = CrossingGlanceGymEnv(
+            cohort="adult_baseline", dt=0.06, tau_motor=0.18
+        )
         obs, info = gym_env.reset(seed=5)
         assert obs.shape == (8,)
         assert info["delay_steps"] == 3
-        # Step 1 command is queued behind 0.18s motor lag -> first step executed_acc stays 0.0
-        obs2, rew, term, trunc, step_info = gym_env.step(
+        # Step 1 command queued behind 0.18s motor lag -> executed_acc stays 0.0
+        obs2, rew, _, _, step_info = gym_env.step(
             np.array([1.0, 1.0], dtype=np.float32)
         )
         assert obs2.shape == (8,)
@@ -529,10 +533,22 @@ class TestPerceptualMotorMARLAndHikerCalibration:
             if not pz_env.agents:
                 break
             acts = {a: pz_env.action_space(a).sample() for a in pz_env.agents}
-            p_obs, p_rews, p_terms, p_truncs, _ = pz_env.step(acts)
+            p_obs, p_rews, _, _, _ = pz_env.step(acts)
             assert "pedestrian" in p_rews and "vehicle" in p_rews
 
-        # TorchRL TensorDictModule PPO trainer step
+    def test_torchrl_ppo_trainer_step(self):
+        pytest.importorskip("gymnasium")
+        pytest.importorskip("torch")
+        pytest.importorskip("tensordict")
+        pytest.importorskip("torchrl")
+        from commotions_marl import (
+            CrossingGlanceGymEnv,
+            TorchRLCrossingPPOTrainer,
+        )
+
+        gym_env = CrossingGlanceGymEnv(
+            cohort="adult_baseline", dt=0.06, tau_motor=0.18
+        )
         trainer = TorchRLCrossingPPOTrainer(env=gym_env, hidden_dim=32, lr=5e-4)
         metrics = trainer.train_step(rollout_steps=32, ppo_epochs=2, seed=3)
         assert math.isfinite(metrics["total_loss"])
