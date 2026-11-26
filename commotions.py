@@ -1,14 +1,18 @@
-# POSSIBLE TODOs:
-# - add class AgentWithIntermittentActions(BaseAgent) that is "cooperative" in 
-#   its __init__ method with AgentWithGoal
-#   see https://rhettinger.wordpress.com/2011/05/26/super-considered-super/
-
-
-
+from enum import IntEnum
 import numpy as np
 import matplotlib.pyplot as plt
 import math
 import copy
+
+
+class GazeState(IntEnum):
+    """Discrete visual attention states for intermittent gaze modelling."""
+    ON_PHONE = 0
+    ON_ROAD = 1
+
+
+ON_PHONE = int(GazeState.ON_PHONE)
+ON_ROAD = int(GazeState.ON_ROAD)
 
 
 def add_uniform_action_to_array(\
@@ -101,6 +105,10 @@ def get_intersection_of_lines(line1_pointA, line1_pointB, line2_pointA, line2_po
 
 
 def get_real_quadratic_roots(a, b, c):
+    if a == 0:
+        if b == 0:
+            return (0.0,) if c == 0 else ()
+        return (-c / b,)
     d = b ** 2 - 4 * a * c # discriminant
     if d < 0:
         return ()
@@ -127,6 +135,9 @@ def get_time_to_agent_collision(state1, state2, collision_distance):
     # get coefficients of quadratic equation for squared distance
     # D^2 = at^2 + bt + c 
     a = delta_v_x ** 2 + delta_v_y ** 2
+    if a == 0:
+        # identical velocity vectors and currently separated (> collision_distance)
+        return math.inf
     b = 2 * (delta_x * delta_v_x + delta_y * delta_v_y)
     c = delta_x ** 2 + delta_y ** 2
     # get roots t for D^2 = D_collision^2 <=> D^2 - D_collision^2 = 0
@@ -138,7 +149,7 @@ def get_time_to_agent_collision(state1, state2, collision_distance):
         return math.inf
     elif len(coll_times) == 1:
         # just barely touching
-        return coll_times[0]
+        return coll_times[0] if coll_times[0] >= 0 else math.inf
     else:
         # passing collision threshold twice (typical case) - check when
         # this happens
@@ -254,8 +265,11 @@ class BaseAgent:
             self.plot_color + '.', label = self.name)
                 
 
-    def __init__(self, name, simulation, initial_state, \
-        initial_action_state = ActionState(), can_reverse = True, plot_color = 'k'):
+    def __init__(self, name, simulation, initial_state = None, \
+        initial_action_state = None, can_reverse = True, plot_color = 'k', \
+        **kwargs):
+        if initial_action_state is None:
+            initial_action_state = ActionState()
         # store some basic info about the agent
         self.name = name
         self.can_reverse = can_reverse
@@ -276,6 +290,7 @@ class BaseAgent:
         # create a Trajectory object for the agent
         self.trajectory = \
             Trajectory(simulation, initial_state, initial_action_state)
+        super().__init__(**kwargs)
 
 
 class AgentWithGoal(BaseAgent):
@@ -285,24 +300,324 @@ class AgentWithGoal(BaseAgent):
         plt.plot(self.goal[0], self.goal[1], 'g+')
 
 
-    def __init__(self, name, simulation, goal, initial_kinematic_state, \
-        initial_action_state = ActionState(), can_reverse = True, plot_color = 'k'):
+    def __init__(self, name, simulation, goal = None, \
+        initial_kinematic_state = None, initial_action_state = None, \
+        can_reverse = True, plot_color = 'k', **kwargs):
+        if initial_kinematic_state is None and 'initial_state' in kwargs:
+            initial_kinematic_state = kwargs.pop('initial_state')
+        if initial_action_state is None:
+            initial_action_state = ActionState()
         # check if the caller has provided start and goal positions, but no
         # starting yaw angle - if so set it to point at goal
         if (initial_kinematic_state is not None) \
             and (initial_kinematic_state.pos is not None) \
             and (goal is not None) \
             and (initial_kinematic_state.yaw_angle is None):
-            agent_to_goal_vector = goal - initial_kinematic_state.pos
+            agent_to_goal_vector = np.asarray(goal, dtype=float) \
+                - np.asarray(initial_kinematic_state.pos, dtype=float)
             initial_kinematic_state.yaw_angle = \
                 np.arctan2(agent_to_goal_vector[1], agent_to_goal_vector[0])
         # parse and store the agent's goal position
         if goal is None:
             goal = np.zeros(2)
+        else:
+            goal = np.asarray(goal, dtype=float)
         self.goal = goal
-        # run ancestor initialisation
-        super().__init__(name, simulation, initial_kinematic_state, \
-            initial_action_state, can_reverse, plot_color)
+        # run cooperative ancestor initialisation
+        super().__init__(
+            name=name,
+            simulation=simulation,
+            initial_state=initial_kinematic_state,
+            initial_action_state=initial_action_state,
+            can_reverse=can_reverse,
+            plot_color=plot_color,
+            **kwargs,
+        )
+
+
+class AgentWithIntermittentActions(BaseAgent):
+    """Agent that updates control actions intermittently (zero-order hold
+    between discrete decision instants), designed with cooperative ``super()``
+    for multiple inheritance alongside :class:`AgentWithGoal`.
+    """
+
+    def __init__(
+        self,
+        name,
+        simulation,
+        initial_state=None,
+        initial_action_state=None,
+        can_reverse=True,
+        plot_color='k',
+        action_interval=0.5,
+        first_action_time=0.0,
+        action_callback=None,
+        **kwargs,
+    ):
+        if action_interval <= 0:
+            raise ValueError("action_interval must be strictly positive.")
+        if initial_action_state is None:
+            initial_action_state = ActionState()
+        self.action_interval = float(action_interval)
+        self.first_action_time = float(first_action_time)
+        self.action_callback = action_callback
+        self.next_action_time = float(first_action_time)
+        self.action_update_mask = np.zeros(
+            simulation.settings.n_time_steps, dtype=bool
+        )
+        super().__init__(
+            name=name,
+            simulation=simulation,
+            initial_state=initial_state,
+            initial_action_state=initial_action_state,
+            can_reverse=can_reverse,
+            plot_color=plot_color,
+            **kwargs,
+        )
+
+    def prepare_for_simulation(self):
+        super().prepare_for_simulation()
+        self.next_action_time = float(self.first_action_time)
+        self.action_update_mask[:] = False
+
+    def prepare_for_action_update(self):
+        super().prepare_for_action_update()
+
+    def get_next_action_interval(self):
+        return self.action_interval
+
+    def is_action_update_step(self, i_time_step=None):
+        if i_time_step is None:
+            i_time_step = self.simulation.state.i_time_step
+        curr_time = self.simulation.time_stamps[i_time_step]
+        return curr_time >= (self.next_action_time - 1e-9)
+
+    def compute_intermittent_action(self):
+        if self.action_callback is not None:
+            return self.action_callback(self)
+        i_step = self.simulation.state.i_time_step
+        return ActionState(
+            long_acc=self.trajectory.long_acc[i_step],
+            yaw_rate=self.trajectory.yaw_rate[i_step],
+        )
+
+    def do_action_update(self):
+        super().do_action_update()
+        i_step = self.simulation.state.i_time_step
+        if self.is_action_update_step(i_step):
+            new_action = self.compute_intermittent_action()
+            if new_action is not None:
+                self.trajectory.long_acc[i_step:] = new_action.long_acc
+                self.trajectory.yaw_rate[i_step:] = new_action.yaw_rate
+            self.action_update_mask[i_step] = True
+            self.next_action_time = (
+                self.simulation.time_stamps[i_step]
+                + self.get_next_action_interval()
+            )
+
+
+class AgentWithIntermittentGaze(AgentWithGoal, AgentWithIntermittentActions):
+    """Goal-directed intermittent-control agent with a continuous-time
+    two-state Markov gaze process (``ON_ROAD=1``, ``ON_PHONE=0``).
+
+    While ``ON_PHONE``, the look-up hazard rate is modulated by state
+    uncertainty and curb proximity:
+        ``lambda_up(t) = lambda_up_0 + kappa_P * Tr(P_t)
+                         + kappa_curb * exp(-d_curb / d_0)``
+    """
+
+    ON_PHONE = ON_PHONE
+    ON_ROAD = ON_ROAD
+
+    def __init__(
+        self,
+        name,
+        simulation,
+        goal=None,
+        initial_kinematic_state=None,
+        initial_action_state=None,
+        can_reverse=False,
+        plot_color='b',
+        action_interval=0.2,
+        first_action_time=0.0,
+        action_callback=None,
+        initial_gaze_state=ON_ROAD,
+        lambda_down=0.25,
+        lambda_up_0=0.45,
+        kappa_P=0.15,
+        kappa_curb=1.2,
+        d_0=3.0,
+        curb_pos=None,
+        head_pitch_on_road_deg=5.0,
+        head_pitch_on_phone_deg=45.0,
+        desired_speed=1.4,
+        speed_relaxation_time=0.6,
+        yaw_gain=2.0,
+        gaze_gated_control=True,
+        perception=None,
+        rng_seed=None,
+        **kwargs,
+    ):
+        if initial_gaze_state not in (ON_PHONE, ON_ROAD):
+            raise ValueError("initial_gaze_state must be ON_PHONE (0) or ON_ROAD (1).")
+        if d_0 <= 0:
+            raise ValueError("d_0 must be strictly positive.")
+        if speed_relaxation_time <= 0:
+            raise ValueError("speed_relaxation_time must be strictly positive.")
+
+        self.initial_gaze_state = int(initial_gaze_state)
+        self.lambda_down = float(lambda_down)
+        self.lambda_up_0 = float(lambda_up_0)
+        self.kappa_P = float(kappa_P)
+        self.kappa_curb = float(kappa_curb)
+        self.d_0 = float(d_0)
+        self.curb_pos = (
+            np.asarray(curb_pos, dtype=float) if curb_pos is not None else None
+        )
+        self.head_pitch_on_road_deg = float(head_pitch_on_road_deg)
+        self.head_pitch_on_phone_deg = float(head_pitch_on_phone_deg)
+        self.desired_speed = float(desired_speed)
+        self.speed_relaxation_time = float(speed_relaxation_time)
+        self.yaw_gain = float(yaw_gain)
+        self.gaze_gated_control = bool(gaze_gated_control)
+        self.perception = perception
+        self.rng_seed = rng_seed
+        self.rng = np.random.default_rng(rng_seed)
+        self.current_cov_matrix = np.zeros((2, 2), dtype=float)
+
+        n_steps = simulation.settings.n_time_steps
+        self.gaze_state = np.full(n_steps, self.initial_gaze_state, dtype=int)
+        self.lambda_up_history = np.full(n_steps, math.nan, dtype=float)
+        self.head_pitch_deg = np.full(n_steps, math.nan, dtype=float)
+
+        super().__init__(
+            name=name,
+            simulation=simulation,
+            goal=goal,
+            initial_kinematic_state=initial_kinematic_state,
+            initial_action_state=initial_action_state,
+            can_reverse=can_reverse,
+            plot_color=plot_color,
+            action_interval=action_interval,
+            first_action_time=first_action_time,
+            action_callback=action_callback,
+            **kwargs,
+        )
+
+    def prepare_for_simulation(self):
+        super().prepare_for_simulation()
+        self.rng = np.random.default_rng(self.rng_seed)
+        self.gaze_state[:] = self.initial_gaze_state
+        self.lambda_up_history[:] = math.nan
+        self.head_pitch_deg[:] = math.nan
+
+    def get_curb_distance(self, pos=None):
+        if pos is None:
+            pos = self.get_current_kinematic_state().pos
+        if self.curb_pos is not None:
+            ref = self.curb_pos
+        elif hasattr(self.simulation, 'conflict_point') and (
+            self.simulation.conflict_point is not None
+        ):
+            ref = np.asarray(self.simulation.conflict_point, dtype=float)
+        else:
+            ref = self.goal
+        return float(np.linalg.norm(pos - ref))
+
+    def get_covariance_trace(self, i_time_step=None):
+        if self.perception is not None and hasattr(self.perception, 'states'):
+            cov_arr = getattr(self.perception.states, 'cov_matrix', None)
+            if cov_arr is not None:
+                if i_time_step is None:
+                    i_time_step = self.simulation.state.i_time_step
+                idx = i_time_step
+                if np.isnan(cov_arr[0, 0, idx]) and idx > 0:
+                    idx = idx - 1
+                if not np.isnan(cov_arr[0, 0, idx]):
+                    return float(np.trace(cov_arr[:, :, idx]))
+                if not np.isnan(cov_arr[0, 0, -1]):
+                    return float(np.trace(cov_arr[:, :, -1]))
+        return float(np.trace(self.current_cov_matrix))
+
+    def compute_lookup_hazard_rate(self, cov_trace=None, d_curb=None):
+        if cov_trace is None:
+            cov_trace = self.get_covariance_trace()
+        if d_curb is None:
+            d_curb = self.get_curb_distance()
+        hazard = (
+            self.lambda_up_0
+            + self.kappa_P * max(0.0, float(cov_trace))
+            + self.kappa_curb * math.exp(-max(0.0, float(d_curb)) / self.d_0)
+        )
+        return max(0.0, hazard)
+
+    def prepare_for_action_update(self):
+        super().prepare_for_action_update()
+        i_step = self.simulation.state.i_time_step
+        dt = self.simulation.settings.time_step
+        lambda_up = self.compute_lookup_hazard_rate()
+        self.lambda_up_history[i_step] = lambda_up
+
+        if i_step == 0:
+            curr_gaze = self.initial_gaze_state
+        else:
+            prev_gaze = self.gaze_state[i_step - 1]
+            if prev_gaze == ON_ROAD:
+                p_down = 1.0 - math.exp(-max(0.0, self.lambda_down) * dt)
+                curr_gaze = (
+                    ON_PHONE if self.rng.random() < p_down else ON_ROAD
+                )
+            else:
+                p_up = 1.0 - math.exp(-lambda_up * dt)
+                curr_gaze = (
+                    ON_ROAD if self.rng.random() < p_up else ON_PHONE
+                )
+
+        self.gaze_state[i_step] = curr_gaze
+        self.head_pitch_deg[i_step] = (
+            self.head_pitch_on_road_deg
+            if curr_gaze == ON_ROAD
+            else self.head_pitch_on_phone_deg
+        )
+
+    def is_action_update_step(self, i_time_step=None):
+        if i_time_step is None:
+            i_time_step = self.simulation.state.i_time_step
+        due = super().is_action_update_step(i_time_step)
+        if not self.gaze_gated_control:
+            return due
+        # When gaze is ON_PHONE, visual-motor re-planning is deferred until
+        # gaze returns ON_ROAD (including immediate update upon looking up).
+        just_looked_up = (
+            i_time_step > 0
+            and self.gaze_state[i_time_step] == ON_ROAD
+            and self.gaze_state[i_time_step - 1] == ON_PHONE
+        )
+        return (self.gaze_state[i_time_step] == ON_ROAD) and (
+            due or just_looked_up
+        )
+
+    def compute_intermittent_action(self):
+        if self.action_callback is not None:
+            return self.action_callback(self)
+        state = self.get_current_kinematic_state()
+        to_goal = self.goal - state.pos
+        dist_to_goal = float(np.linalg.norm(to_goal))
+        if dist_to_goal < 0.15:
+            long_acc = -state.long_speed / max(
+                self.simulation.settings.time_step, self.speed_relaxation_time
+            )
+            return ActionState(long_acc=long_acc, yaw_rate=0.0)
+
+        desired_yaw = math.atan2(to_goal[1], to_goal[0])
+        yaw_error = math.atan2(
+            math.sin(desired_yaw - state.yaw_angle),
+            math.cos(desired_yaw - state.yaw_angle),
+        )
+        target_speed = self.desired_speed * min(1.0, dist_to_goal / 1.0)
+        long_acc = (target_speed - state.long_speed) / self.speed_relaxation_time
+        yaw_rate = self.yaw_gain * yaw_error
+        return ActionState(long_acc=long_acc, yaw_rate=yaw_rate)
 
 
 class SimulationSettings:
